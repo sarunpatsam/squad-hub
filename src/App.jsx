@@ -1,5 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase } from "./supabase";
+
+/* ── LIFF CONFIG ── */
+const LIFF_ID = "2009451264-q3ueO8ay";
 import {
   User, MapPin, Trophy, ShieldCheck, ChevronRight, Zap,
   ArrowLeft, Flame, Clock, CheckCircle2, Medal, Bell,
@@ -431,44 +434,103 @@ export default function SquadHub() {
   const [venuesLoading,setVenuesLoading] = useState(false);
   const fileRef = useRef(null);
 
-  /* ── AUTO-LOGIN: ถ้าเคย register ไว้แล้ว ดึงข้อมูลกลับมา ── */
+  /* ── LIFF INIT + AUTO-LOGIN ── */
   useEffect(()=>{
-    const savedId = localStorage.getItem("squad_player_id");
-    if(!savedId || player) return;
     (async()=>{
-      const { data, error } = await supabase
-        .from("players")
-        .select("*")
-        .eq("id", savedId)
-        .single();
-      if(error || !data) return;
-      const stats = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
-      const ni = NICKS[data.position]?.[data.playstyle];
-      setPlayer({
-        name:      data.display_name,
-        id:        `SQ-${data.id}`,
-        dbId:      data.id,
-        position:  data.position || "MF",
-        playstyle: data.playstyle || "Playmaker",
-        nick:      data.nickname || ni?.nick || "",
-        tags:      ni?.tags || [],
-        tier:      data.tier || "Bronze",
-        reliability: data.reliability_score || 100,
-        level:     data.level || 1,
-        xp:        data.xp || 0,
-        stats,
-        ovr:       OVR(stats),
-        matchStats:{
-          matches: data.matches_played || 0,
-          wins:    data.wins || 0,
-          losses:  data.losses || 0,
-          mvp:     data.mvp_count || 0,
-          goals:   data.goals || 0,
-          assists: data.assists || 0,
-        },
-        form: [],
-      });
-      setTab("home");
+      try {
+        // โหลด LIFF SDK
+        await new Promise((resolve, reject) => {
+          if(window.liff) return resolve();
+          const script = document.createElement("script");
+          script.src = "https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js";
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+
+        // Init LIFF
+        await window.liff.init({ liffId: LIFF_ID });
+
+        // ถ้า login แล้ว ดึง profile
+        if(window.liff.isLoggedIn()) {
+          const profile = await window.liff.getProfile();
+          const lineUserId = profile.userId;
+
+          // เช็คว่ามีใน DB ไหม
+          const { data } = await supabase
+            .from("players")
+            .select("*")
+            .eq("line_user_id", lineUserId)
+            .single();
+
+          if(data) {
+            // มีแล้ว → auto-login
+            localStorage.setItem("squad_player_id", data.id);
+            localStorage.setItem("squad_line_uid", lineUserId);
+            const stats = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
+            const ni = NICKS[data.position]?.[data.playstyle];
+            setPlayer({
+              name:      data.display_name,
+              id:        `SQ-${data.id}`,
+              dbId:      data.id,
+              lineUserId,
+              lineAvatar: profile.pictureUrl,
+              position:  data.position || "MF",
+              playstyle: data.playstyle || "Playmaker",
+              nick:      data.nickname || ni?.nick || "",
+              tags:      ni?.tags || [],
+              tier:      data.tier || "Bronze",
+              reliability: data.reliability_score || 100,
+              level:     data.level || 1,
+              xp:        data.xp || 0,
+              stats,
+              ovr:       OVR(stats),
+              matchStats:{
+                matches: data.matches_played || 0,
+                wins:    data.wins || 0,
+                losses:  data.losses || 0,
+                mvp:     data.mvp_count || 0,
+                goals:   data.goals || 0,
+                assists: data.assists || 0,
+              },
+              form: [],
+            });
+            setTab("home");
+          } else {
+            // ยังไม่มี → ไปหน้า register พร้อม LINE profile
+            localStorage.setItem("squad_line_uid", lineUserId);
+            localStorage.setItem("squad_line_name", profile.displayName);
+            localStorage.setItem("squad_line_avatar", profile.pictureUrl || "");
+          }
+        } else {
+          // ยังไม่ได้ login LINE → fallback localStorage เดิม
+          const savedId = localStorage.getItem("squad_player_id");
+          if(!savedId || player) return;
+          const { data, error } = await supabase
+            .from("players").select("*").eq("id", savedId).single();
+          if(error || !data) return;
+          const stats = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
+          const ni = NICKS[data.position]?.[data.playstyle];
+          setPlayer({
+            name: data.display_name, id: `SQ-${data.id}`, dbId: data.id,
+            position: data.position||"MF", playstyle: data.playstyle||"Playmaker",
+            nick: data.nickname||ni?.nick||"", tags: ni?.tags||[],
+            tier: data.tier||"Bronze", reliability: data.reliability_score||100,
+            level: data.level||1, xp: data.xp||0,
+            stats, ovr: OVR(stats),
+            matchStats:{ matches:data.matches_played||0, wins:data.wins||0, losses:data.losses||0, mvp:data.mvp_count||0, goals:data.goals||0, assists:data.assists||0 },
+            form:[],
+          });
+          setTab("home");
+        }
+      } catch(e) {
+        console.error("LIFF error:", e);
+        // fallback localStorage
+        const savedId = localStorage.getItem("squad_player_id");
+        if(!savedId || player) return;
+        const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
+        if(data) setTab("home");
+      }
     })();
   },[]);
 
@@ -522,10 +584,13 @@ export default function SquadHub() {
     /* บันทึกลง Supabase — ครบทุก field */
     let dbId = null;
     try {
-      const lineUserId = `guest_${Date.now()}`; // TODO: เปลี่ยนเป็น LINE UID จริงตอนเชื่อม LIFF
+      const lineUserId = localStorage.getItem("squad_line_uid") || `guest_${Date.now()}`;
+      const lineAvatar = localStorage.getItem("squad_line_avatar") || null;
+      const lineName   = localStorage.getItem("squad_line_name") || regData.nickname;
       const { data, error } = await supabase.from("players").insert({
         line_user_id:      lineUserId,
-        display_name:      regData.nickname,
+        display_name:      lineName,
+        avatar_url:        lineAvatar,
         position:          regData.position,
         playstyle:         regData.playstyle,
         tier:              "Bronze",
@@ -650,10 +715,7 @@ export default function SquadHub() {
   const renderRegister = () => (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",padding:"24px 20px 48px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:32}}>
-        <div style={{position:"relative",width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <Hexagon size={38} color={C.green} fill="rgba(16,185,129,0.08)" strokeWidth={1.5} style={{position:"absolute"}}/>
-          <Zap size={15} color={C.green} fill={C.green} style={{position:"relative",zIndex:1}}/>
-        </div>
+        <img src="https://i.postimg.cc/3rs1wF2j/squadhub003.png" style={{width:44,height:44,objectFit:"contain"}} alt="SQUAD HUB"/>
         <div>
           <div style={{fontSize:20,fontWeight:900,letterSpacing:-.5,fontStyle:"italic",color:C.text}}>SQUAD<span style={{color:C.green}}>HUB</span></div>
           <div style={{fontSize:9,color:C.sub,letterSpacing:2,textTransform:"uppercase"}}>Football Community</div>
@@ -1159,10 +1221,7 @@ export default function SquadHub() {
       {tab!=="register"&&(
         <header style={{padding:"12px 18px",background:"rgba(7,14,11,0.96)",backdropFilter:"blur(24px)",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{position:"relative",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <Hexagon size={26} color={C.green} fill="rgba(16,185,129,0.08)" strokeWidth={1.5} style={{position:"absolute"}}/>
-              <Zap size={11} color={C.green} fill={C.green} style={{position:"relative",zIndex:1}}/>
-            </div>
+            <img src="https://i.postimg.cc/3rs1wF2j/squadhub003.png" style={{width:28,height:28,objectFit:"contain"}} alt="SQUAD HUB"/>
             <span style={{fontSize:16,fontWeight:900,letterSpacing:-.3,fontStyle:"italic",color:C.text}}>SQUAD<span style={{color:C.green}}>HUB</span></span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
