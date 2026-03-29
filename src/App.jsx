@@ -715,7 +715,10 @@ export default function SquadHub() {
   const renderRegister = () => (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",padding:"24px 20px 48px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:32}}>
-        <img src="https://i.postimg.cc/3rs1wF2j/squadhub003.png" style={{width:44,height:44,objectFit:"contain"}} alt="SQUAD HUB"/>
+        <div style={{position:"relative",width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <Hexagon size={38} color={C.green} fill="rgba(16,185,129,0.08)" strokeWidth={1.5} style={{position:"absolute"}}/>
+          <Zap size={15} color={C.green} fill={C.green} style={{position:"relative",zIndex:1}}/>
+        </div>
         <div>
           <div style={{fontSize:20,fontWeight:900,letterSpacing:-.5,fontStyle:"italic",color:C.text}}>SQUAD<span style={{color:C.green}}>HUB</span></div>
           <div style={{fontSize:9,color:C.sub,letterSpacing:2,textTransform:"uppercase"}}>Football Community</div>
@@ -1221,7 +1224,10 @@ export default function SquadHub() {
       {tab!=="register"&&(
         <header style={{padding:"12px 18px",background:"rgba(7,14,11,0.96)",backdropFilter:"blur(24px)",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <img src="https://i.postimg.cc/3rs1wF2j/squadhub003.png" style={{width:28,height:28,objectFit:"contain"}} alt="SQUAD HUB"/>
+            <div style={{position:"relative",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <Hexagon size={26} color={C.green} fill="rgba(16,185,129,0.08)" strokeWidth={1.5} style={{position:"absolute"}}/>
+              <Zap size={11} color={C.green} fill={C.green} style={{position:"relative",zIndex:1}}/>
+            </div>
             <span style={{fontSize:16,fontWeight:900,letterSpacing:-.3,fontStyle:"italic",color:C.text}}>SQUAD<span style={{color:C.green}}>HUB</span></span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
