@@ -418,9 +418,9 @@ export default function SquadHub() {
   const [tab,setTab]         = useState("register");
   const [regStep,setRegStep] = useState(1);
   const [regData,setRegData] = useState({nickname:"",position:"",playstyle:""});
+  const [payStep,setPayStep] = useState("summary"); // "summary" | "qr" | "verifying"
   const [player,setPlayer]   = useState(null);
   const [profilePhoto,setProfilePhoto] = useState(null);
-  const [payStep,setPayStep] = useState("summary");
   const [venue,setVenue]     = useState(null);
   const [slot,setSlot]       = useState(null);
   const [teams,setTeams]     = useState(SEED_TEAMS());
@@ -1195,20 +1195,41 @@ export default function SquadHub() {
         <button onClick={()=>setPayStep("summary")} style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:700,color:C.sub,background:"none",border:"none",cursor:"pointer",padding:"0 0 16px",letterSpacing:.2}}>
           <ArrowLeft size={14}/>กลับ
         </button>
-        <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:6,color:C.text}}>PromptPay QR</div>
-        <div style={{fontSize:12,color:C.sub,marginBottom:20}}>สแกน QR หรือโอนผ่านเบอร์ด้านล่าง</div>
-        <div style={{background:C.surface,border:`1px solid ${C.borderHi}`,borderRadius:20,padding:"24px 20px",marginBottom:16,textAlign:"center"}}>
-          <div style={{fontSize:13,color:C.sub,marginBottom:4}}>ยอดที่ต้องชำระ</div>
-          <div style={{fontSize:38,fontWeight:900,color:C.green,fontStyle:"italic",marginBottom:20}}>฿{total}</div>
-          <div style={{display:"inline-block",background:"#fff",padding:12,borderRadius:16,marginBottom:16}}>
-            <img src={qrURL} alt="PromptPay QR" width={200} height={200} style={{display:"block",borderRadius:8}}/>
+        <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:4,color:C.text}}>PromptPay QR</div>
+        <div style={{fontSize:12,color:C.sub,marginBottom:20}}>สแกน QR เพื่อชำระเงิน</div>
+
+        {/* QR Card — Premium Style */}
+        <div style={{position:"relative",borderRadius:24,overflow:"hidden",marginBottom:16,background:"linear-gradient(160deg,#0d1f14,#091824)",border:`1.5px solid ${C.borderHi}`,boxShadow:`0 0 40px rgba(16,185,129,0.12)`}}>
+
+          {/* Top glow */}
+          <div style={{position:"absolute",top:-40,left:"50%",transform:"translateX(-50%)",width:200,height:200,background:`radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%)`,pointerEvents:"none"}}/>
+
+          {/* Header */}
+          <div style={{padding:"20px 20px 0",textAlign:"center",position:"relative"}}>
+            <div style={{fontSize:9,fontWeight:800,letterSpacing:3,textTransform:"uppercase",color:C.green,marginBottom:4}}>ยอดที่ต้องชำระ</div>
+            <div style={{fontSize:44,fontWeight:900,color:C.green,fontStyle:"italic",lineHeight:1,marginBottom:20}}>฿{total}</div>
           </div>
-          <div style={{background:"rgba(255,255,255,0.04)",border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 16px",marginBottom:8}}>
-            <div style={{fontSize:10,color:C.sub,marginBottom:3}}>หรือโอนผ่านเบอร์ PromptPay</div>
-            <div style={{fontSize:18,fontWeight:900,color:C.text,letterSpacing:2,fontFamily:"monospace"}}>{PROMPTPAY_ID}</div>
+
+          {/* QR Frame */}
+          <div style={{display:"flex",justifyContent:"center",padding:"0 24px",marginBottom:20}}>
+            <div style={{position:"relative",padding:3,borderRadius:20,background:`linear-gradient(135deg,${C.green},#059669,${C.green})`,boxShadow:`0 8px 32px rgba(16,185,129,0.25)`}}>
+              <div style={{background:"#fff",borderRadius:17,padding:14}}>
+                <img src={qrURL} alt="PromptPay QR" width={190} height={190} style={{display:"block",borderRadius:8}}/>
+              </div>
+            </div>
           </div>
-          <div style={{fontSize:10,color:C.muted}}>ชื่อบัญชี: SQUAD HUB</div>
+
+          {/* Account name */}
+          <div style={{textAlign:"center",padding:"0 20px 24px"}}>
+            <div style={{fontSize:9,color:C.sub,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>ชื่อบัญชี</div>
+            <div style={{fontSize:22,fontWeight:900,color:C.text,letterSpacing:1}}>SQUAD HUB</div>
+            <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:6,background:"rgba(16,185,129,0.08)",border:`1px solid ${C.borderHi}`,borderRadius:99,padding:"4px 14px"}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:C.green,boxShadow:`0 0 6px ${C.green}`}}/>
+              <span style={{fontSize:10,fontWeight:700,color:C.green}}>PromptPay · พร้อมเพย์</span>
+            </div>
+          </div>
         </div>
+
         <Btn onClick={()=>{setPayStep("verifying");setTimeout(()=>{setPayStep("summary");setTab("success");},2000);}}>
           โอนแล้ว · ยืนยันการชำระ ✓
         </Btn>
