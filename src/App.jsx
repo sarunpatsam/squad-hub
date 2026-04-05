@@ -1413,3 +1413,4 @@ export default function SquadHub() {
     </div>
   );
 }
+
