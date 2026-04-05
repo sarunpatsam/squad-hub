@@ -413,26 +413,22 @@ const JoinModal = ({teams,onJoin,onClose}) => {
   );
 };
 
-/* ═══════════════ SQUAD LOGO SVG ═══════════════ */
+/* ═══════════════ SQUAD LOGO ═══════════════ */
+const LOGO_URL = "https://i.postimg.cc/jSkNCWxY/squadhub003.png";
 const SquadLogo = ({ size = 32 }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="sq-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#34d399"/>
-        <stop offset="100%" stopColor="#059669"/>
-      </linearGradient>
-      <filter id="sq-glow">
-        <feGaussianBlur stdDeviation="2.5" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>
-    {/* Outer shield/hex shape */}
-    <path d="M50 4 L90 22 L90 60 Q90 82 50 96 Q10 82 10 60 L10 22 Z"
-      fill="rgba(16,185,129,0.08)" stroke="url(#sq-grad)" strokeWidth="3" filter="url(#sq-glow)"/>
-    {/* S letter — top bar */}
-    <path d="M35 32 Q35 26 50 26 Q65 26 65 36 Q65 44 50 48 Q35 52 35 62 Q35 74 50 74 Q65 74 65 68"
-      stroke="url(#sq-grad)" strokeWidth="9" strokeLinecap="round" fill="none" filter="url(#sq-glow)"/>
-  </svg>
+  <img
+    src={LOGO_URL}
+    alt="SQUAD HUB"
+    width={size}
+    height={size}
+    style={{
+      objectFit:"contain",
+      objectPosition:"left center",
+      borderRadius: size > 36 ? 12 : 8,
+      display:"block",
+      flexShrink:0,
+    }}
+  />
 );
 
 /* ═══════════════ MAIN APP ═══════════════ */
@@ -737,12 +733,9 @@ export default function SquadHub() {
   /* ── REGISTER ── */
   const renderRegister = () => (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",padding:"24px 20px 48px"}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:32}}>
-        <SquadLogo size={44}/>
-        <div>
-          <div style={{fontSize:20,fontWeight:900,letterSpacing:-.5,fontStyle:"italic",color:C.text}}>SQUAD<span style={{color:C.green}}>HUB</span></div>
-          <div style={{fontSize:9,color:C.sub,letterSpacing:2,textTransform:"uppercase"}}>Football Community</div>
-        </div>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",marginBottom:32}}>
+        <img src={LOGO_URL} alt="SQUAD HUB" style={{width:180,objectFit:"contain",borderRadius:16,marginBottom:10}}/>
+        <div style={{fontSize:9,color:C.sub,letterSpacing:2,textTransform:"uppercase"}}>Football Community</div>
       </div>
       <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:24}}>
         {[1,2,3].map(i=><div key={i} style={{height:3,borderRadius:99,background:i<=regStep?C.green:"rgba(255,255,255,0.08)",width:i===regStep?28:10,transition:"all .3s"}}/>)}
@@ -1329,7 +1322,9 @@ export default function SquadHub() {
       {tab!=="register"&&(
         <header style={{padding:"12px 18px",background:"rgba(7,14,11,0.96)",backdropFilter:"blur(24px)",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <SquadLogo size={28}/>
+            <div style={{width:28,height:28,borderRadius:7,overflow:"hidden",flexShrink:0}}>
+              <img src={LOGO_URL} alt="SQUAD HUB" style={{width:70,height:28,objectFit:"cover",objectPosition:"left center",marginLeft:0}}/>
+            </div>
             <span style={{fontSize:16,fontWeight:900,letterSpacing:-.3,fontStyle:"italic",color:C.text}}>SQUAD<span style={{color:C.green}}>HUB</span></span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
