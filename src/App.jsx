@@ -418,9 +418,9 @@ export default function SquadHub() {
   const [tab,setTab]         = useState("register");
   const [regStep,setRegStep] = useState(1);
   const [regData,setRegData] = useState({nickname:"",position:"",playstyle:""});
-  const [payStep,setPayStep] = useState("summary"); // "summary" | "qr" | "verifying"
   const [player,setPlayer]   = useState(null);
   const [profilePhoto,setProfilePhoto] = useState(null);
+  const [payStep,setPayStep] = useState("summary");
   const [venue,setVenue]     = useState(null);
   const [slot,setSlot]       = useState(null);
   const [teams,setTeams]     = useState(SEED_TEAMS());
