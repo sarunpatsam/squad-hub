@@ -1,5 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase } from "./supabase";
+
+/* ── LIFF CONFIG ── */
+const LIFF_ID = "2009451264-q3ueO8ay";
 import {
   User, MapPin, Trophy, ShieldCheck, ChevronRight, Zap,
   ArrowLeft, Flame, Clock, CheckCircle2, Medal, Bell,
@@ -415,6 +418,7 @@ export default function SquadHub() {
   const [tab,setTab]         = useState("register");
   const [regStep,setRegStep] = useState(1);
   const [regData,setRegData] = useState({nickname:"",position:"",playstyle:""});
+  const [payStep,setPayStep] = useState("summary"); // "summary" | "qr" | "verifying"
   const [player,setPlayer]   = useState(null);
   const [profilePhoto,setProfilePhoto] = useState(null);
   const [venue,setVenue]     = useState(null);
@@ -431,44 +435,103 @@ export default function SquadHub() {
   const [venuesLoading,setVenuesLoading] = useState(false);
   const fileRef = useRef(null);
 
-  /* ── AUTO-LOGIN: ถ้าเคย register ไว้แล้ว ดึงข้อมูลกลับมา ── */
+  /* ── LIFF INIT + AUTO-LOGIN ── */
   useEffect(()=>{
-    const savedId = localStorage.getItem("squad_player_id");
-    if(!savedId || player) return;
     (async()=>{
-      const { data, error } = await supabase
-        .from("players")
-        .select("*")
-        .eq("id", savedId)
-        .single();
-      if(error || !data) return;
-      const stats = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
-      const ni = NICKS[data.position]?.[data.playstyle];
-      setPlayer({
-        name:      data.display_name,
-        id:        `SQ-${data.id}`,
-        dbId:      data.id,
-        position:  data.position || "MF",
-        playstyle: data.playstyle || "Playmaker",
-        nick:      data.nickname || ni?.nick || "",
-        tags:      ni?.tags || [],
-        tier:      data.tier || "Bronze",
-        reliability: data.reliability_score || 100,
-        level:     data.level || 1,
-        xp:        data.xp || 0,
-        stats,
-        ovr:       OVR(stats),
-        matchStats:{
-          matches: data.matches_played || 0,
-          wins:    data.wins || 0,
-          losses:  data.losses || 0,
-          mvp:     data.mvp_count || 0,
-          goals:   data.goals || 0,
-          assists: data.assists || 0,
-        },
-        form: [],
-      });
-      setTab("home");
+      try {
+        // โหลด LIFF SDK
+        await new Promise((resolve, reject) => {
+          if(window.liff) return resolve();
+          const script = document.createElement("script");
+          script.src = "https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js";
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+
+        // Init LIFF
+        await window.liff.init({ liffId: LIFF_ID });
+
+        // ถ้า login แล้ว ดึง profile
+        if(window.liff.isLoggedIn()) {
+          const profile = await window.liff.getProfile();
+          const lineUserId = profile.userId;
+
+          // เช็คว่ามีใน DB ไหม
+          const { data } = await supabase
+            .from("players")
+            .select("*")
+            .eq("line_user_id", lineUserId)
+            .single();
+
+          if(data) {
+            // มีแล้ว → auto-login
+            localStorage.setItem("squad_player_id", data.id);
+            localStorage.setItem("squad_line_uid", lineUserId);
+            const stats = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
+            const ni = NICKS[data.position]?.[data.playstyle];
+            setPlayer({
+              name:      data.display_name,
+              id:        `SQ-${data.id}`,
+              dbId:      data.id,
+              lineUserId,
+              lineAvatar: profile.pictureUrl,
+              position:  data.position || "MF",
+              playstyle: data.playstyle || "Playmaker",
+              nick:      data.nickname || ni?.nick || "",
+              tags:      ni?.tags || [],
+              tier:      data.tier || "Bronze",
+              reliability: data.reliability_score || 100,
+              level:     data.level || 1,
+              xp:        data.xp || 0,
+              stats,
+              ovr:       OVR(stats),
+              matchStats:{
+                matches: data.matches_played || 0,
+                wins:    data.wins || 0,
+                losses:  data.losses || 0,
+                mvp:     data.mvp_count || 0,
+                goals:   data.goals || 0,
+                assists: data.assists || 0,
+              },
+              form: [],
+            });
+            setTab("home");
+          } else {
+            // ยังไม่มี → ไปหน้า register พร้อม LINE profile
+            localStorage.setItem("squad_line_uid", lineUserId);
+            localStorage.setItem("squad_line_name", profile.displayName);
+            localStorage.setItem("squad_line_avatar", profile.pictureUrl || "");
+          }
+        } else {
+          // ยังไม่ได้ login LINE → fallback localStorage เดิม
+          const savedId = localStorage.getItem("squad_player_id");
+          if(!savedId || player) return;
+          const { data, error } = await supabase
+            .from("players").select("*").eq("id", savedId).single();
+          if(error || !data) return;
+          const stats = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
+          const ni = NICKS[data.position]?.[data.playstyle];
+          setPlayer({
+            name: data.display_name, id: `SQ-${data.id}`, dbId: data.id,
+            position: data.position||"MF", playstyle: data.playstyle||"Playmaker",
+            nick: data.nickname||ni?.nick||"", tags: ni?.tags||[],
+            tier: data.tier||"Bronze", reliability: data.reliability_score||100,
+            level: data.level||1, xp: data.xp||0,
+            stats, ovr: OVR(stats),
+            matchStats:{ matches:data.matches_played||0, wins:data.wins||0, losses:data.losses||0, mvp:data.mvp_count||0, goals:data.goals||0, assists:data.assists||0 },
+            form:[],
+          });
+          setTab("home");
+        }
+      } catch(e) {
+        console.error("LIFF error:", e);
+        // fallback localStorage
+        const savedId = localStorage.getItem("squad_player_id");
+        if(!savedId || player) return;
+        const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
+        if(data) setTab("home");
+      }
     })();
   },[]);
 
@@ -522,10 +585,13 @@ export default function SquadHub() {
     /* บันทึกลง Supabase — ครบทุก field */
     let dbId = null;
     try {
-      const lineUserId = `guest_${Date.now()}`; // TODO: เปลี่ยนเป็น LINE UID จริงตอนเชื่อม LIFF
+      const lineUserId = localStorage.getItem("squad_line_uid") || `guest_${Date.now()}`;
+      const lineAvatar = localStorage.getItem("squad_line_avatar") || null;
+      const lineName   = localStorage.getItem("squad_line_name") || regData.nickname;
       const { data, error } = await supabase.from("players").insert({
         line_user_id:      lineUserId,
-        display_name:      regData.nickname,
+        display_name:      lineName,
+        avatar_url:        lineAvatar,
         position:          regData.position,
         playstyle:         regData.playstyle,
         tier:              "Bronze",
@@ -1071,51 +1137,39 @@ export default function SquadHub() {
   };
 
   /* ── CHECKOUT ── */
-  /* ── PROMPTPAY QR GENERATOR ── */
-  const generatePromptPayQR = (amount) => {
-    // PromptPay QR format (EMV Co standard)
-    // ใส่เบอร์ PromptPay ของ SQUAD HUB ตรงนี้
-    const PROMPTPAY_ID = "0800706187
-      
-      "; // TODO: เปลี่ยนเป็นเบอร์จริง
+  const PROMPTPAY_ID = "0800706187"; // ← เปลี่ยนเป็นเบอร์จริงของนาย
+
+  const generatePromptPayQR = (phoneNumber, amount) => {
+    const cleanPhone = phoneNumber.replace(/\D/g, "");
+    const formattedPhone = "0066" + cleanPhone.slice(1);
     const payload = [
-      "000201",                          // Payload Format Indicator
-      "010212",                          // Point of Initiation Method (dynamic)
-      `2937${String(29 + PROMPTPAY_ID.length).padStart(2,"0")}0016A000000677010111` +
-        `${String(PROMPTPAY_ID.length + 2).padStart(2,"0")}01${PROMPTPAY_ID}`,
-      "5303764",                         // Transaction Currency (THB)
-      `54${String(amount.toFixed(2).length).padStart(2,"0")}${amount.toFixed(2)}`, // Amount
-      "5802TH",                          // Country Code
-      "5910SQUAD HUB",                   // Merchant Name
-      "6304",                            // CRC placeholder
+      "000201","010212",
+      "2937"+"0016A000000677010111"+"01"+String(formattedPhone.length).padStart(2,"0")+formattedPhone,
+      "5303764",
+      "54"+String(amount.toFixed(2).length).padStart(2,"0")+amount.toFixed(2),
+      "5802TH","6304",
     ].join("");
-    // CRC16 checksum
     let crc = 0xFFFF;
     for(let i=0;i<payload.length;i++){
-      crc ^= payload.charCodeAt(i) << 8;
-      for(let j=0;j<8;j++) crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
+      crc ^= payload.charCodeAt(i)<<8;
+      for(let j=0;j<8;j++) crc=(crc&0x8000)?((crc<<1)^0x1021)&0xFFFF:(crc<<1)&0xFFFF;
     }
-    return payload + (crc & 0xFFFF).toString(16).toUpperCase().padStart(4,"0");
+    return payload + crc.toString(16).toUpperCase().padStart(4,"0");
   };
 
   const renderCheckout = () => {
-    const total = (slot?.price||0) + (slot?.fee||0);
-    const qrData = generatePromptPayQR(total);
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrData)}`;
-    const [payStep, setPayStep] = useState("summary"); // summary | qr | confirming
+    const total = (slot?.price||0)+(slot?.fee||0);
+    const qrData = generatePromptPayQR(PROMPTPAY_ID, total);
+    const qrURL  = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrData)}`;
 
-    return (
+    /* ── Step 1: สรุปยอด ── */
+    if(payStep==="summary") return (
       <div style={{paddingTop:16}}>
-        <BackBtn onClick={()=>payStep==="summary"?setTab("room"):setPayStep("summary")}/>
+        <BackBtn onClick={()=>setTab("room")}/>
         <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:20,color:C.text}}>Checkout</div>
-
-        {/* Order Summary */}
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:18,padding:"18px 20px",marginBottom:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:14,borderBottom:"1px dashed rgba(255,255,255,0.07)",marginBottom:14}}>
-            <div>
-              <div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:2}}>{venue?.name}</div>
-              <div style={{fontSize:11,color:C.sub}}>{slot?.time}–{slot?.end} · {slot?.type}</div>
-            </div>
+            <div><div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:2}}>{venue?.name}</div><div style={{fontSize:11,color:C.sub}}>{slot?.time}–{slot?.end} · {slot?.type}</div></div>
             {myTeamData&&<Tag color={myTeamData.color}>{myTeamData.name}</Tag>}
           </div>
           {[{l:"ค่าแมทช์",v:`฿${slot?.price}`},{l:"Platform Fee",v:`฿${slot?.fee}`}].map(r=>(
@@ -1128,59 +1182,49 @@ export default function SquadHub() {
             <span style={{fontSize:30,fontWeight:900,color:C.green,fontStyle:"italic"}}>฿{total}</span>
           </div>
         </div>
-
-        {/* QR Payment Section */}
-        {payStep === "summary" && (
-          <>
-            <div style={{background:"rgba(251,191,36,0.07)",border:"1px solid rgba(251,191,36,0.18)",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
-              <span style={{fontSize:11,color:C.amber,lineHeight:1.6}}>⚠️ การยกเลิกหลัง 30 นาทีก่อนแมทช์จะส่งผลต่อ Reliability Score</span>
-            </div>
-            <Btn onClick={()=>setPayStep("qr")}>ชำระด้วย PromptPay ⚡</Btn>
-          </>
-        )}
-
-        {payStep === "qr" && (
-          <div style={{background:C.surface,border:`1px solid ${C.borderHi}`,borderRadius:18,padding:"20px",textAlign:"center"}}>
-            <div style={{fontSize:10,fontWeight:800,letterSpacing:2,color:C.green,textTransform:"uppercase",marginBottom:4}}>PromptPay QR</div>
-            <div style={{fontSize:13,color:C.sub,marginBottom:16}}>สแกนด้วยแอปธนาคาร · ยอด ฿{total}</div>
-
-            {/* QR Code */}
-            <div style={{background:"#fff",borderRadius:16,padding:12,display:"inline-block",marginBottom:16}}>
-              <img
-                src={qrUrl}
-                alt="PromptPay QR"
-                style={{width:200,height:200,display:"block"}}
-                onError={e=>e.target.src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=PromptPay"}
-              />
-            </div>
-
-            {/* PromptPay ID */}
-            <div style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 16px",marginBottom:16}}>
-              <div style={{fontSize:10,color:C.sub,marginBottom:4}}>หรือโอนตรงที่เบอร์ PromptPay</div>
-              <div style={{fontSize:18,fontWeight:900,color:C.text,letterSpacing:2,fontFamily:"monospace"}}>081-234-5678</div>
-              <div style={{fontSize:10,color:C.sub,marginTop:2}}>SQUAD HUB Co., Ltd.</div>
-            </div>
-
-            <div style={{fontSize:11,color:C.sub,marginBottom:16,lineHeight:1.7}}>
-              หลังโอนแล้วกดปุ่มด้านล่างเพื่อยืนยัน<br/>
-              <span style={{color:C.amber}}>ระบบจะตรวจสอบภายใน 1-2 นาที</span>
-            </div>
-
-            <Btn onClick={()=>{ setPayStep("confirming"); setTimeout(()=>setTab("success"), 2000); }}>
-              โอนแล้ว ยืนยันการชำระ ✓
-            </Btn>
-          </div>
-        )}
-
-        {payStep === "confirming" && (
-          <div style={{textAlign:"center",padding:"32px 20px"}}>
-            <div style={{fontSize:32,marginBottom:12}}>⏳</div>
-            <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:8}}>กำลังตรวจสอบ...</div>
-            <div style={{fontSize:12,color:C.sub}}>ระบบกำลังยืนยันการชำระเงิน</div>
-          </div>
-        )}
+        <div style={{background:"rgba(251,191,36,0.07)",border:"1px solid rgba(251,191,36,0.18)",borderRadius:12,padding:"10px 14px",marginBottom:20}}>
+          <span style={{fontSize:11,color:C.amber,lineHeight:1.6}}>⚠️ การยกเลิกหลัง 30 นาทีก่อนแมทช์จะส่งผลต่อ Reliability Score</span>
+        </div>
+        <Btn onClick={()=>setPayStep("qr")}>ชำระด้วย PromptPay ⚡</Btn>
       </div>
     );
+
+    /* ── Step 2: QR Code ── */
+    if(payStep==="qr") return (
+      <div style={{paddingTop:16}}>
+        <button onClick={()=>setPayStep("summary")} style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:700,color:C.sub,background:"none",border:"none",cursor:"pointer",padding:"0 0 16px",letterSpacing:.2}}>
+          <ArrowLeft size={14}/>กลับ
+        </button>
+        <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:6,color:C.text}}>PromptPay QR</div>
+        <div style={{fontSize:12,color:C.sub,marginBottom:20}}>สแกน QR หรือโอนผ่านเบอร์ด้านล่าง</div>
+        <div style={{background:C.surface,border:`1px solid ${C.borderHi}`,borderRadius:20,padding:"24px 20px",marginBottom:16,textAlign:"center"}}>
+          <div style={{fontSize:13,color:C.sub,marginBottom:4}}>ยอดที่ต้องชำระ</div>
+          <div style={{fontSize:38,fontWeight:900,color:C.green,fontStyle:"italic",marginBottom:20}}>฿{total}</div>
+          <div style={{display:"inline-block",background:"#fff",padding:12,borderRadius:16,marginBottom:16}}>
+            <img src={qrURL} alt="PromptPay QR" width={200} height={200} style={{display:"block",borderRadius:8}}/>
+          </div>
+          <div style={{background:"rgba(255,255,255,0.04)",border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 16px",marginBottom:8}}>
+            <div style={{fontSize:10,color:C.sub,marginBottom:3}}>หรือโอนผ่านเบอร์ PromptPay</div>
+            <div style={{fontSize:18,fontWeight:900,color:C.text,letterSpacing:2,fontFamily:"monospace"}}>{PROMPTPAY_ID}</div>
+          </div>
+          <div style={{fontSize:10,color:C.muted}}>ชื่อบัญชี: SQUAD HUB</div>
+        </div>
+        <Btn onClick={()=>{setPayStep("verifying");setTimeout(()=>{setPayStep("summary");setTab("success");},2000);}}>
+          โอนแล้ว · ยืนยันการชำระ ✓
+        </Btn>
+      </div>
+    );
+
+    /* ── Step 3: Verifying ── */
+    if(payStep==="verifying") return (
+      <div style={{paddingTop:80,textAlign:"center"}}>
+        <div style={{fontSize:40,marginBottom:16}}>⏳</div>
+        <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:8}}>กำลังตรวจสอบ...</div>
+        <div style={{fontSize:12,color:C.sub}}>รอสักครู่ ระบบกำลังยืนยันการชำระเงิน</div>
+      </div>
+    );
+
+    return null;
   };
 
   /* ── SUCCESS ── */
