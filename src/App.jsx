@@ -13,19 +13,11 @@ import {
 
 /* ═══════════════ DESIGN TOKENS ═══════════════ */
 const C = {
-  bg:"#040c08", bg2:"#071210", surface:"rgba(0,255,135,0.04)",
-  border:"rgba(0,255,135,0.15)", borderHi:"rgba(0,255,135,0.45)",
-  green:"#00ff87", greenBr:"#34d399", greenDim:"rgba(0,255,135,0.08)",
-  greenGlow:"rgba(0,255,135,0.2)",
-  text:"#e8fff4", sub:"#7ab89a", muted:"#4a7a62",
-  red:"#ff4757", blue:"#60a5fa", amber:"#ffd32a", purple:"#a78bfa",
-  cardBg:"rgba(4,18,11,0.9)",
-};
-const CARD_STYLE = {
-  background:"rgba(4,18,11,0.92)",
-  border:"1px solid rgba(0,255,135,0.18)",
-  borderRadius:16,
-  boxShadow:"0 0 20px rgba(0,255,135,0.05), inset 0 1px 0 rgba(0,255,135,0.08)",
+  bg:"#070e0b", bg2:"#0d1812", surface:"rgba(255,255,255,0.05)",
+  border:"rgba(255,255,255,0.09)", borderHi:"rgba(16,185,129,0.32)",
+  green:"#10b981", greenBr:"#34d399", greenDim:"rgba(16,185,129,0.1)",
+  text:"#edfdf4", sub:"#9ca3af", muted:"#6b7280",
+  red:"#ef4444", blue:"#60a5fa", amber:"#fbbf24", purple:"#a78bfa",
 };
 
 /* Tier gradient stops */
@@ -99,13 +91,13 @@ const SEED_CHAT = [
 
 /* ═══════════════ SHARED UI ═══════════════ */
 const Tag = ({children,color=C.green,sm}) => (
-  <span style={{fontSize:sm?8:9,fontWeight:800,letterSpacing:1,padding:sm?"2px 8px":"3px 11px",borderRadius:4,background:`${color}18`,color,textTransform:"uppercase",display:"inline-flex",alignItems:"center",gap:3,border:`1px solid ${color}40`,boxShadow:`0 0 8px ${color}20`}}>{children}</span>
+  <span style={{fontSize:sm?8:9,fontWeight:800,letterSpacing:.6,padding:sm?"2px 7px":"3px 10px",borderRadius:99,background:`${color}1a`,color,textTransform:"uppercase",display:"inline-flex",alignItems:"center",gap:3,border:`1px solid ${color}25`}}>{children}</span>
 );
 const Btn = ({children,onClick,ghost,disabled,style={}}) => (
-  <button onClick={onClick} disabled={disabled} style={{width:"100%",padding:"14px 20px",borderRadius:8,fontSize:13,fontWeight:900,letterSpacing:1,border:ghost?`1.5px solid ${C.border}`:`1px solid ${C.green}`,cursor:disabled?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:ghost?"transparent":`linear-gradient(135deg,#00c96b,${C.green})`,color:ghost?C.sub:"#001a0d",boxShadow:ghost?"none":`0 0 20px rgba(0,255,135,0.3), 0 4px 15px rgba(0,255,135,0.2)`,opacity:disabled?.4:1,transition:"all .2s",textTransform:"uppercase",...style}}>{children}</button>
+  <button onClick={onClick} disabled={disabled} style={{width:"100%",padding:"14px 20px",borderRadius:13,fontSize:13,fontWeight:800,border:ghost?`1.5px solid ${C.border}`:"none",cursor:disabled?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:ghost?"transparent":`linear-gradient(135deg,#059669,${C.green})`,color:ghost?C.sub:"#fff",boxShadow:ghost?"none":"0 6px 24px rgba(16,185,129,0.25)",opacity:disabled?.4:1,transition:"all .2s",...style}}>{children}</button>
 );
 const BackBtn = ({onClick}) => (
-  <button onClick={onClick} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:800,color:C.sub,background:"none",border:"none",cursor:"pointer",padding:"0 0 16px",letterSpacing:1,textTransform:"uppercase"}}><ArrowLeft size={13}/>Back</button>
+  <button onClick={onClick} style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:700,color:C.sub,background:"none",border:"none",cursor:"pointer",padding:"0 0 16px",letterSpacing:.2}}><ArrowLeft size={14}/>Back</button>
 );
 const Av = ({name,size=36,isCaptain,photo}) => {
   const pal=[C.green,"#3b82f6","#8b5cf6",C.amber,C.red,"#06b6d4"];
@@ -279,93 +271,35 @@ const FullPitch = ({teams,onJoin,myTeam}) => {
 };
 
 /* ═══════════════ LOBBY PLAYER CARD ═══════════════ */
-const HexAvatar = ({name, color, size=44, isCaptain, photo}) => {
-  const initials = name[0]?.toUpperCase();
-  return (
-    <div style={{position:"relative", flexShrink:0, width:size, height:size}}>
-      <svg width={size} height={size} viewBox="0 0 44 44" style={{position:"absolute",top:0,left:0}}>
-        <defs>
-          <linearGradient id={`hg-${name}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={color} stopOpacity="0.3"/>
-            <stop offset="100%" stopColor={color} stopOpacity="0.1"/>
-          </linearGradient>
-        </defs>
-        <polygon points="22,2 40,12 40,32 22,42 4,32 4,12"
-          fill={`url(#hg-${name})`} stroke={color} strokeWidth="1.5"
-          style={{filter:`drop-shadow(0 0 6px ${color}60)`}}/>
-      </svg>
-      {photo
-        ? <img src={photo} alt={name} style={{position:"absolute",top:"15%",left:"15%",width:"70%",height:"70%",objectFit:"cover",clipPath:"polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)"}}/>
-        : <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.38,fontWeight:900,color,textShadow:`0 0 10px ${color}`}}>{initials}</div>
-      }
-      {isCaptain && <div style={{position:"absolute",bottom:-2,right:-2,width:14,height:14,background:C.amber,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,fontWeight:900,color:"#000",border:`1.5px solid ${C.bg}`,boxShadow:`0 0 6px ${C.amber}`}}>C</div>}
-    </div>
-  );
-};
-
 const LobbyCard = ({player,teamColor,isMe}) => {
   const ks=KEY_STATS[player.pos]||["pace","shooting","passing"];
   const st=player.stats||{pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
-  const color = isMe ? C.green : teamColor;
   return (
-    <div style={{...CARD_STYLE, padding:"14px", position:"relative", overflow:"hidden", marginBottom:8}}>
-      {/* Corner accents */}
-      <div style={{position:"absolute",top:0,left:0,width:16,height:16,borderTop:`2px solid ${color}`,borderLeft:`2px solid ${color}`,borderRadius:"4px 0 0 0"}}/>
-      <div style={{position:"absolute",top:0,right:0,width:16,height:16,borderTop:`2px solid ${color}`,borderRight:`2px solid ${color}`,borderRadius:"0 4px 0 0"}}/>
-      <div style={{position:"absolute",bottom:0,left:0,width:16,height:16,borderBottom:`2px solid ${color}`,borderLeft:`2px solid ${color}`,borderRadius:"0 0 0 4px"}}/>
-      <div style={{position:"absolute",bottom:0,right:0,width:16,height:16,borderBottom:`2px solid ${color}`,borderRight:`2px solid ${color}`,borderRadius:"0 0 4px 0"}}/>
-
-      {/* Glow bg */}
-      {isMe && <div style={{position:"absolute",inset:0,background:`radial-gradient(ellipse at 30% 50%,${C.green}08 0%,transparent 70%)`}}/>}
-
-      <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:10,position:"relative"}}>
-        <HexAvatar name={player.name} color={color} size={46} isCaptain={player.isCaptain} photo={player.photo}/>
+    <div style={{background:isMe?`linear-gradient(135deg,${C.bg2},rgba(16,185,129,0.08))`:C.bg2,border:`1.5px solid ${isMe?C.borderHi:C.border}`,borderRadius:16,padding:"13px 14px",position:"relative",overflow:"hidden"}}>
+      {isMe&&<div style={{position:"absolute",top:0,right:0,width:60,height:60,background:"radial-gradient(circle,rgba(16,185,129,0.13) 0%,transparent 70%)"}}/>}
+      <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:10}}>
+        <Av name={player.name} size={40} isCaptain={player.isCaptain} photo={player.photo}/>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
-            <span style={{fontSize:14,fontWeight:900,color:isMe?C.green:C.text,letterSpacing:.5}}>{player.name}</span>
-            {isMe && <span style={{fontSize:8,color:C.green,fontWeight:800,letterSpacing:1,background:"rgba(0,255,135,0.1)",padding:"1px 6px",borderRadius:3,border:`1px solid ${C.green}40`}}>YOU</span>}
-            {player.isCaptain && <span style={{fontSize:8,fontWeight:900,color:C.amber,background:"rgba(255,211,42,0.1)",border:`1px solid ${C.amber}40`,borderRadius:3,padding:"1px 6px",letterSpacing:.5}}>🎖️ C</span>}
+          <div style={{fontSize:14,fontWeight:900,color:isMe?C.greenBr:C.text,display:"flex",alignItems:"center",gap:5}}>
+            {player.name}{isMe&&<span style={{fontSize:10,color:C.green}}> · คุณ</span>}
+            {player.isCaptain&&<span style={{fontSize:10,fontWeight:900,color:C.amber,background:"rgba(251,191,36,0.12)",border:"1px solid rgba(251,191,36,0.25)",borderRadius:99,padding:"1px 7px",letterSpacing:.3}}>🎖️ กัปตัน</span>}
           </div>
-          {player.nick && <div style={{fontSize:10,color:C.sub,marginBottom:5,letterSpacing:.3}}>{player.nick}</div>}
-          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {player.nick&&<div style={{fontSize:10,color:C.sub,marginTop:1}}>{player.nick}</div>}
+          <div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
             <Tag color={PC[player.pos]||teamColor} sm>{player.pos}</Tag>
-            <Tag color={C.sub} sm>OVR {player.ovr}</Tag>
+            <Tag color={C.muted} sm>OVR {player.ovr}</Tag>
           </div>
         </div>
-        <div style={{textAlign:"right"}}>
-          <div style={{fontSize:28,fontWeight:900,color,lineHeight:1,textShadow:`0 0 12px ${color}80`}}>{player.ovr}</div>
-          <div style={{fontSize:8,color:C.sub,fontWeight:700,letterSpacing:1}}>RATING</div>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-around",background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 6px",marginBottom:8}}>
+        {ks.map(k=><MiniStat key={k} label={k} value={st[k]||70}/>)}
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        {player.form&&<FormDots form={player.form}/>}
+        <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          {player.tags?.slice(0,2).map(t=><span key={t} style={{fontSize:8,color:teamColor,fontWeight:700,opacity:.8}}>{t}</span>)}
         </div>
       </div>
-
-      {/* Stats Bar */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,position:"relative"}}>
-        {ks.map(k=>{
-          const val=st[k]||70;
-          const pct=val;
-          return (
-            <div key={k} style={{background:"rgba(0,0,0,0.3)",borderRadius:6,padding:"8px 8px 6px",border:`1px solid rgba(0,255,135,0.08)`}}>
-              <div style={{fontSize:20,fontWeight:900,color,lineHeight:1,marginBottom:3,textShadow:`0 0 8px ${color}60`}}>{val}</div>
-              <div style={{height:2,background:"rgba(255,255,255,0.06)",borderRadius:99,marginBottom:3}}>
-                <div style={{height:"100%",width:`${pct}%`,background:color,borderRadius:99,boxShadow:`0 0 4px ${color}`}}/>
-              </div>
-              <div style={{fontSize:7,color:C.sub,fontWeight:800,letterSpacing:1,textTransform:"uppercase"}}>{k}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Form dots */}
-      {player.form?.length>0 && (
-        <div style={{display:"flex",gap:4,marginTop:8,paddingTop:8,borderTop:`1px solid rgba(0,255,135,0.08)`}}>
-          {player.form.map((v,i)=>(
-            <div key={i} style={{width:7,height:7,borderRadius:"50%",background:v>=4?C.green:v===3?C.amber:C.red,boxShadow:v>=4?`0 0 5px ${C.green}`:"none"}}/>
-          ))}
-          <div style={{flex:1,textAlign:"right",display:"flex",gap:4,justifyContent:"flex-end",flexWrap:"wrap"}}>
-            {player.tags?.slice(0,2).map(t=><span key={t} style={{fontSize:8,color:teamColor,fontWeight:700,opacity:.8}}>{t}</span>)}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -480,7 +414,8 @@ const JoinModal = ({teams,onJoin,onClose}) => {
 };
 
 /* ═══════════════ SQUAD LOGO ═══════════════ */
-const LOGO_URL = "https://i.postimg.cc/jSkNCWxY/squadhub003.png";
+const LOGO_URL     = "https://i.postimg.cc/jSkNCWxY/squadhub003.png";
+const LOGO_BAR_URL = "https://i.postimg.cc/KvKrBSzF/webapp.png";
 const SquadLogo = ({ size = 32 }) => (
   <img
     src={LOGO_URL}
@@ -503,7 +438,7 @@ export default function SquadHub() {
   const [regStep,setRegStep] = useState(1);
   const [regData,setRegData] = useState({nickname:"",position:"",playstyle:""});
   const [payStep,setPayStep] = useState("summary");
-  const [lang,setLang]       = useState("th"); // "th" | "en"
+  const [lang,setLang]       = useState("th");
   const T = (th,en) => lang==="th" ? th : en;
   const [player,setPlayer]   = useState(null);
   const [profilePhoto,setProfilePhoto] = useState(null);
@@ -883,121 +818,142 @@ export default function SquadHub() {
   const renderProfile = () => {
     if(!player)return null;
     const tc=TIER_CFG[player.tier];
+    const ks=KEY_STATS[player.position]||["pace","shooting","passing"];
     const ms=player.matchStats;
-    const lineAvatar = player.lineAvatar || profilePhoto;
     return (
-      <div style={{padding:"16px 16px 0"}}>
+      <div>
+        {/* Hidden file input */}
         <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhotoUpload}/>
 
-        {/* ── PLAYER CARD (LINE-style) ── */}
-        <div style={{borderRadius:20,overflow:"hidden",marginBottom:14,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}}>
+        {/* Hero banner */}
+        <div style={{background:"linear-gradient(160deg,#091d12 0%,#0d1a2a 100%)",borderRadius:"0 0 28px 28px",paddingBottom:24,marginBottom:14,position:"relative",overflow:"hidden",borderBottom:`1px solid rgba(16,185,129,0.1)`}}>
+          {/* Ambient glow */}
+          <div style={{position:"absolute",top:-40,right:-30,width:220,height:220,background:`radial-gradient(circle,${PC[player.position]}12 0%,transparent 70%)`}}/>
+          <div style={{position:"absolute",bottom:-30,left:-20,width:160,height:160,background:"radial-gradient(circle,rgba(16,185,129,0.07) 0%,transparent 70%)"}}/>
 
-          {/* Card Header */}
-          <div style={{background:"rgba(0,40,20,0.95)",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid rgba(0,255,135,0.15)"}}>
-            <div style={{height:28,borderRadius:6,overflow:"hidden"}}>
-              <img src={LOGO_URL} alt="SQUAD HUB" style={{height:28,width:"auto"}}/>
+          {/* Top: name + OVR */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"16px 20px 0",position:"relative",zIndex:2}}>
+            <div>
+              <div style={{fontSize:9,fontWeight:800,color:C.green,letterSpacing:2.5,textTransform:"uppercase",marginBottom:4}}>Player Profile</div>
+              <div style={{fontSize:24,fontWeight:900,color:C.text,letterSpacing:-.5,lineHeight:1}}>{player.name}</div>
+              <div style={{fontSize:11,color:C.sub,marginTop:4}}>ID: {player.id}</div>
             </div>
-            <div style={{textAlign:"right"}}>
-              <div style={{fontSize:13,fontWeight:900,color:tc.glow,letterSpacing:2}}>{player.tier.toUpperCase()}</div>
-              <div style={{fontSize:9,color:C.sub,letterSpacing:1}}>PLAYER CARD</div>
+            <div style={{textAlign:"right",paddingTop:4}}>
+              <div style={{fontSize:46,fontWeight:900,color:C.green,fontStyle:"italic",lineHeight:1}}>{player.ovr}</div>
+              <div style={{fontSize:8,color:C.sub,fontWeight:700,letterSpacing:2}}>OVERALL</div>
             </div>
           </div>
 
-          {/* Card Body */}
-          <div style={{background:"linear-gradient(160deg,#052010,#03160c)",padding:"18px"}}>
-            <div style={{display:"flex",gap:14,alignItems:"flex-start",marginBottom:16}}>
-              {/* Avatar */}
-              <div style={{position:"relative",flexShrink:0}} onClick={()=>fileRef.current?.click()}>
-                <div style={{width:72,height:72,borderRadius:12,overflow:"hidden",border:`2px solid ${C.green}`,boxShadow:`0 0 16px rgba(0,255,135,0.3)`,cursor:"pointer"}}>
-                  {lineAvatar
-                    ? <img src={lineAvatar} alt={player.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                    : <div style={{width:"100%",height:"100%",background:`linear-gradient(135deg,${PC[player.position]}30,rgba(0,0,0,0.5))`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,fontWeight:900,color:PC[player.position]}}>{player.name[0]}</div>
-                  }
-                </div>
-                <div style={{position:"absolute",bottom:-4,right:-4,width:20,height:20,background:C.green,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${C.bg}`}}>
-                  <Camera size={10} color="#001a0d"/>
-                </div>
+          {/* Card + Info row */}
+          <div style={{display:"flex",alignItems:"flex-end",gap:14,padding:"16px 20px 0",position:"relative",zIndex:2}}>
+            <TierPhotoCard
+              photo={profilePhoto}
+              name={player.name}
+              tier={player.tier}
+              position={player.position}
+              onUpload={()=>fileRef.current?.click()}
+              size={110}
+            />
+            <div style={{flex:1,paddingBottom:6}}>
+              {/* Nickname */}
+              <div style={{fontSize:13,fontWeight:900,color:C.text,marginBottom:5,lineHeight:1.3}}>{player.nick}</div>
+              {/* Tags */}
+              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:10}}>
+                {player.tags?.map(t=><span key={t} style={{fontSize:9,color:C.green,fontWeight:700,opacity:.85}}>{t}</span>)}
               </div>
-
-              {/* Info */}
-              <div style={{flex:1}}>
-                <div style={{fontSize:22,fontWeight:900,color:C.text,letterSpacing:.5,lineHeight:1,marginBottom:4}}>{player.name}</div>
-                <div style={{fontSize:12,color:C.sub,marginBottom:8}}>
-                  {player.position} · {player.playstyle}
-                </div>
-                <div style={{fontSize:11,color:C.sub}}>
-                  SQ-{player.dbId||"—"} · LV.{player.level}
-                </div>
+              {/* Badges */}
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
+                <Tag color={tc.glow} sm><Medal size={8}/>{player.tier}</Tag>
+                <Tag color={PC[player.position]||C.green} sm>{player.position}</Tag>
+                <Tag color={C.sub} sm>LV.{player.level}</Tag>
               </div>
-
-              {/* OVR */}
-              <div style={{textAlign:"center"}}>
-                <div style={{fontSize:40,fontWeight:900,color:C.green,lineHeight:1,textShadow:`0 0 16px ${C.green}`}}>{player.ovr}</div>
-                <div style={{fontSize:8,color:C.sub,letterSpacing:1}}>OVR</div>
+              {/* Key ability stats */}
+              <div style={{display:"flex",gap:12}}>
+                {ks.map(k=><MiniStat key={k} label={k} value={player.stats[k]}/>)}
               </div>
             </div>
+          </div>
 
-            {/* Stats Grid */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:1,background:"rgba(0,255,135,0.1)",borderRadius:12,overflow:"hidden",marginBottom:14}}>
-              {[
-                {label:T("แมตช์","Matches"),value:ms.matches||0,color:C.green},
-                {label:T("ประตู","Goals"),  value:ms.goals||0,  color:C.green},
-                {label:T("แอสซิสต์","Assists"),value:ms.assists||0,color:C.green},
-                {label:"MVP 🥇",            value:ms.mvp||0,    color:C.amber},
-              ].map(s=>(
-                <div key={s.label} style={{background:"rgba(3,22,12,0.95)",padding:"14px 8px",textAlign:"center"}}>
-                  <div style={{fontSize:28,fontWeight:900,color:s.color,lineHeight:1,textShadow:`0 0 10px ${s.color}80`}}>{s.value}</div>
-                  <div style={{fontSize:8,color:C.sub,fontWeight:800,letterSpacing:.8,marginTop:4,textTransform:"uppercase"}}>{s.label}</div>
-                </div>
-              ))}
+          {/* Tap to upload hint */}
+          <div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
+            <button onClick={()=>fileRef.current?.click()} style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,0.04)",border:`1px dashed ${C.border}`,borderRadius:8,padding:"6px 10px",cursor:"pointer",color:C.sub,fontSize:10,fontWeight:700}}>
+              <Upload size={11} color={C.sub}/> เปลี่ยนรูปโปรไฟล์ (LINE หรืออัปโหลดใหม่)
+            </button>
+          </div>
+
+          {/* XP bar */}
+          <div style={{padding:"10px 20px 0",position:"relative",zIndex:2}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:9,fontWeight:700,color:C.sub,letterSpacing:1,textTransform:"uppercase"}}>XP Progress</span>
+              <span style={{fontSize:9,fontWeight:800,color:C.green}}>{player.xp}%</span>
             </div>
-
-            {/* XP Bar */}
-            <div style={{marginBottom:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
-                <span style={{fontSize:11,fontWeight:800,color:C.green}}>⚡ XP {player.xp}</span>
-                <span style={{fontSize:10,color:C.sub}}>500 {T("ถัดไป","next tier")}</span>
-              </div>
-              <div style={{height:5,background:"rgba(255,255,255,0.07)",borderRadius:99,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${Math.min((player.xp/500)*100,100)}%`,background:`linear-gradient(90deg,#00c96b,${C.green})`,borderRadius:99,boxShadow:`0 0 8px ${C.green}`}}/>
-              </div>
-            </div>
-
-            {/* Reliability */}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontSize:11,fontWeight:800,color:C.green}}>⚡ {T("ความน่าเชื่อถือ","Reliability")} {player.reliability}%</span>
-              <span style={{fontSize:10,color:C.sub,fontWeight:700,letterSpacing:.5}}>BUILD YOUR SQUAD</span>
+            <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99}}>
+              <div style={{height:"100%",width:`${player.xp}%`,background:`linear-gradient(90deg,#059669,${C.greenBr})`,borderRadius:99}}/>
             </div>
           </div>
         </div>
 
-        {/* Nickname Card */}
-        <div style={{...CARD_STYLE,padding:"14px 16px",marginBottom:12}}>
-          <div style={{fontSize:9,fontWeight:900,color:C.green,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{T("ฉายา","Nickname")}</div>
-          <div style={{fontSize:16,fontWeight:900,color:C.text,marginBottom:6}}>{player.nick||"—"}</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {player.tags?.map(t=><span key={t} style={{fontSize:10,color:C.green,fontWeight:700}}>{t}</span>)}
-          </div>
-        </div>
+        {/* Info panels */}
+        <div style={{padding:"0 16px"}}>
 
-        {/* Key Stats */}
-        <div style={{...CARD_STYLE,padding:"14px 16px",marginBottom:12}}>
-          <div style={{fontSize:9,fontWeight:900,color:C.green,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Key Stats</div>
-          <div style={{display:"flex",justifyContent:"space-around"}}>
-            {(KEY_STATS[player.position]||[]).map(k=>(
-              <div key={k} style={{textAlign:"center"}}>
-                <div style={{fontSize:28,fontWeight:900,color:C.green,lineHeight:1,textShadow:`0 0 8px ${C.green}60`}}>{player.stats[k]}</div>
-                <div style={{fontSize:8,color:C.sub,fontWeight:800,letterSpacing:1,marginTop:4,textTransform:"uppercase"}}>{k}</div>
+          {/* Match stats */}
+          <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>Match Stats</div>
+          <div style={{marginBottom:12}}>
+            <StatGrid goals={ms.goals||0} assists={ms.assists||0} matches={ms.matches||0} wins={ms.wins||0}/>
+          </div>
+
+          {/* W/L bar */}
+          {ms.matches>0&&(
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:"12px 16px",marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:10,fontWeight:800,color:C.green}}>ชนะ {ms.wins}</span>
+                <span style={{fontSize:10,fontWeight:800,color:C.red}}>แพ้ {ms.losses}</span>
               </div>
-            ))}
-          </div>
-        </div>
+              <div style={{height:6,background:"rgba(255,255,255,0.06)",borderRadius:99,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${(ms.wins/ms.matches)*100}%`,background:`linear-gradient(90deg,#059669,${C.green})`,borderRadius:99}}/>
+              </div>
+            </div>
+          )}
 
-        {/* Logout */}
-        <div style={{padding:"0 0 16px"}}>
-          <Btn ghost onClick={handleLogout} style={{fontSize:11,letterSpacing:1}}>
-            {T("ออกจากระบบ","Logout")}
-          </Btn>
+          {/* Reliability */}
+          <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>Key Info</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"14px"}}>
+              <div style={{fontSize:9,color:C.sub,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Reliability</div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:`conic-gradient(${C.green} ${player.reliability*3.6}deg,rgba(255,255,255,0.05) 0deg)`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <div style={{width:28,height:28,borderRadius:"50%",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}><ShieldCheck size={12} color={C.green}/></div>
+                </div>
+                <div>
+                  <div style={{fontSize:20,fontWeight:900,color:C.green,lineHeight:1}}>{player.reliability}%</div>
+                  <div style={{fontSize:9,color:C.sub,marginTop:2}}>No-Show: 0</div>
+                </div>
+              </div>
+            </div>
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"14px"}}>
+              <div style={{fontSize:9,color:C.sub,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>MVP Awards</div>
+              <div style={{fontSize:28,fontWeight:900,color:C.amber,lineHeight:1}}>{ms.mvp||0}</div>
+              <div style={{fontSize:9,color:C.sub,marginTop:4}}>ซีซั่น 1</div>
+            </div>
+          </div>
+
+          {/* Nickname */}
+          <div style={{background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:14,padding:"12px 16px",marginBottom:10}}>
+            <div style={{fontSize:9,fontWeight:800,color:C.green,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>ฉายา</div>
+            <div style={{fontSize:15,fontWeight:900,color:C.text,marginBottom:6}}>{player.nick||"—"}</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {player.tags?.map(t=><span key={t} style={{fontSize:10,color:C.green,fontWeight:700}}>{t}</span>)}
+            </div>
+          </div>
+
+          {/* Form */}
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:"12px 16px"}}>
+            <div style={{fontSize:9,fontWeight:800,color:C.sub,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>ฟอร์มล่าสุด</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <FormDots form={player.form?.length?player.form:[0,0,0,0,0]}/>
+              <span style={{fontSize:10,color:C.sub}}>ยังไม่มีแมทช์</span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1014,8 +970,8 @@ export default function SquadHub() {
         style={{background:"linear-gradient(135deg,#0b1f14,#0d1824)",border:"1px solid rgba(239,68,68,0.22)",borderRadius:18,padding:"16px 18px",marginBottom:20,cursor:"pointer",position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,background:"radial-gradient(circle,rgba(239,68,68,0.07) 0%,transparent 70%)"}}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <Tag color={C.red}><Flame size={9}/> {T("แมทช์ยอดนิยม","HOT MATCH")}</Tag>
-          <span style={{fontSize:10,color:C.sub}}>{T("เหลือ 4 slot","4 slots left")}</span>
+          <Tag color={C.red}><Flame size={9}/> HOT MATCH</Tag>
+          <span style={{fontSize:10,color:C.sub}}>เหลือ 4 slot</span>
         </div>
         <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>S-One Football Club</div>
         <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:10}}>18:00–20:00 · 7v7 · ฿170/คน</div>
@@ -1089,19 +1045,15 @@ export default function SquadHub() {
     return (
       <div style={{paddingTop:16}}>
         <BackBtn onClick={()=>{setMyTeam(null);setTeams(SEED_TEAMS());setTab("venue");}}/>
-        <div style={{marginBottom:14,padding:"14px 16px",background:"rgba(0,255,135,0.04)",border:`1px solid rgba(0,255,135,0.15)`,borderRadius:12,position:"relative",overflow:"hidden"}}>
-          <div style={{position:"absolute",top:-20,right:-20,width:80,height:80,background:"radial-gradient(circle,rgba(0,255,135,0.08) 0%,transparent 70%)"}}/>
-          <div style={{fontSize:9,color:C.green,fontWeight:900,letterSpacing:3,textTransform:"uppercase",marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
-            <div style={{width:6,height:6,borderRadius:"50%",background:C.green,boxShadow:`0 0 6px ${C.green}`,animation:"pulse 2s infinite"}}/>
-            Match Lobby · Live
-          </div>
-          <div style={{fontSize:20,fontWeight:900,color:C.text,letterSpacing:.5}}>{venue?.name}</div>
-          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {slot?.type} · 4 Teams</div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:9,color:C.green,fontWeight:800,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>Match Lobby</div>
+          <div style={{fontSize:18,fontWeight:900,color:C.text}}>{venue?.name}</div>
+          <div style={{fontSize:11,color:C.sub,marginTop:1}}>{slot?.time}–{slot?.end} · {slot?.type} · 4 ทีม</div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:14}}>
-          {[{id:"pitch",label:"🏟️ Stadium"},{id:"team",label:"👥 Team"},{id:"chat",label:"💬 Chat"}].map(lt=>(
+          {[{id:"pitch",label:"🏟️ สนาม"},{id:"team",label:"👥 ทีม"},{id:"chat",label:"💬 Chat"}].map(lt=>(
             <button key={lt.id} onClick={()=>setLobbyTab(lt.id)}
-              style={{flex:1,padding:"10px 6px",borderRadius:6,border:`1.5px solid ${lobbyTab===lt.id?C.green:"rgba(0,255,135,0.15)"}`,background:lobbyTab===lt.id?"rgba(0,255,135,0.1)":"rgba(0,0,0,0.3)",color:lobbyTab===lt.id?C.green:C.sub,fontSize:11,fontWeight:900,cursor:"pointer",transition:"all .2s",letterSpacing:.5,boxShadow:lobbyTab===lt.id?`0 0 12px rgba(0,255,135,0.2)`:"none",textTransform:"uppercase"}}>
+              style={{flex:1,padding:"9px 6px",borderRadius:10,border:`1.5px solid ${lobbyTab===lt.id?C.green:C.border}`,background:lobbyTab===lt.id?C.greenDim:"transparent",color:lobbyTab===lt.id?C.green:C.sub,fontSize:11,fontWeight:800,cursor:"pointer",transition:"all .2s"}}>
               {lt.label}
             </button>
           ))}
@@ -1315,12 +1267,12 @@ export default function SquadHub() {
   const renderSuccess = () => (
     <div style={{textAlign:"center",padding:"56px 20px 40px"}}>
       <div style={{width:68,height:68,background:C.greenDim,border:`2px solid ${C.borderHi}`,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px"}}><CheckCircle2 size={30} color={C.green}/></div>
-      <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:6,color:C.text}}>{T("เข้าร่วมแล้ว!","You're In!")}</div>
+      <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:6,color:C.text}}>{T("เข้าร่วมแล้ว! 🎉","You're In! 🎉")}</div>
       <div style={{fontSize:13,color:C.sub,marginBottom:3}}>{myTeamData?.name} · {venue?.name}</div>
       <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:28}}>{slot?.time}–{slot?.end}</div>
       <div style={{background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:14,padding:"14px 18px",marginBottom:20,textAlign:"left"}}>
         <div style={{fontSize:9,fontWeight:800,color:C.green,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>Reminder</div>
-        <div style={{fontSize:12,color:C.sub,lineHeight:1.8}}>📍 {venue?.name}<br/>⏰ {T("เริ่ม","Starts")} {slot?.time} · {T("มาก่อน 15 นาที","arrive 15 min early")}<br/>🔑 {T("โค้ดทีม","Team Code")}: <span style={{color:myTeamData?.color,fontWeight:900,fontFamily:"monospace"}}>{myTeamData?.code}</span></div>
+        <div style={{fontSize:12,color:C.sub,lineHeight:1.8}}>📍 {venue?.name}<br/>⏰ {T("เริ่ม","Starts at")} {slot?.time} · {T("มาก่อน 15 นาที","arrive 15 min early")}<br/>🔑 {T("โค้ดทีม","Team Code")}: <span style={{color:myTeamData?.color,fontWeight:900,fontFamily:"monospace"}}>{myTeamData?.code}</span></div>
       </div>
       <Btn ghost onClick={()=>setTab("profile")}>{T("ดู Player Profile","View Player Profile")}</Btn>
     </div>
@@ -1369,23 +1321,25 @@ export default function SquadHub() {
   /* ═══ LAYOUT ═══ */
   const mainTabs=["home","profile","leaderboard"];
   return (
-    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'DM Sans',system-ui,sans-serif",maxWidth:430,margin:"0 auto",position:"relative",backgroundImage:`radial-gradient(ellipse at 20% 20%,rgba(0,255,135,0.03) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(0,255,135,0.02) 0%,transparent 50%)`}}>
+    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'DM Sans',system-ui,sans-serif",maxWidth:430,margin:"0 auto",position:"relative"}}>
       {tab!=="register"&&(
-        <header style={{padding:"10px 18px",background:"rgba(4,12,8,0.97)",backdropFilter:"blur(24px)",borderBottom:`1px solid rgba(0,255,135,0.2)`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50,boxShadow:"0 2px 20px rgba(0,255,135,0.08)"}}>
-          {/* Logo แบบแนวนอนเต็ม */}
-          <div style={{height:32,borderRadius:8,overflow:"hidden",border:`1px solid rgba(0,255,135,0.25)`,boxShadow:"0 0 14px rgba(0,255,135,0.15)",flexShrink:0}}>
-            <img src={LOGO_URL} alt="SQUAD HUB" style={{height:32,width:"auto",objectFit:"cover",display:"block"}}/>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <header style={{padding:"10px 18px",background:"rgba(7,14,11,0.97)",backdropFilter:"blur(24px)",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50}}>
+          {/* Logo แบบแนวนอน คมชัด จาก webapp.png */}
+          <img
+            src={LOGO_BAR_URL}
+            alt="SQUAD HUB"
+            style={{height:34,width:"auto",objectFit:"contain",display:"block"}}
+          />
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
             {/* Lang Toggle */}
             <button onClick={()=>setLang(l=>l==="th"?"en":"th")}
-              style={{padding:"4px 10px",borderRadius:6,border:`1px solid rgba(0,255,135,0.3)`,background:"rgba(0,255,135,0.07)",cursor:"pointer",fontSize:10,fontWeight:900,color:C.green,letterSpacing:1}}>
+              style={{padding:"3px 9px",borderRadius:6,border:`1px solid ${C.borderHi}`,background:C.greenDim,cursor:"pointer",fontSize:10,fontWeight:900,color:C.green,letterSpacing:1}}>
               {lang==="th"?"EN":"TH"}
             </button>
             {player&&<Tag color={C.green} sm>LV.{player.level}</Tag>}
-            <button style={{position:"relative",background:"rgba(0,255,135,0.06)",border:`1px solid rgba(0,255,135,0.2)`,borderRadius:8,cursor:"pointer",padding:"6px 8px",color:C.green}}>
-              <Bell size={16}/>
-              <div style={{position:"absolute",top:4,right:4,width:5,height:5,background:C.green,borderRadius:"50%",border:`1.5px solid ${C.bg}`,boxShadow:`0 0 4px ${C.green}`}}/>
+            <button style={{position:"relative",background:"none",border:"none",cursor:"pointer",padding:5,color:C.sub}}>
+              <Bell size={17}/>
+              <div style={{position:"absolute",top:4,right:4,width:5,height:5,background:C.green,borderRadius:"50%",border:`1.5px solid ${C.bg}`}}/>
             </button>
           </div>
         </header>
@@ -1403,17 +1357,17 @@ export default function SquadHub() {
       </main>
 
       {mainTabs.includes(tab)&&(
-        <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:"rgba(4,12,8,0.97)",backdropFilter:"blur(24px)",borderTop:`1px solid rgba(0,255,135,0.2)`,padding:"10px 32px 22px",display:"flex",justifyContent:"space-around",alignItems:"center",zIndex:50,boxShadow:"0 -4px 20px rgba(0,255,135,0.08)"}}>
+        <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:"rgba(7,14,11,0.97)",backdropFilter:"blur(24px)",borderTop:`1px solid ${C.border}`,padding:"10px 32px 22px",display:"flex",justifyContent:"space-around",alignItems:"center",zIndex:50}}>
           <button onClick={()=>setTab("profile")} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer"}}>
-            <User size={20} color={tab==="profile"?C.green:C.sub} style={tab==="profile"?{filter:`drop-shadow(0 0 4px ${C.green})`}:{}}/>
-            <span style={{fontSize:8,fontWeight:800,letterSpacing:1.5,textTransform:"uppercase",color:tab==="profile"?C.green:C.sub}}>{tab==="profile"&&<span style={{marginRight:2}}>▶</span>}Profile</span>
+            <User size={20} color={tab==="profile"?C.green:C.sub}/>
+            <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:tab==="profile"?C.green:C.sub}}>Profile</span>
           </button>
-          <button onClick={()=>setTab("home")} style={{width:50,height:50,borderRadius:10,background:`linear-gradient(135deg,#00c96b,${C.green})`,border:`1px solid ${C.green}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 0 20px rgba(0,255,135,0.4), 0 4px 15px rgba(0,255,135,0.3)`,marginBottom:6}}>
-            <Search size={20} color="#001a0d"/>
+          <button onClick={()=>setTab("home")} style={{width:46,height:46,borderRadius:"50%",background:`linear-gradient(135deg,#059669,${C.green})`,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 6px 20px rgba(16,185,129,0.28)",marginBottom:6}}>
+            <Search size={19} color="#fff"/>
           </button>
           <button onClick={()=>setTab("leaderboard")} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer"}}>
-            <Trophy size={20} color={tab==="leaderboard"?C.green:C.sub} style={tab==="leaderboard"?{filter:`drop-shadow(0 0 4px ${C.green})`}:{}}/>
-            <span style={{fontSize:8,fontWeight:800,letterSpacing:1.5,textTransform:"uppercase",color:tab==="leaderboard"?C.green:C.sub}}>{tab==="leaderboard"&&<span style={{marginRight:2}}>▶</span>}Rank</span>
+            <Trophy size={20} color={tab==="leaderboard"?C.green:C.sub}/>
+            <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:tab==="leaderboard"?C.green:C.sub}}>Rank</span>
           </button>
         </nav>
       )}
