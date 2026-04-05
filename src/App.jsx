@@ -127,19 +127,15 @@ const TierPhotoCard = ({photo,name,tier,position,onUpload,size=160}) => {
   const [s0,s1,s2] = tc.stops;
   const gradId = `tier-grad-${tier}`;
   const glowId = `tier-glow-${tier}`;
-  const W = size, H = Math.round(size*1.32);
-  const r = 10; // corner radius
-  const cut = 18; // bottom corner cut size
-  /* Custom shape: rect with cut bottom-left and bottom-right corners */
-  const clipPath = `polygon(${r}px 0%, ${W-r}px 0%, ${W}px ${r}px, ${W}px ${H-cut}px, ${W-cut}px ${H}px, ${cut}px ${H}px, 0% ${H-cut}px, 0% ${r}px)`;
+  const W = size, H = Math.round(size*1.4);
 
   return (
-    <div style={{position:"relative",width:W,height:H,flexShrink:0}}>
-      {/* Glow */}
-      <div style={{position:"absolute",inset:-8,background:`radial-gradient(ellipse,${tc.glow}28 0%,transparent 70%)`,borderRadius:16,zIndex:0}}/>
+    <div style={{position:"relative",width:W,height:H,flexShrink:0,cursor:"pointer"}} onClick={onUpload}>
+      {/* Outer glow */}
+      <div style={{position:"absolute",inset:-6,background:`radial-gradient(ellipse,${tc.glow}30 0%,transparent 70%)`,borderRadius:14,zIndex:0}}/>
 
-      {/* Tier border frame using SVG */}
-      <svg width={W} height={H} style={{position:"absolute",inset:0,zIndex:2}} viewBox={`0 0 ${W} ${H}`}>
+      {/* SVG border frame */}
+      <svg width={W} height={H} style={{position:"absolute",inset:0,zIndex:3}} viewBox={`0 0 ${W} ${H}`}>
         <defs>
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor={s0}/>
@@ -147,49 +143,52 @@ const TierPhotoCard = ({photo,name,tier,position,onUpload,size=160}) => {
             <stop offset="100%" stopColor={s2}/>
           </linearGradient>
           <filter id={glowId}>
-            <feGaussianBlur stdDeviation="2" result="blur"/>
+            <feGaussianBlur stdDeviation="2.5" result="blur"/>
             <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>
         </defs>
-        {/* Outer frame path */}
-        <path
-          d={`M${r} 2 L${W-r} 2 Q${W-2} 2 ${W-2} ${r} L${W-2} ${H-cut} L${W-cut} ${H-2} L${cut} ${H-2} L2 ${H-cut} L2 ${r} Q2 2 ${r} 2Z`}
-          fill="none" stroke={`url(#${gradId})`} strokeWidth="2.5" filter={`url(#${glowId})`}
-        />
-        {/* Corner accent dots */}
-        <circle cx={W/2} cy="2" r="3" fill={s1} opacity=".8"/>
-        {/* Logo badge center-top */}
-        <rect x={W/2-18} y={-1} width="36" height="14" rx="7" fill={C.bg2}/>
-        <text x={W/2} y="10" textAnchor="middle" fontSize="6" fontWeight="900" fill={s1} fontFamily="system-ui" letterSpacing="1">SQUAD HUB</text>
-        {/* Tier label bottom */}
-        <rect x={W/2-20} y={H-14} width="40" height="12" rx="6" fill={C.bg2}/>
-        <text x={W/2} y={H-5} textAnchor="middle" fontSize="6.5" fontWeight="900" fill={s1} fontFamily="system-ui" letterSpacing=".8">{tc.label.toUpperCase()}</text>
+        {/* Main border */}
+        <rect x="2" y="2" width={W-4} height={H-4} rx="10"
+          fill="none" stroke={`url(#${gradId})`} strokeWidth="2.5"
+          filter={`url(#${glowId})`}/>
+        {/* Corner accents — top left */}
+        <line x1="2" y1="18" x2="2" y2="2" stroke={s1} strokeWidth="3" strokeLinecap="round"/>
+        <line x1="2" y1="2" x2="18" y2="2" stroke={s1} strokeWidth="3" strokeLinecap="round"/>
+        {/* Corner accents — top right */}
+        <line x1={W-2} y1="18" x2={W-2} y2="2" stroke={s1} strokeWidth="3" strokeLinecap="round"/>
+        <line x1={W-2} y1="2" x2={W-18} y2="2" stroke={s1} strokeWidth="3" strokeLinecap="round"/>
+        {/* Corner accents — bottom left */}
+        <line x1="2" y1={H-18} x2="2" y2={H-2} stroke={s1} strokeWidth="3" strokeLinecap="round"/>
+        <line x1="2" y1={H-2} x2="18" y2={H-2} stroke={s1} strokeWidth="3" strokeLinecap="round"/>
+        {/* Corner accents — bottom right */}
+        <line x1={W-2} y1={H-18} x2={W-2} y2={H-2} stroke={s1} strokeWidth="3" strokeLinecap="round"/>
+        <line x1={W-2} y1={H-2} x2={W-18} y2={H-2} stroke={s1} strokeWidth="3" strokeLinecap="round"/>
+        {/* Tier label bottom center */}
+        <rect x={W/2-22} y={H-16} width="44" height="13" rx="6" fill="rgba(0,0,0,0.75)"/>
+        <text x={W/2} y={H-6} textAnchor="middle" fontSize="7" fontWeight="900"
+          fill={s1} fontFamily="system-ui" letterSpacing="1.5">{tc.label.toUpperCase()}</text>
       </svg>
 
-      {/* Photo area */}
-      <div style={{position:"absolute",inset:4,clipPath,overflow:"hidden",background:`linear-gradient(160deg,rgba(16,185,129,0.12),rgba(7,14,11,0.8))`,zIndex:1}}>
+      {/* Photo area — เต็มกรอบ */}
+      <div style={{position:"absolute",inset:4,borderRadius:8,overflow:"hidden",zIndex:1,background:`linear-gradient(160deg,${PC[position]||C.green}20,rgba(5,15,10,0.9))`}}>
         {photo
-          ? <img src={photo} alt={name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+          ? <img src={photo} alt={name} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
           : (
-            <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,background:`linear-gradient(160deg,${PC[position]||C.green}18,rgba(7,14,11,0.6))`}}>
-              <div style={{fontSize:44,fontWeight:900,color:PC[position]||C.green,opacity:.7}}>{name[0]?.toUpperCase()}</div>
-              <div style={{fontSize:9,color:C.sub,letterSpacing:1}}>tap to upload</div>
+            <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8}}>
+              <div style={{fontSize:size*0.4,fontWeight:900,color:PC[position]||C.green,lineHeight:1,textShadow:`0 0 20px ${PC[position]||C.green}60`}}>{name[0]?.toUpperCase()}</div>
+              <div style={{fontSize:8,color:C.sub,letterSpacing:1.5,textTransform:"uppercase"}}>tap to upload</div>
             </div>
           )
         }
-        {/* Position badge overlay */}
-        <div style={{position:"absolute",top:8,left:8,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(4px)",borderRadius:6,padding:"3px 7px",border:`1px solid ${PC[position]||C.green}50`}}>
+        {/* Position badge */}
+        <div style={{position:"absolute",top:7,left:7,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(6px)",borderRadius:5,padding:"3px 8px",border:`1px solid ${PC[position]||C.green}60`}}>
           <span style={{fontSize:8,fontWeight:900,color:PC[position]||C.green,letterSpacing:1}}>{position}</span>
         </div>
+        {/* Camera icon overlay */}
+        <div style={{position:"absolute",bottom:7,right:7,width:22,height:22,borderRadius:"50%",background:`linear-gradient(135deg,${s0},${s1})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 2px 8px ${tc.glow}60`}}>
+          <Camera size={10} color="#fff"/>
+        </div>
       </div>
-
-      {/* Upload button */}
-      <button
-        onClick={onUpload}
-        style={{position:"absolute",bottom:16,right:-8,width:30,height:30,borderRadius:"50%",background:`linear-gradient(135deg,#059669,${C.green})`,border:`2px solid ${C.bg}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3,boxShadow:"0 2px 8px rgba(16,185,129,0.4)"}}
-      >
-        <Camera size={12} color="#fff"/>
-      </button>
     </div>
   );
 };
@@ -919,11 +918,6 @@ export default function SquadHub() {
               </div>
             </div>
           </div>
-          <div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
-            <button onClick={()=>fileRef.current?.click()} style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,0.04)",border:`1px dashed ${C.border}`,borderRadius:8,padding:"6px 10px",cursor:"pointer",color:C.sub,fontSize:10,fontWeight:700}}>
-              <Upload size={11} color={C.sub}/> เปลี่ยนรูปโปรไฟล์ (LINE หรืออัปโหลดใหม่)
-            </button>
-          </div>
           <div style={{padding:"10px 20px 0",position:"relative",zIndex:2}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
               <span style={{fontSize:9,fontWeight:700,color:C.sub,letterSpacing:1,textTransform:"uppercase"}}>XP Progress</span>
@@ -1346,35 +1340,52 @@ export default function SquadHub() {
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'DM Sans',system-ui,sans-serif",maxWidth:430,margin:"0 auto",position:"relative",backgroundImage:`radial-gradient(ellipse at 20% 20%,rgba(0,255,135,0.03) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(0,255,135,0.02) 0%,transparent 50%)`}}>
       {tab!=="register"&&(
         <header style={{padding:"10px 18px",background:"rgba(5,10,8,0.97)",backdropFilter:"blur(24px)",borderBottom:`1px solid rgba(16,185,129,0.14)`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50,boxShadow:"0 2px 16px rgba(0,0,0,0.3)"}}>
-          {/* Logo — SVG Hexagon S */}
+          {/* Logo — SVG Premium S */}
           <div style={{display:"flex",alignItems:"center",gap:9,flexShrink:0}}>
-            <svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="32" height="32" viewBox="0 0 100 100" fill="none">
               <defs>
-                <linearGradient id="hx-outer" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#10d484" stopOpacity="0.9"/>
-                  <stop offset="100%" stopColor="#059669" stopOpacity="0.7"/>
+                <linearGradient id="sq-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#0a2a18"/>
+                  <stop offset="100%" stopColor="#051510"/>
                 </linearGradient>
-                <linearGradient id="hx-s" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#e8fff4"/>
-                  <stop offset="100%" stopColor="#a0f0d0"/>
+                <linearGradient id="sq-border" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#10d484"/>
+                  <stop offset="50%" stopColor="#34d399"/>
+                  <stop offset="100%" stopColor="#059669"/>
                 </linearGradient>
-                <filter id="hx-glow">
-                  <feGaussianBlur stdDeviation="2" result="blur"/>
+                <linearGradient id="sq-s" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#ffffff"/>
+                  <stop offset="100%" stopColor="#10d484"/>
+                </linearGradient>
+                <filter id="sq-glow">
+                  <feGaussianBlur stdDeviation="3" result="blur"/>
                   <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
                 </filter>
               </defs>
-              {/* Outer hexagon */}
-              <polygon points="50,4 93,27 93,73 50,96 7,73 7,27"
-                fill="url(#hx-outer)" filter="url(#hx-glow)" opacity="0.85"/>
-              {/* Inner hexagon border */}
-              <polygon points="50,12 86,32 86,68 50,88 14,68 14,32"
-                fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
-              {/* S letter */}
-              <path d="M36 36 Q36 28 50 28 Q64 28 64 38 Q64 48 50 50 Q36 52 36 62 Q36 72 50 72 Q64 72 64 64"
-                stroke="url(#hx-s)" strokeWidth="9" strokeLinecap="round" fill="none"/>
+              {/* Background */}
+              <rect x="4" y="4" width="92" height="92" rx="18" fill="url(#sq-bg)"/>
+              {/* Border */}
+              <rect x="4" y="4" width="92" height="92" rx="18"
+                fill="none" stroke="url(#sq-border)" strokeWidth="3" filter="url(#sq-glow)" opacity="0.9"/>
+              {/* Corner accents */}
+              <line x1="4" y1="24" x2="4" y2="4" stroke="#10d484" strokeWidth="4" strokeLinecap="round"/>
+              <line x1="4" y1="4" x2="24" y2="4" stroke="#10d484" strokeWidth="4" strokeLinecap="round"/>
+              <line x1="96" y1="24" x2="96" y2="4" stroke="#10d484" strokeWidth="4" strokeLinecap="round"/>
+              <line x1="96" y1="4" x2="76" y2="4" stroke="#10d484" strokeWidth="4" strokeLinecap="round"/>
+              <line x1="4" y1="76" x2="4" y2="96" stroke="#10d484" strokeWidth="4" strokeLinecap="round"/>
+              <line x1="4" y1="96" x2="24" y2="96" stroke="#10d484" strokeWidth="4" strokeLinecap="round"/>
+              <line x1="96" y1="76" x2="96" y2="96" stroke="#10d484" strokeWidth="4" strokeLinecap="round"/>
+              <line x1="96" y1="96" x2="76" y2="96" stroke="#10d484" strokeWidth="4" strokeLinecap="round"/>
+              {/* S letterform */}
+              <path d="M32 34 Q32 24 50 24 Q68 24 68 36 Q68 46 50 50 Q32 54 32 66 Q32 78 50 78 Q68 78 68 68"
+                stroke="url(#sq-s)" strokeWidth="10" strokeLinecap="round" fill="none"
+                filter="url(#sq-glow)"/>
             </svg>
-            {/* Wordmark — ตรง ไม่เอียง */}
-            <span style={{fontSize:16,fontWeight:900,letterSpacing:.5,color:C.text}}>SQUAD<span style={{color:"#10d484"}}>HUB</span></span>
+            {/* Wordmark */}
+            <div style={{lineHeight:1}}>
+              <div style={{fontSize:15,fontWeight:900,letterSpacing:1.5,color:C.text}}>SQUAD<span style={{color:"#10d484"}}>HUB</span></div>
+              <div style={{fontSize:7,fontWeight:700,letterSpacing:2.5,color:C.sub,textTransform:"uppercase",marginTop:1}}>Football Community</div>
+            </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             {/* Lang Toggle */}
