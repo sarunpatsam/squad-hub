@@ -1258,21 +1258,11 @@ export default function SquadHub() {
           </div>
 
           {/* QR Frame */}
-          <div style={{display:"flex",justifyContent:"center",padding:"0 24px",marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"center",padding:"0 24px",marginBottom:24}}>
             <div style={{position:"relative",padding:3,borderRadius:20,background:`linear-gradient(135deg,${C.green},#059669,${C.green})`,boxShadow:`0 8px 32px rgba(16,185,129,0.25)`}}>
               <div style={{background:"#fff",borderRadius:17,padding:14}}>
                 <img src={qrURL} alt="PromptPay QR" width={190} height={190} style={{display:"block",borderRadius:8}}/>
               </div>
-            </div>
-          </div>
-
-          {/* Account name */}
-          <div style={{textAlign:"center",padding:"0 20px 24px"}}>
-            <div style={{fontSize:9,color:C.sub,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>ชื่อบัญชี</div>
-            <div style={{fontSize:22,fontWeight:900,color:C.text,letterSpacing:1}}>SQUAD HUB</div>
-            <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:6,background:"rgba(16,185,129,0.08)",border:`1px solid ${C.borderHi}`,borderRadius:99,padding:"4px 14px"}}>
-              <div style={{width:6,height:6,borderRadius:"50%",background:C.green,boxShadow:`0 0 6px ${C.green}`}}/>
-              <span style={{fontSize:10,fontWeight:700,color:C.green}}>PromptPay · พร้อมเพย์</span>
             </div>
           </div>
         </div>
@@ -1356,12 +1346,35 @@ export default function SquadHub() {
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'DM Sans',system-ui,sans-serif",maxWidth:430,margin:"0 auto",position:"relative",backgroundImage:`radial-gradient(ellipse at 20% 20%,rgba(0,255,135,0.03) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(0,255,135,0.02) 0%,transparent 50%)`}}>
       {tab!=="register"&&(
         <header style={{padding:"10px 18px",background:"rgba(5,10,8,0.97)",backdropFilter:"blur(24px)",borderBottom:`1px solid rgba(16,185,129,0.14)`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50,boxShadow:"0 2px 16px rgba(0,0,0,0.3)"}}>
-          {/* Wordmark */}
-          <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
-            <div style={{width:28,height:28,borderRadius:7,background:"rgba(16,185,129,0.12)",border:"1px solid rgba(16,185,129,0.25)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <span style={{fontSize:14,fontWeight:900,color:"#10d484",fontStyle:"italic",lineHeight:1}}>S</span>
-            </div>
-            <span style={{fontSize:16,fontWeight:900,letterSpacing:.5,color:C.text,fontStyle:"italic"}}>SQUAD<span style={{color:"#10d484"}}>HUB</span></span>
+          {/* Logo — SVG Hexagon S */}
+          <div style={{display:"flex",alignItems:"center",gap:9,flexShrink:0}}>
+            <svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="hx-outer" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#10d484" stopOpacity="0.9"/>
+                  <stop offset="100%" stopColor="#059669" stopOpacity="0.7"/>
+                </linearGradient>
+                <linearGradient id="hx-s" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#e8fff4"/>
+                  <stop offset="100%" stopColor="#a0f0d0"/>
+                </linearGradient>
+                <filter id="hx-glow">
+                  <feGaussianBlur stdDeviation="2" result="blur"/>
+                  <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+              {/* Outer hexagon */}
+              <polygon points="50,4 93,27 93,73 50,96 7,73 7,27"
+                fill="url(#hx-outer)" filter="url(#hx-glow)" opacity="0.85"/>
+              {/* Inner hexagon border */}
+              <polygon points="50,12 86,32 86,68 50,88 14,68 14,32"
+                fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
+              {/* S letter */}
+              <path d="M36 36 Q36 28 50 28 Q64 28 64 38 Q64 48 50 50 Q36 52 36 62 Q36 72 50 72 Q64 72 64 64"
+                stroke="url(#hx-s)" strokeWidth="9" strokeLinecap="round" fill="none"/>
+            </svg>
+            {/* Wordmark — ตรง ไม่เอียง */}
+            <span style={{fontSize:16,fontWeight:900,letterSpacing:.5,color:C.text}}>SQUAD<span style={{color:"#10d484"}}>HUB</span></span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             {/* Lang Toggle */}
