@@ -1332,12 +1332,18 @@ export default function SquadHub() {
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'DM Sans',system-ui,sans-serif",maxWidth:430,margin:"0 auto",position:"relative",backgroundImage:`radial-gradient(ellipse at 20% 20%,rgba(0,255,135,0.03) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(0,255,135,0.02) 0%,transparent 50%)`}}>
       {tab!=="register"&&(
         <header style={{padding:"10px 18px",background:"rgba(5,10,8,0.97)",backdropFilter:"blur(24px)",borderBottom:`1px solid rgba(16,185,129,0.14)`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50,boxShadow:"0 2px 16px rgba(0,0,0,0.3)"}}>
-          {/* Wordmark only — premium */}
-          <div style={{display:"flex",flexDirection:"column",justifyContent:"center",flexShrink:0}}>
-            <div style={{fontSize:18,fontWeight:900,letterSpacing:2,color:C.text,lineHeight:1,fontStyle:"italic"}}>
-              SQUAD<span style={{color:"#10d484",textShadow:"0 0 12px rgba(16,212,132,0.4)"}}>HUB</span>
+          {/* Wordmark — style 2: gradient line + SQUAD + HUB box */}
+          <div style={{display:"flex",alignItems:"center",gap:11,flexShrink:0}}>
+            <div style={{width:1.5,height:30,background:"linear-gradient(180deg,#10d484 0%,rgba(16,212,132,0.05) 100%)",borderRadius:2,flexShrink:0}}/>
+            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                <span style={{fontSize:17,fontWeight:900,letterSpacing:1.5,color:"#e8fff4",lineHeight:1}}>SQUAD</span>
+                <div style={{padding:"2px 8px",border:"1px solid rgba(16,212,132,0.55)",borderRadius:3}}>
+                  <span style={{fontSize:17,fontWeight:900,letterSpacing:1.5,color:"#10d484",lineHeight:1}}>HUB</span>
+                </div>
+              </div>
+              <div style={{fontSize:6.5,fontWeight:600,letterSpacing:4,color:"#2e5940",textTransform:"uppercase"}}>Football Community</div>
             </div>
-            <div style={{fontSize:7.5,fontWeight:600,letterSpacing:3.5,color:C.sub,textTransform:"uppercase",marginTop:2.5,paddingLeft:1}}>Football Community</div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             {/* Lang Toggle */}
