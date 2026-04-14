@@ -529,77 +529,84 @@ export default function SquadHub() {
         // Init LIFF
         await window.liff.init({ liffId: LIFF_ID });
 
-        // ถ้า login แล้ว ดึง profile
-        if(window.liff.isLoggedIn()) {
-          const profile = await window.liff.getProfile();
-          const lineUserId = profile.userId;
-
-          // เช็คว่ามีใน DB ไหม
-          const { data } = await supabase
-            .from("players")
-            .select("*")
-            .eq("line_user_id", lineUserId)
-            .single();
-
-          if(data) {
-            // มีแล้ว → auto-login
-            localStorage.setItem("squad_player_id", data.id);
-            localStorage.setItem("squad_line_uid", lineUserId);
-            const stats = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
-            const ni = NICKS[data.position]?.[data.playstyle];
-            setPlayer({
-              name:      data.display_name,
-              id:        `SQ-${data.id}`,
-              dbId:      data.id,
-              lineUserId,
-              lineAvatar: profile.pictureUrl,
-              position:  data.position || "MF",
-              playstyle: data.playstyle || "Playmaker",
-              nick:      data.nickname || ni?.nick || "",
-              tags:      ni?.tags || [],
-              tier:      data.tier || "Bronze",
-              reliability: data.reliability_score || 100,
-              level:     data.level || 1,
-              xp:        data.xp || 0,
-              stats,
-              ovr:       OVR(stats),
-              matchStats:{
-                matches: data.matches_played || 0,
-                wins:    data.wins || 0,
-                losses:  data.losses || 0,
-                mvp:     data.mvp_count || 0,
-                goals:   data.goals || 0,
-                assists: data.assists || 0,
-              },
-              form: [],
-            });
-            setTab("home");
-          } else {
-            // ยังไม่มี → ไปหน้า register พร้อม LINE profile
-            localStorage.setItem("squad_line_uid", lineUserId);
-            localStorage.setItem("squad_line_name", profile.displayName);
-            localStorage.setItem("squad_line_avatar", profile.pictureUrl || "");
+        // ถ้าอยู่ใน LINE browser แต่ยังไม่ login → login เลย
+        if(!window.liff.isLoggedIn()) {
+          // ถ้าเปิดใน LINE app ให้ login อัตโนมัติ
+          if(window.liff.isInClient()) {
+            window.liff.login();
+            return;
           }
-        } else {
-          // ยังไม่ได้ login LINE → fallback localStorage เดิม
+          // ถ้าเปิดใน browser ปกติ → fallback localStorage
           const savedId = localStorage.getItem("squad_player_id");
-          if(!savedId || player) return;
-          const { data, error } = await supabase
-            .from("players").select("*").eq("id", savedId).single();
-          if(error || !data) return;
+          if(savedId) {
+            const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
+            if(data) {
+              const stats = SM[data.position]?.[data.playstyle]||{pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
+              const ni = NICKS[data.position]?.[data.playstyle];
+              setPlayer({
+                name:data.display_name,id:`SQ-${data.id}`,dbId:data.id,
+                position:data.position||"MF",playstyle:data.playstyle||"Playmaker",
+                nick:data.nickname||ni?.nick||"",tags:ni?.tags||[],
+                tier:data.tier||"Bronze",reliability:data.reliability_score||100,
+                level:data.level||1,xp:data.xp||0,stats,ovr:OVR(stats),
+                matchStats:{matches:data.matches_played||0,wins:data.wins||0,losses:data.losses||0,mvp:data.mvp_count||0,goals:data.goals||0,assists:data.assists||0},
+                form:[],
+              });
+              setTab("home");
+            }
+          }
+          return;
+        }
+
+        // Login แล้ว → ดึง profile
+        const profile = await window.liff.getProfile();
+        const lineUserId = profile.userId;
+
+        // เช็คว่ามีใน DB ไหม — ใช้ line_user_id เป็น key หลัก
+        const { data } = await supabase
+          .from("players")
+          .select("*")
+          .eq("line_user_id", lineUserId)
+          .single();
+
+        if(data) {
+          // มีแล้ว → auto-login ไม่ต้อง register ซ้ำ
+          localStorage.setItem("squad_player_id", data.id);
+          localStorage.setItem("squad_line_uid", lineUserId);
           const stats = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
           const ni = NICKS[data.position]?.[data.playstyle];
           setPlayer({
-            name: data.display_name, id: `SQ-${data.id}`, dbId: data.id,
-            position: data.position||"MF", playstyle: data.playstyle||"Playmaker",
-            nick: data.nickname||ni?.nick||"", tags: ni?.tags||[],
-            tier: data.tier||"Bronze", reliability: data.reliability_score||100,
-            level: data.level||1, xp: data.xp||0,
-            stats, ovr: OVR(stats),
-            matchStats:{ matches:data.matches_played||0, wins:data.wins||0, losses:data.losses||0, mvp:data.mvp_count||0, goals:data.goals||0, assists:data.assists||0 },
-            form:[],
+            name:      data.display_name,
+            id:        `SQ-${data.id}`,
+            dbId:      data.id,
+            lineUserId,
+            lineAvatar: profile.pictureUrl,
+            position:  data.position || "MF",
+            playstyle: data.playstyle || "Playmaker",
+            nick:      data.nickname || ni?.nick || "",
+            tags:      ni?.tags || [],
+            tier:      data.tier || "Bronze",
+            reliability: data.reliability_score || 100,
+            level:     data.level || 1,
+            xp:        data.xp || 0,
+            stats,
+            ovr:       OVR(stats),
+            matchStats:{
+              matches: data.matches_played || 0,
+              wins:    data.wins || 0,
+              losses:  data.losses || 0,
+              mvp:     data.mvp_count || 0,
+              goals:   data.goals || 0,
+              assists: data.assists || 0,
+            },
+            form: [],
           });
           setTab("home");
+        } else {
+          // ยังไม่มี → register พร้อม LINE profile
+          localStorage.setItem("squad_line_uid", lineUserId);
+          localStorage.setItem("squad_line_name", profile.displayName);
+          localStorage.setItem("squad_line_avatar", profile.pictureUrl || "");
         }
       } catch(e) {
         console.error("LIFF error:", e);
