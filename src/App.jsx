@@ -619,9 +619,9 @@ export default function SquadHub() {
         console.error("LIFF error:", e);
         // fallback localStorage
         const savedId = localStorage.getItem("squad_player_id");
-        if(!savedId || player) return;
+        if(!savedId || player) { setLoading(false); return; }
         const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
-        if(data) setLoading(false); setTab("home");
+        if(data) { setLoading(false); setTab("home"); } else { setLoading(false); }
       }
     })();
   },[]);
