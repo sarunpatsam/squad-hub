@@ -102,7 +102,12 @@ const Tag = ({children,color=C.green,sm}) => (
   <span style={{fontSize:sm?8:9,fontWeight:800,letterSpacing:1,padding:sm?"2px 8px":"3px 11px",borderRadius:4,background:`${color}18`,color,textTransform:"uppercase",display:"inline-flex",alignItems:"center",gap:3,border:`1px solid ${color}40`,boxShadow:`0 0 8px ${color}20`}}>{children}</span>
 );
 const Btn = ({children,onClick,ghost,disabled,style={}}) => (
-  <button onClick={onClick} disabled={disabled} style={{width:"100%",padding:"14px 20px",borderRadius:8,fontSize:13,fontWeight:900,letterSpacing:1,border:ghost?`1.5px solid ${C.border}`:`1px solid ${C.green}`,cursor:disabled?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:ghost?"transparent":`linear-gradient(135deg,#00c96b,${C.green})`,color:ghost?C.sub:"#001a0d",boxShadow:ghost?"none":`0 0 20px rgba(0,255,135,0.3), 0 4px 15px rgba(0,255,135,0.2)`,opacity:disabled?.4:1,transition:"all .2s",textTransform:"uppercase",...style}}>{children}</button>
+  <button
+    onClick={disabled?undefined:onClick}
+    onTouchStart={disabled?(e=>e.preventDefault()):undefined}
+    disabled={disabled}
+    style={{width:"100%",padding:"14px 20px",borderRadius:8,fontSize:13,fontWeight:900,letterSpacing:1,border:ghost?`1.5px solid ${C.border}`:`1px solid ${C.green}`,cursor:disabled?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:ghost?"transparent":`linear-gradient(135deg,#00c96b,${C.green})`,color:ghost?C.sub:"#001a0d",boxShadow:ghost?"none":`0 0 20px rgba(0,255,135,0.3), 0 4px 15px rgba(0,255,135,0.2)`,opacity:disabled?.4:1,transition:"all .2s",textTransform:"uppercase",pointerEvents:disabled?"none":"auto",...style}}
+  >{children}</button>
 );
 const BackBtn = ({onClick}) => (
   <button onClick={onClick} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:800,color:C.sub,background:"none",border:"none",cursor:"pointer",padding:"0 0 16px",letterSpacing:1,textTransform:"uppercase"}}><ArrowLeft size={13}/>Back</button>
@@ -494,8 +499,9 @@ export default function SquadHub() {
   const [regStep,setRegStep] = useState(1);
   const [regData,setRegData] = useState({nickname:"",position:"",playstyle:""});
   const [payStep,setPayStep] = useState("summary");
-  const [lang,setLang]       = useState("th"); // "th" | "en"
+  const [lang,setLang]       = useState("th");
   const T = (th,en) => lang==="th" ? th : en;
+  const [loading,setLoading] = useState(true); // splash screen state
   const [player,setPlayer]   = useState(null);
   const [profilePhoto,setProfilePhoto] = useState(null);
   const [venue,setVenue]     = useState(null);
@@ -552,7 +558,7 @@ export default function SquadHub() {
                 matchStats:{matches:data.matches_played||0,wins:data.wins||0,losses:data.losses||0,mvp:data.mvp_count||0,goals:data.goals||0,assists:data.assists||0},
                 form:[],
               });
-              setTab("home");
+              setLoading(false); setTab("home");
             }
           }
           return;
@@ -601,9 +607,10 @@ export default function SquadHub() {
             },
             form: [],
           });
-          setTab("home");
+          setLoading(false); setTab("home");
         } else {
           // ยังไม่มี → register พร้อม LINE profile
+          setLoading(false);
           localStorage.setItem("squad_line_uid", lineUserId);
           localStorage.setItem("squad_line_name", profile.displayName);
           localStorage.setItem("squad_line_avatar", profile.pictureUrl || "");
@@ -614,7 +621,7 @@ export default function SquadHub() {
         const savedId = localStorage.getItem("squad_player_id");
         if(!savedId || player) return;
         const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
-        if(data) setTab("home");
+        if(data) setLoading(false); setTab("home");
       }
     })();
   },[]);
@@ -1363,6 +1370,51 @@ export default function SquadHub() {
 
   /* ═══ LAYOUT ═══ */
   const mainTabs=["home","profile","leaderboard"];
+
+  /* ── SPLASH SCREEN V3 ── */
+  if(loading) return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans',system-ui,sans-serif",maxWidth:430,margin:"0 auto"}}>
+      <style>{`
+        @keyframes sq-pulse{0%,100%{opacity:0.35}50%{opacity:1}}
+        @keyframes sq-progress{0%{width:5%}60%{width:80%}85%{width:93%}100%{width:97%}}
+        @keyframes sq-fadein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+      `}</style>
+
+      {/* Logo */}
+      <div style={{marginBottom:20}}>
+        <div style={{width:140,borderRadius:14,overflow:"hidden",background:"#091510"}}>
+          <img src="https://i.postimg.cc/jSkNCWxY/squadhub003.png" alt="SQUAD HUB"
+            fetchpriority="high" loading="eager"
+            style={{width:140,display:"block",objectFit:"contain"}}/>
+        </div>
+      </div>
+
+      {/* Wordmark */}
+      <div style={{fontSize:22,fontWeight:900,letterSpacing:1,color:C.text,fontStyle:"italic",marginBottom:3}}>
+        SQUAD<span style={{color:C.green}}>HUB</span>
+      </div>
+      <div style={{fontSize:8,color:"#2e5940",letterSpacing:3.5,textTransform:"uppercase",marginBottom:44}}>
+        Football Community
+      </div>
+
+      {/* Welcome dot + text */}
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,animation:"sq-fadein 0.5s ease 0.3s both"}}>
+        <div style={{width:5,height:5,borderRadius:"50%",background:C.green,animation:"sq-pulse 1.5s ease infinite"}}/>
+        <div style={{fontSize:11,fontWeight:700,color:C.green,letterSpacing:2,textTransform:"uppercase"}}>
+          Welcome Back
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{width:160,height:2.5,background:"#0d1e14",borderRadius:99,overflow:"hidden",marginBottom:10}}>
+        <div style={{height:"100%",background:`linear-gradient(90deg,${C.green2||"#059669"},${C.green})`,borderRadius:99,animation:"sq-progress 2.5s ease forwards"}}/>
+      </div>
+      <div style={{fontSize:10,color:"#2e5940",letterSpacing:1.5,textTransform:"uppercase"}}>
+        Loading Player Profile
+      </div>
+    </div>
+  );
+
   return (
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'DM Sans',system-ui,sans-serif",maxWidth:430,margin:"0 auto",position:"relative",backgroundImage:`radial-gradient(ellipse at 20% 20%,rgba(0,255,135,0.03) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(0,255,135,0.02) 0%,transparent 50%)`}}>
       {tab!=="register"&&(
