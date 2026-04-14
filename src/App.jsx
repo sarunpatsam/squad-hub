@@ -666,12 +666,32 @@ export default function SquadHub() {
     const stats = SM[regData.position]?.[regData.playstyle]||{pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
     const ni = NICKS[regData.position]?.[regData.playstyle];
 
-    /* บันทึกลง Supabase — ครบทุก field */
+    /* ดึง LINE ID จาก LIFF โดยตรง — ไม่พึ่ง localStorage */
+    let lineUserId = localStorage.getItem("squad_line_uid");
+    let lineAvatar = localStorage.getItem("squad_line_avatar") || null;
+    let lineName   = localStorage.getItem("squad_line_name") || regData.nickname;
+
+    // ถ้ายังไม่มี LINE ID ใน localStorage → ดึงจาก LIFF ตรงๆ เลย
+    try {
+      if(!lineUserId && window.liff && window.liff.isLoggedIn()) {
+        const profile = await window.liff.getProfile();
+        lineUserId = profile.userId;
+        lineAvatar = profile.pictureUrl || null;
+        lineName   = profile.displayName || regData.nickname;
+        localStorage.setItem("squad_line_uid", lineUserId);
+        localStorage.setItem("squad_line_name", lineName);
+        localStorage.setItem("squad_line_avatar", lineAvatar || "");
+      }
+    } catch(e) {
+      console.error("LIFF getProfile error:", e);
+    }
+
+    // fallback สุดท้าย — ถ้าไม่มี LINE ID จริงๆ
+    if(!lineUserId) lineUserId = `guest_${Date.now()}`;
+
+    /* บันทึกลง Supabase */
     let dbId = null;
     try {
-      const lineUserId = localStorage.getItem("squad_line_uid") || `guest_${Date.now()}`;
-      const lineAvatar = localStorage.getItem("squad_line_avatar") || null;
-      const lineName   = localStorage.getItem("squad_line_name") || regData.nickname;
       const { data, error } = await supabase.from("players").insert({
         line_user_id:      lineUserId,
         display_name:      lineName,
@@ -694,7 +714,6 @@ export default function SquadHub() {
       if(error) console.error("Supabase insert error:", error);
       else dbId = data?.id;
 
-      /* บันทึก id ลง localStorage เพื่อ login ครั้งถัดไป */
       if(dbId) localStorage.setItem("squad_player_id", dbId);
 
     } catch(e) {
@@ -800,7 +819,16 @@ export default function SquadHub() {
   const renderRegister = () => (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",padding:"24px 20px 48px"}}>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",marginBottom:32}}>
-        <img src={LOGO_URL} alt="SQUAD HUB" style={{width:180,objectFit:"contain",borderRadius:16,marginBottom:10}}/>
+        <div style={{width:180,borderRadius:16,marginBottom:10,overflow:"hidden",background:"#091510",minHeight:180,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <img
+            src={LOGO_URL}
+            alt="SQUAD HUB"
+            fetchpriority="high"
+            loading="eager"
+            decoding="sync"
+            style={{width:180,objectFit:"contain",display:"block"}}
+          />
+        </div>
         <div style={{fontSize:9,color:C.sub,letterSpacing:2,textTransform:"uppercase"}}>Football Community</div>
       </div>
       <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:24}}>
