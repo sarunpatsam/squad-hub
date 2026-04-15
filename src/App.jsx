@@ -501,7 +501,7 @@ export default function SquadHub() {
   const [payStep,setPayStep] = useState("summary");
   const [lang,setLang]       = useState("th");
   const T = (th,en) => lang==="th" ? th : en;
-  const [loading,setLoading] = useState(true); // splash screen state
+  const [appLoading,setAppLoading] = useState(true); // splash screen state
   const [player,setPlayer]   = useState(null);
   const [profilePhoto,setProfilePhoto] = useState(null);
   const [venue,setVenue]     = useState(null);
@@ -558,7 +558,7 @@ export default function SquadHub() {
                 matchStats:{matches:data.matches_played||0,wins:data.wins||0,losses:data.losses||0,mvp:data.mvp_count||0,goals:data.goals||0,assists:data.assists||0},
                 form:[],
               });
-              setLoading(false); setTab("home");
+              setAppLoading(false); setTab("home");
             }
           }
           return;
@@ -607,10 +607,10 @@ export default function SquadHub() {
             },
             form: [],
           });
-          setLoading(false); setTab("home");
+          setAppLoading(false); setTab("home");
         } else {
           // ยังไม่มี → register พร้อม LINE profile
-          setLoading(false);
+          setAppLoading(false);
           localStorage.setItem("squad_line_uid", lineUserId);
           localStorage.setItem("squad_line_name", profile.displayName);
           localStorage.setItem("squad_line_avatar", profile.pictureUrl || "");
@@ -619,9 +619,9 @@ export default function SquadHub() {
         console.error("LIFF error:", e);
         // fallback localStorage
         const savedId = localStorage.getItem("squad_player_id");
-        if(!savedId || player) { setLoading(false); return; }
+        if(!savedId || player) { setAppLoading(false); return; }
         const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
-        if(data) { setLoading(false); setTab("home"); } else { setLoading(false); }
+        if(data) { setAppLoading(false); setTab("home"); } else { setAppLoading(false); }
       }
     })();
   },[]);
@@ -1372,7 +1372,7 @@ export default function SquadHub() {
   const mainTabs=["home","profile","leaderboard"];
 
   /* ── SPLASH SCREEN V3 ── */
-  if(loading) return (
+  if(appLoading) return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans',system-ui,sans-serif",maxWidth:430,margin:"0 auto"}}>
       <style dangerouslySetInnerHTML={{__html:`
         @keyframes sq-pulse{0%,100%{opacity:0.35}50%{opacity:1}}
