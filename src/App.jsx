@@ -1374,11 +1374,11 @@ export default function SquadHub() {
   /* ── SPLASH SCREEN V3 ── */
   if(loading) return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans',system-ui,sans-serif",maxWidth:430,margin:"0 auto"}}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{__html:`
         @keyframes sq-pulse{0%,100%{opacity:0.35}50%{opacity:1}}
         @keyframes sq-progress{0%{width:5%}60%{width:80%}85%{width:93%}100%{width:97%}}
         @keyframes sq-fadein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-      `}</style>
+      `}}/>
 
       {/* Logo */}
       <div style={{marginBottom:20}}>
