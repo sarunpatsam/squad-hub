@@ -558,6 +558,7 @@ export default function SquadHub() {
                 matchStats:{matches:data.matches_played||0,wins:data.wins||0,losses:data.losses||0,mvp:data.mvp_count||0,goals:data.goals||0,assists:data.assists||0},
                 form:[],
               });
+              if(data.avatar_url) setProfilePhoto(data.avatar_url);
               setAppLoading(false); setTab("home");
             }
           }
@@ -661,13 +662,31 @@ export default function SquadHub() {
     })();
   },[]);
 
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files?.[0];
-    if(!file)return;
-    const reader = new FileReader();
-    reader.onload = ev => setProfilePhoto(ev.target.result);
-    reader.readAsDataURL(file);
-  };
+const handlePhotoUpload = async (e) => {
+  const file = e.target.files?.[0];
+  if(!file || !player?.dbId) return;
+  const reader = new FileReader();
+  reader.onload = ev => setProfilePhoto(ev.target.result);
+  reader.readAsDataURL(file);
+  try {
+    const ext = file.name.split('.').pop();
+    const path = `avatars/${player.dbId}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('player-avatars')
+      .upload(path, file, { upsert: true });
+    if(upErr){ console.error("Upload error:", upErr); return; }
+    const { data: urlData } = supabase.storage
+      .from('player-avatars')
+      .getPublicUrl(path);
+    const publicUrl = urlData?.publicUrl;
+    await supabase.from('players')
+      .update({ avatar_url: publicUrl })
+      .eq('id', player.dbId);
+    setProfilePhoto(publicUrl);
+  } catch(err){
+    console.error("Photo upload failed:", err);
+  }
+};
 
   const finishRegister = async () => {
     const stats = SM[regData.position]?.[regData.playstyle]||{pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
@@ -701,7 +720,7 @@ export default function SquadHub() {
     try {
       const { data, error } = await supabase.from("players").insert({
         line_user_id:      lineUserId,
-        display_name:      lineName,
+        display_name:      regData.nickname,
         avatar_url:        lineAvatar,
         position:          regData.position,
         playstyle:         regData.playstyle,
