@@ -608,6 +608,7 @@ export default function SquadHub() {
             },
             form: [],
           });
+          if(data.avatar_url) setProfilePhoto(data.avatar_url);
           setAppLoading(false); setTab("home");
         } else {
           // ยังไม่มี → register พร้อม LINE profile
