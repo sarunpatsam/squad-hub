@@ -713,7 +713,7 @@ const handlePhotoUpload = async (e) => {
     }
 
     // fallback สุดท้าย — ถ้าไม่มี LINE ID จริงๆ
-    if(!lineUserId) lineUserId = `guest_${Date.now()}`;
+    if(!lineUserId) { setAppLoading(false); setTab("register"); return; }
 
     /* บันทึกลง Supabase */
     let dbId = null;
