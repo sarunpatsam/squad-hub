@@ -229,8 +229,9 @@ const StatGrid = ({goals,assists,matches,wins}) => {
 };
 
 /* ═══════════════ PITCH ═══════════════ */
-const FullPitch = ({teams,onJoin,myTeam}) => {
+const FullPitch = ({teams,onJoin,onPreview,myTeam}) => {
   const corners = [{id:"A",cx:80,cy:108},{id:"B",cx:240,cy:108},{id:"C",cx:80,cy:326},{id:"D",cx:240,cy:326}];
+  const posColor = {FW:"#ef4444",MF:"#8b5cf6",DF:"#3b82f6",GK:"#f59e0b"};
   return (
     <div style={{borderRadius:20,overflow:"hidden",border:"2px solid rgba(255,255,255,0.08)"}}>
       <svg viewBox="0 0 320 434" style={{width:"100%",display:"block",background:"linear-gradient(180deg,#0c3822 0%,#0f4a2a 20%,#0d3f25 50%,#0f4a2a 80%,#0c3822 100%)"}}>
@@ -249,9 +250,9 @@ const FullPitch = ({teams,onJoin,myTeam}) => {
           const team=teams.find(t=>t.id===corner.id);
           if(!team)return null;
           const filled=team.players.length, isFull=filled>=team.max, isMyT=myTeam===team.id;
-          const canJoin=!myTeam&&!isFull;
           return (
-            <g key={team.id} style={{cursor:canJoin?"pointer":"default"}} onClick={()=>canJoin&&onJoin&&onJoin(team.id)}>
+            <g key={team.id} style={{cursor:!isMyT&&!isFull?"pointer":"default"}}
+              onClick={()=>{ if(isMyT||isFull)return; onPreview&&onPreview(team); }}>
               <circle cx={corner.cx} cy={corner.cy} r="60" fill={isMyT?`${team.color}18`:`${team.color}07`} stroke={isMyT?team.color:isFull?"rgba(255,255,255,0.05)":`${team.color}35`} strokeWidth={isMyT?2:1}/>
               <text x={corner.cx} y={corner.cy-30} textAnchor="middle" fontSize="12" fontWeight="800" fill={isMyT?team.color:isFull?"#4b5563":"rgba(255,255,255,0.85)"} fontFamily="sans-serif">{team.name}</text>
               <text x={corner.cx} y={corner.cy-10} textAnchor="middle" fontSize="20" fontWeight="900" fill={isMyT?team.color:isFull?C.muted:"white"} fontFamily="sans-serif">{filled}/{team.max}</text>
@@ -259,10 +260,14 @@ const FullPitch = ({teams,onJoin,myTeam}) => {
               <text x={corner.cx} y={corner.cy+13} textAnchor="middle" fontSize="8" fontWeight="800" fill={isMyT?team.color:isFull?C.sub:team.color} fontFamily="sans-serif">{isMyT?"✓ คุณ":isFull?"FULL":"+ JOIN"}</text>
               {team.players.slice(0,6).map((p,pi)=>{
                 const ang=(pi/6)*Math.PI*2-Math.PI/2;
+                const px=corner.cx+Math.cos(ang)*38;
+                const py=corner.cy+24+Math.sin(ang)*20;
+                const pc=posColor[p.pos]||team.color;
                 return (
                   <g key={pi}>
-                    <circle cx={corner.cx+Math.cos(ang)*38} cy={corner.cy+24+Math.sin(ang)*20} r="9" fill={PC[p.pos]||team.color} stroke={C.bg} strokeWidth="1.5"/>
-                    <text x={corner.cx+Math.cos(ang)*38} y={corner.cy+24+Math.sin(ang)*20+3.5} textAnchor="middle" fontSize="7" fontWeight="900" fill="white" fontFamily="sans-serif">{p.name[0]}</text>
+                    <circle cx={px} cy={py} r="9" fill={`${pc}22`} stroke={pc} strokeWidth="1.5"/>
+                    <text x={px} y={py+3.5} textAnchor="middle" fontSize="7" fontWeight="900" fill="white" fontFamily="sans-serif">{p.name[0]}</text>
+                    <text x={px} y={py+17} textAnchor="middle" fontSize="5.5" fontWeight="800" fill={pc} fontFamily="sans-serif">{p.pos}</text>
                   </g>
                 );
               })}
@@ -510,6 +515,7 @@ export default function SquadHub() {
   const [myTeam,setMyTeam]   = useState(null);
   const [activeTeam,setActiveTeam] = useState(0);
   const [showJoin,setShowJoin] = useState(false);
+  const [pitchPopup,setPitchPopup] = useState(null);
   const [lobbyTab,setLobbyTab] = useState("pitch");
   const [chatMsgs,setChatMsgs] = useState(SEED_CHAT);
   const [chatId,setChatId]   = useState(6);
@@ -1143,7 +1149,15 @@ const handlePhotoUpload = async (e) => {
 
         {lobbyTab==="pitch"&&(
           <div>
-            <FullPitch teams={teams} onJoin={()=>setShowJoin(true)} myTeam={myTeam}/>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:8}}>
+              {[{pos:"FW",color:"#ef4444"},{pos:"MF",color:"#8b5cf6"},{pos:"DF",color:"#3b82f6"},{pos:"GK",color:"#f59e0b"}].map(({pos,color})=>(
+                <div key={pos} style={{display:"flex",alignItems:"center",gap:4}}>
+                  <div style={{width:7,height:7,borderRadius:"50%",background:color}}/>
+                  <span style={{fontSize:9,fontWeight:700,color:C.sub}}>{pos}</span>
+                </div>
+              ))}
+            </div>
+            <FullPitch teams={teams} onJoin={()=>setShowJoin(true)} onPreview={t=>setPitchPopup(t)} myTeam={myTeam}/>
             <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap",justifyContent:"center"}}>
               {teams.map(t=><div key={t.id} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,borderRadius:2,background:t.color}}/><span style={{fontSize:9,fontWeight:700,color:myTeam===t.id?t.color:C.sub}}>{t.name} {t.players.length}/{t.max}</span></div>)}
             </div>
@@ -1157,6 +1171,44 @@ const handlePhotoUpload = async (e) => {
                 <button onClick={()=>navigator.clipboard?.writeText(myTeamData?.code)} style={{padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:5,color:C.sub,fontSize:11,fontWeight:700}}>
                   <Copy size={13}/>Copy
                 </button>
+              </div>
+            )}
+            {pitchPopup&&(
+              <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:99,display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+                onClick={e=>{if(e.target===e.currentTarget)setPitchPopup(null)}}>
+                <div style={{background:"#0f1f14",border:`1px solid ${pitchPopup.color}40`,borderRadius:"20px 20px 0 0",padding:"20px 16px 32px",width:"100%",maxWidth:480}}>
+                  <div style={{width:36,height:4,borderRadius:99,background:"rgba(255,255,255,0.1)",margin:"0 auto 16px"}}/>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+                    <div>
+                      <div style={{fontSize:16,fontWeight:900,color:pitchPopup.color}}>{pitchPopup.name}</div>
+                      <div style={{fontSize:10,color:C.sub,marginTop:2}}>{pitchPopup.players.length}/{pitchPopup.max} ผู้เล่น · ว่างอีก {pitchPopup.max-pitchPopup.players.length} ที่</div>
+                    </div>
+                    <button onClick={()=>setPitchPopup(null)} style={{background:"rgba(255,255,255,0.06)",border:"none",color:C.sub,fontSize:13,padding:"4px 10px",borderRadius:6,cursor:"pointer"}}>✕</button>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16,maxHeight:220,overflowY:"auto"}}>
+                    {pitchPopup.players.map((p,i)=>{
+                      const pc={FW:"#ef4444",MF:"#8b5cf6",DF:"#3b82f6",GK:"#f59e0b"}[p.pos]||pitchPopup.color;
+                      return (
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"rgba(0,0,0,0.3)",borderRadius:10,border:`1px solid ${C.border}`}}>
+                          <div style={{width:30,height:30,borderRadius:"50%",background:`${pc}20`,border:`1.5px solid ${pc}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:900,color:pc,flexShrink:0}}>{p.name[0]}</div>
+                          <div style={{flex:1,fontSize:12,fontWeight:700,color:C.text}}>{p.name}</div>
+                          <div style={{fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:4,border:`1px solid ${pc}50`,background:`${pc}15`,color:pc}}>{p.pos}</div>
+                          {p.isCaptain&&<span style={{fontSize:12}}>🎖️</span>}
+                        </div>
+                      );
+                    })}
+                    {Array.from({length:pitchPopup.max-pitchPopup.players.length}).map((_,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",border:`1px dashed ${C.border}`,borderRadius:10}}>
+                        <div style={{width:30,height:30,borderRadius:"50%",border:`1px dashed ${C.border}`,flexShrink:0}}/>
+                        <div style={{fontSize:11,color:C.muted}}>รอผู้เล่น...</div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={()=>{doJoin(pitchPopup.id);setPitchPopup(null);}}
+                    style={{width:"100%",padding:13,borderRadius:12,border:"none",background:pitchPopup.color,color:"#fff",fontSize:14,fontWeight:800,cursor:"pointer",letterSpacing:.3}}>
+                    เข้าร่วม {pitchPopup.name}
+                  </button>
+                </div>
               </div>
             )}
           </div>
