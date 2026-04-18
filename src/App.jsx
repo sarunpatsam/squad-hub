@@ -502,7 +502,7 @@ const JoinModal = ({teams,onJoin,onClose}) => {
 };
 
 /* ═══════════════ SQUAD LOGO ═══════════════ */
-const LOGO_URL = "https://i.postimg.cc/jSkNCWxY/squadhub003.png";
+const LOGO_URL = "/logo.png";
 const SquadLogo = ({ size = 32 }) => (
   <img
     src={LOGO_URL}
