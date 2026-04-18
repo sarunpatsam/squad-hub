@@ -1260,6 +1260,12 @@ const handlePhotoUpload = async (e) => {
     เข้าร่วม {pitchPopup.name}
   </button>
 )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {lobbyTab==="team"&&(
           <div>
             <div style={{display:"flex",gap:6,marginBottom:12,overflowX:"auto",paddingBottom:2}}>
