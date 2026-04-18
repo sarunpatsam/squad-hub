@@ -252,8 +252,8 @@ const FullPitch = ({teams,onJoin,onPreview,myTeam}) => {
           const filled=team.players.length, isFull=filled>=team.max, isMyT=myTeam===corner.id;
           const dotSpacing=14, totalDots=team.max, startX=corner.cx-(totalDots/2)*dotSpacing+7;
           return (
-            <g key={team.id} style={{cursor:!isMyT&&!isFull?"pointer":"default"}}
-              onClick={()=>{ if(isMyT||isFull)return; onPreview&&onPreview(team); }}>
+            <g key={team.id} style={{cursor:isFull&&!isMyT?"default":"pointer"}}
+              onClick={()=>{ if(isFull&&!isMyT)return; onPreview&&onPreview(team); }}>
               <circle cx={corner.cx} cy={corner.cy} r="58"
                 fill={isMyT?`${team.color}14`:`${team.color}07`}
                 stroke={isMyT?team.color:isFull?"rgba(255,255,255,0.06)":`${team.color}40`}
@@ -1230,15 +1230,43 @@ const handlePhotoUpload = async (e) => {
                       </div>
                     ))}
                   </div>
-                  <button onClick={()=>{doJoin(pitchPopup.id);setPitchPopup(null);}}
-                    style={{width:"100%",padding:13,borderRadius:12,border:"none",background:pitchPopup.color,color:"#fff",fontSize:14,fontWeight:800,cursor:"pointer",letterSpacing:.3}}>
-                    เข้าร่วม {pitchPopup.name}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+                  {myTeam===pitchPopup.id ? (
+  (()=>{
+    const hasCaptain=pitchPopup.players.some(p=>p.isCaptain);
+    const iAmCaptain=pitchPopup.players.find(p=>p.isMe)?.isCaptain;
+    if(iAmCaptain) return (
+      <div style={{padding:"12px 14px",borderRadius:12,background:C.greenDim,border:`1px solid ${C.borderHi}`,display:"flex",alignItems:"center",gap:8}}>
+        <span style={{fontSize:16}}>🎖️</span>
+        <div>
+          <div style={{fontSize:12,fontWeight:900,color:C.green}}>คุณเป็นกัปตันทีม!</div>
+          <div style={{fontSize:10,color:C.sub}}>หลังแมตช์จบ บอทจะส่งฟอร์มสรุปทาง LINE</div>
+        </div>
+      </div>
+    );
+    if(!hasCaptain) return (
+      <button onClick={()=>{claimCaptain();setPitchPopup(null);}}
+        style={{width:"100%",padding:"12px 16px",borderRadius:12,border:`1.5px dashed ${C.amber}55`,background:`rgba(251,191,36,0.06)`,cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
+        <span style={{fontSize:16}}>🎖️</span>
+        <div style={{textAlign:"left",flex:1}}>
+          <div style={{fontSize:13,fontWeight:800,color:C.amber}}>ขอเป็นกัปตันทีม</div>
+          <div style={{fontSize:10,color:C.sub}}>+30 XP bonus หลังแมตช์จบ</div>
+        </div>
+        <ChevronRight size={14} color={C.amber}/>
+      </button>
+    );
+    return (
+      <div style={{padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,0.03)",border:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:7}}>
+        <span style={{fontSize:13}}>🎖️</span>
+        <div style={{fontSize:11,color:C.sub}}>กัปตัน: <span style={{color:C.amber,fontWeight:800}}>{pitchPopup.players.find(p=>p.isCaptain)?.name}</span></div>
+      </div>
+    );
+  })()
+) : (
+  <button onClick={()=>{doJoin(pitchPopup.id);setPitchPopup(null);}}
+    style={{width:"100%",padding:13,borderRadius:12,border:"none",background:pitchPopup.color,color:"#fff",fontSize:14,fontWeight:800,cursor:"pointer",letterSpacing:.3}}>
+    เข้าร่วม {pitchPopup.name}
+  </button>
+)}
 
         {lobbyTab==="team"&&(
           <div>
