@@ -1183,7 +1183,6 @@ const handlePhotoUpload = async (e) => {
             </div>
             {!myTeam&&<div style={{marginTop:14}}><Btn onClick={()=>setShowJoin(true)}>เลือกทีม / ใส่โค้ด <ChevronRight size={15}/></Btn></div>}
             {myTeam&&(
-              {myTeam&&(
   <div style={{marginTop:12,background:"#0a1a0f",borderTop:`1px solid rgba(16,185,129,0.2)`,borderRadius:12,padding:"14px 16px"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
