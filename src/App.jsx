@@ -231,7 +231,7 @@ const StatGrid = ({goals,assists,matches,wins}) => {
 /* ═══════════════ PITCH ═══════════════ */
 const FullPitch = ({teams,onJoin,onPreview,myTeam}) => {
   const corners = [{id:"A",cx:80,cy:108},{id:"B",cx:240,cy:108},{id:"C",cx:80,cy:326},{id:"D",cx:240,cy:326}];
-  const posColor = {FW:"#ef4444",MF:"#8b5cf6",DF:"#3b82f6",GK:"#f59e0b"};
+  const posColor = {FW:"#ef4444",MF:"#10b981",DF:"#60a5fa",GK:"#f59e0b"};
   return (
     <div style={{borderRadius:20,overflow:"hidden",border:"2px solid rgba(255,255,255,0.08)"}}>
       <svg viewBox="0 0 320 434" style={{width:"100%",display:"block",background:"linear-gradient(180deg,#0c3822 0%,#0f4a2a 20%,#0d3f25 50%,#0f4a2a 80%,#0c3822 100%)"}}>
@@ -249,28 +249,49 @@ const FullPitch = ({teams,onJoin,onPreview,myTeam}) => {
         {corners.map(corner=>{
           const team=teams.find(t=>t.id===corner.id);
           if(!team)return null;
-          const filled=team.players.length, isFull=filled>=team.max, isMyT=myTeam===team.id;
+          const filled=team.players.length, isFull=filled>=team.max, isMyT=myTeam===corner.id;
+          const dotSpacing=14, totalDots=team.max, startX=corner.cx-(totalDots/2)*dotSpacing+7;
           return (
             <g key={team.id} style={{cursor:!isMyT&&!isFull?"pointer":"default"}}
               onClick={()=>{ if(isMyT||isFull)return; onPreview&&onPreview(team); }}>
-              <circle cx={corner.cx} cy={corner.cy} r="60" fill={isMyT?`${team.color}18`:`${team.color}07`} stroke={isMyT?team.color:isFull?"rgba(255,255,255,0.05)":`${team.color}35`} strokeWidth={isMyT?2:1}/>
-              <text x={corner.cx} y={corner.cy-30} textAnchor="middle" fontSize="12" fontWeight="800" fill={isMyT?team.color:isFull?"#4b5563":"rgba(255,255,255,0.85)"} fontFamily="sans-serif">{team.name}</text>
-              <text x={corner.cx} y={corner.cy-10} textAnchor="middle" fontSize="20" fontWeight="900" fill={isMyT?team.color:isFull?C.muted:"white"} fontFamily="sans-serif">{filled}/{team.max}</text>
-              <rect x={corner.cx-22} y={corner.cy-26} width="44" height="16" rx="8" fill={isMyT?`${team.color}30`:isFull?"rgba(255,255,255,0.05)":`${team.color}20`}/>
-              <text x={corner.cx} y={corner.cy-15} textAnchor="middle" fontSize="8" fontWeight="800" fill={isMyT?team.color:isFull?C.sub:team.color} fontFamily="sans-serif">{isMyT?"✓ คุณ":isFull?"FULL":"+ JOIN"}</text>
-              {team.players.slice(0,6).map((p,pi)=>{
-                const ang=(pi/6)*Math.PI*2-Math.PI/2;
-                const px=corner.cx+Math.cos(ang)*38;
-                const py=corner.cy+32+Math.sin(ang)*18;
-                const pc=posColor[p.pos]||team.color;
-                return (
-                  <g key={pi}>
-                    <circle cx={px} cy={py} r="9" fill={`${pc}22`} stroke={pc} strokeWidth="1.5"/>
-                    <text x={px} y={py+3.5} textAnchor="middle" fontSize="7" fontWeight="900" fill="white" fontFamily="sans-serif">{p.name[0]}</text>
-                    <text x={px} y={py+17} textAnchor="middle" fontSize="5.5" fontWeight="800" fill={pc} fontFamily="sans-serif">{p.pos}</text>
+              <circle cx={corner.cx} cy={corner.cy} r="58"
+                fill={isMyT?`${team.color}14`:`${team.color}07`}
+                stroke={isMyT?team.color:isFull?"rgba(255,255,255,0.06)":`${team.color}40`}
+                strokeWidth={isMyT?2:1}/>
+              {/* ชื่อทีม + status */}
+              <text x={corner.cx} y={corner.cy-36} textAnchor="middle" fontSize="10" fontWeight="800"
+                fill={isMyT?team.color:isFull?"#4b5563":"rgba(255,255,255,0.75)"} fontFamily="sans-serif">
+                {team.name}{isMyT?" · ✓ คุณ":""}
+              </text>
+              {/* ตัวเลข */}
+              <text x={corner.cx} y={corner.cy-8} textAnchor="middle" fontSize="28" fontWeight="900"
+                fill={isFull?"#4b5563":"white"} fontFamily="sans-serif">{filled}/{team.max}</text>
+              {/* mini dot row */}
+              {Array.from({length:team.max}).map((_,di)=>{
+                const p=team.players[di];
+                const dx=startX+di*dotSpacing;
+                const dy=corner.cy+16;
+                const pc=p?posColor[p.pos]||team.color:null;
+                return p?(
+                  <g key={di}>
+                    <circle cx={dx} cy={dy} r="7" fill={`${pc}25`} stroke={pc} strokeWidth="1.2"/>
+                    <text x={dx} y={dy+2.5} textAnchor="middle" fontSize="6" fontWeight="900" fill="white" fontFamily="sans-serif">{p.name[0]}</text>
                   </g>
+                ):(
+                  <circle key={di} cx={dx} cy={dy} r="7" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="2,2"/>
                 );
               })}
+              {/* JOIN / FULL badge */}
+              {!isMyT&&(
+                <>
+                  <rect x={corner.cx-22} y={corner.cy+28} width="44" height="13" rx="6"
+                    fill={isFull?"rgba(255,255,255,0.03)":`${team.color}20`}/>
+                  <text x={corner.cx} y={corner.cy+37.5} textAnchor="middle" fontSize="7.5" fontWeight="800"
+                    fill={isFull?"#4b5563":team.color} fontFamily="sans-serif">
+                    {isFull?"FULL":"+ JOIN"}
+                  </text>
+                </>
+              )}
             </g>
           );
         })}
@@ -1150,7 +1171,7 @@ const handlePhotoUpload = async (e) => {
         {lobbyTab==="pitch"&&(
           <div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:8}}>
-              {[{pos:"FW",color:"#ef4444"},{pos:"MF",color:"#8b5cf6"},{pos:"DF",color:"#3b82f6"},{pos:"GK",color:"#f59e0b"}].map(({pos,color})=>(
+              {[{pos:"FW",color:"#ef4444"},{pos:"MF",color:"#10b981"},{pos:"DF",color:"#60a5fa"},{pos:"GK",color:"#f59e0b"}].map(({pos,color})=>(
                 <div key={pos} style={{display:"flex",alignItems:"center",gap:4}}>
                   <div style={{width:7,height:7,borderRadius:"50%",background:color}}/>
                   <span style={{fontSize:9,fontWeight:700,color:C.sub}}>{pos}</span>
