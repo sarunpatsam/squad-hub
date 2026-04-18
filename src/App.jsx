@@ -543,24 +543,25 @@ export default function SquadHub() {
             return;
           }
           // ถ้าเปิดใน browser ปกติ → fallback localStorage
-          const savedId = localStorage.getItem("squad_player_id");
-          if(savedId) {
-            const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
-            if(data) {
-              const stats = SM[data.position]?.[data.playstyle]||{pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
-              const ni = NICKS[data.position]?.[data.playstyle];
-              setPlayer({
-                name:data.display_name,id:`SQ-${data.id}`,dbId:data.id,
-                position:data.position||"MF",playstyle:data.playstyle||"Playmaker",
-                nick:data.nickname||ni?.nick||"",tags:ni?.tags||[],
-                tier:data.tier||"Bronze",reliability:data.reliability_score||100,
-                level:data.level||1,xp:data.xp||0,stats,ovr:OVR(stats),
-                matchStats:{matches:data.matches_played||0,wins:data.wins||0,losses:data.losses||0,mvp:data.mvp_count||0,goals:data.goals||0,assists:data.assists||0},
-                form:[],
-              });
-              if(data.avatar_url) setProfilePhoto(data.avatar_url);
-              setAppLoading(false); setTab("home");
-            }
+          const DEMO_ID = "5";
+          const savedId = localStorage.getItem("squad_player_id") || DEMO_ID;
+          const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
+          if(data) {
+            const stats = SM[data.position]?.[data.playstyle]||{pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
+            const ni = NICKS[data.position]?.[data.playstyle];
+            setPlayer({
+              name:data.display_name,id:`SQ-${data.id}`,dbId:data.id,
+              position:data.position||"MF",playstyle:data.playstyle||"Playmaker",
+              nick:data.nickname||ni?.nick||"",tags:ni?.tags||[],
+              tier:data.tier||"Bronze",reliability:data.reliability_score||100,
+              level:data.level||1,xp:data.xp||0,stats,ovr:OVR(stats),
+              matchStats:{matches:data.matches_played||0,wins:data.wins||0,losses:data.losses||0,mvp:data.mvp_count||0,goals:data.goals||0,assists:data.assists||0},
+              form:[],
+            });
+            if(data.avatar_url) setProfilePhoto(data.avatar_url);
+            setAppLoading(false); setTab("home");
+          } else {
+            setAppLoading(false); setTab("register");
           }
           return;
         }
