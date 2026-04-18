@@ -528,7 +528,6 @@ export default function SquadHub() {
   const [lang,setLang]       = useState("th");
   const T = (th,en) => lang==="th" ? th : en;
   const [appLoading,setAppLoading] = useState(true);
-const doneLoading = () => setTimeout(()=>doneLoading(), 1500);
   const [player,setPlayer]   = useState(null);
   const [profilePhoto,setProfilePhoto] = useState(null);
   const [venue,setVenue]     = useState(null);
@@ -587,9 +586,9 @@ const doneLoading = () => setTimeout(()=>doneLoading(), 1500);
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
-            doneLoading(); setTab("home");
+            setAppLoading(false)(); setTab("home");
           } else {
-            doneLoading(); setTab("register");
+            setAppLoading(false); setTab("register");
           }
           return;
         }
@@ -638,10 +637,10 @@ const doneLoading = () => setTimeout(()=>doneLoading(), 1500);
             form: [],
           });
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
-          doneLoading(); setTab("home");
+          setAppLoading(false); setTab("home");
         } else {
           // ยังไม่มี → register พร้อม LINE profile
-          doneLoading();
+          setAppLoading(false);
           localStorage.setItem("squad_line_uid", lineUserId);
           localStorage.setItem("squad_line_name", profile.displayName);
           localStorage.setItem("squad_line_avatar", profile.pictureUrl || "");
@@ -649,12 +648,12 @@ const doneLoading = () => setTimeout(()=>doneLoading(), 1500);
       } catch(e) {
   console.error("LIFF error:", e);
   const savedId = localStorage.getItem("squad_player_id") || "YOUR_DB_ID_HERE";
-  if(!savedId || player) { doneLoading(); return; }
+  if(!savedId || player) { setAppLoading(false); return; }
   const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
   if(data) {
     if(data.avatar_url) setProfilePhoto(data.avatar_url);
-    doneLoading(); setTab("home");
-  } else { doneLoading(); setTab("register"); }
+    setAppLoading(false); setTab("home");
+  } else { setAppLoading(false); setTab("register"); }
 }
     })();
   },[]);
@@ -744,7 +743,7 @@ const handlePhotoUpload = async (e) => {
     }
 
     // fallback สุดท้าย — ถ้าไม่มี LINE ID จริงๆ
-    if(!lineUserId) { doneLoading(); setTab("register"); return; }
+    if(!lineUserId) { setAppLoading(false); setTab("register"); return; }
 
     /* บันทึกลง Supabase */
     let dbId = null;
