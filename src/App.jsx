@@ -670,8 +670,7 @@ const handlePhotoUpload = async (e) => {
   reader.onload = ev => setProfilePhoto(ev.target.result);
   reader.readAsDataURL(file);
   try {
-    const ext = file.name.split('.').pop();
-    const path = `avatars/${player.dbId}.${ext}`;
+    const path = `avatars/${player.dbId}`;
     const { error: upErr } = await supabase.storage
       .from('player-avatars')
       .upload(path, file, { upsert: true });
