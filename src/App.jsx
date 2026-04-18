@@ -618,13 +618,15 @@ export default function SquadHub() {
           localStorage.setItem("squad_line_avatar", profile.pictureUrl || "");
         }
       } catch(e) {
-        console.error("LIFF error:", e);
-        // fallback localStorage
-        const savedId = localStorage.getItem("squad_player_id");
-        if(!savedId || player) { setAppLoading(false); return; }
-        const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
-        if(data) { setAppLoading(false); setTab("home"); } else { setAppLoading(false); }
-      }
+  console.error("LIFF error:", e);
+  const savedId = localStorage.getItem("squad_player_id") || "YOUR_DB_ID_HERE";
+  if(!savedId || player) { setAppLoading(false); return; }
+  const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
+  if(data) {
+    if(data.avatar_url) setProfilePhoto(data.avatar_url);
+    setAppLoading(false); setTab("home");
+  } else { setAppLoading(false); setTab("register"); }
+}
     })();
   },[]);
 
