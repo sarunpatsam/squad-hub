@@ -1208,10 +1208,15 @@ const handlePhotoUpload = async (e) => {
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16,maxHeight:220,overflowY:"auto"}}>
                     {pitchPopup.players.map((p,i)=>{
-                      const pc={FW:"#ef4444",MF:"#8b5cf6",DF:"#3b82f6",GK:"#f59e0b"}[p.pos]||pitchPopup.color;
+                      const pc={FW:"#ef4444",MF:"#10b981",DF:"#60a5fa",GK:"#f59e0b"}[p.pos]||pitchPopup.color;
                       return (
                         <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"rgba(0,0,0,0.3)",borderRadius:10,border:`1px solid ${C.border}`}}>
-                          <div style={{width:30,height:30,borderRadius:"50%",background:`${pc}20`,border:`1.5px solid ${pc}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:900,color:pc,flexShrink:0}}>{p.name[0]}</div>
+                          <div style={{width:30,height:30,borderRadius:"50%",border:`1.5px solid ${pc}`,overflow:"hidden",flexShrink:0,background:`${pc}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:900,color:pc}}>
+  {p.photo
+    ? <img src={p.photo} alt={p.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+    : p.name[0]
+  }
+</div>
                           <div style={{flex:1,fontSize:12,fontWeight:700,color:C.text}}>{p.name}</div>
                           <div style={{fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:4,border:`1px solid ${pc}50`,background:`${pc}15`,color:pc}}>{p.pos}</div>
                           {p.isCaptain&&<span style={{fontSize:12}}>🎖️</span>}
