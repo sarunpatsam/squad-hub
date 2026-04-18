@@ -1183,16 +1183,33 @@ const handlePhotoUpload = async (e) => {
             </div>
             {!myTeam&&<div style={{marginTop:14}}><Btn onClick={()=>setShowJoin(true)}>เลือกทีม / ใส่โค้ด <ChevronRight size={15}/></Btn></div>}
             {myTeam&&(
-              <div style={{marginTop:14,display:"flex",gap:8}}>
-                <div style={{flex:1,background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:12,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
-                  <CheckCircle2 size={16} color={C.green}/>
-                  <div><div style={{fontSize:12,fontWeight:800,color:C.green}}>{myTeamData?.name}</div><div style={{fontSize:10,color:C.sub}}>โค้ด: <span style={{color:myTeamData?.color,fontWeight:900,fontFamily:"monospace"}}>{myTeamData?.code}</span></div></div>
-                </div>
-                <button onClick={()=>navigator.clipboard?.writeText(myTeamData?.code)} style={{padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:5,color:C.sub,fontSize:11,fontWeight:700}}>
-                  <Copy size={13}/>Copy
-                </button>
-              </div>
-            )}
+              {myTeam&&(
+  <div style={{marginTop:12,background:"#0a1a0f",borderTop:`1px solid rgba(16,185,129,0.2)`,borderRadius:12,padding:"14px 16px"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{width:10,height:10,borderRadius:2,background:myTeamData?.color}}/>
+        <span style={{fontSize:14,fontWeight:900,color:C.text}}>{myTeamData?.name}</span>
+        <span style={{fontSize:11,color:C.sub}}>{myTeamData?.players.length}/{myTeamData?.max} คน</span>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,fontWeight:700,color:C.green}}>
+        <div style={{width:6,height:6,borderRadius:"50%",background:C.green}}/>
+        เข้าร่วมแล้ว
+      </div>
+    </div>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+      <div style={{fontSize:10,color:C.sub}}>โค้ด:</div>
+      <span style={{fontSize:12,fontWeight:900,color:myTeamData?.color,fontFamily:"monospace",letterSpacing:2}}>{myTeamData?.code}</span>
+      <button onClick={()=>navigator.clipboard?.writeText(myTeamData?.code)} style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${C.border}`,borderRadius:6,padding:"2px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,color:C.sub,fontSize:10,fontWeight:700}}>
+        <Copy size={11}/>Copy
+      </button>
+    </div>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+      <div style={{width:14,height:14,borderRadius:"50%",background:"rgba(251,191,36,0.15)",border:"1px solid rgba(251,191,36,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:C.amber,flexShrink:0}}>!</div>
+      <span style={{fontSize:10,color:C.sub}}>กดยืนยันเพื่อล็อคที่นั่งและชำระเงิน · ยังไม่หักเงินจนกว่าจะยืนยัน</span>
+    </div>
+    <Btn onClick={()=>setTab("checkout")}>ยืนยันและชำระเงิน <ChevronRight size={15}/></Btn>
+  </div>
+)}
             {pitchPopup&&(
               <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:99,display:"flex",alignItems:"flex-end",justifyContent:"center"}}
                 onClick={e=>{if(e.target===e.currentTarget)setPitchPopup(null)}}>
