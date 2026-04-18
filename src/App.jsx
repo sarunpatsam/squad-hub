@@ -256,12 +256,12 @@ const FullPitch = ({teams,onJoin,onPreview,myTeam}) => {
               <circle cx={corner.cx} cy={corner.cy} r="60" fill={isMyT?`${team.color}18`:`${team.color}07`} stroke={isMyT?team.color:isFull?"rgba(255,255,255,0.05)":`${team.color}35`} strokeWidth={isMyT?2:1}/>
               <text x={corner.cx} y={corner.cy-30} textAnchor="middle" fontSize="12" fontWeight="800" fill={isMyT?team.color:isFull?"#4b5563":"rgba(255,255,255,0.85)"} fontFamily="sans-serif">{team.name}</text>
               <text x={corner.cx} y={corner.cy-10} textAnchor="middle" fontSize="20" fontWeight="900" fill={isMyT?team.color:isFull?C.muted:"white"} fontFamily="sans-serif">{filled}/{team.max}</text>
-              <rect x={corner.cx-22} y={corner.cy+2} width="44" height="16" rx="8" fill={isMyT?`${team.color}30`:isFull?"rgba(255,255,255,0.05)":`${team.color}20`}/>
-              <text x={corner.cx} y={corner.cy+13} textAnchor="middle" fontSize="8" fontWeight="800" fill={isMyT?team.color:isFull?C.sub:team.color} fontFamily="sans-serif">{isMyT?"✓ คุณ":isFull?"FULL":"+ JOIN"}</text>
+              <rect x={corner.cx-22} y={corner.cy-26} width="44" height="16" rx="8" fill={isMyT?`${team.color}30`:isFull?"rgba(255,255,255,0.05)":`${team.color}20`}/>
+              <text x={corner.cx} y={corner.cy-15} textAnchor="middle" fontSize="8" fontWeight="800" fill={isMyT?team.color:isFull?C.sub:team.color} fontFamily="sans-serif">{isMyT?"✓ คุณ":isFull?"FULL":"+ JOIN"}</text>
               {team.players.slice(0,6).map((p,pi)=>{
                 const ang=(pi/6)*Math.PI*2-Math.PI/2;
                 const px=corner.cx+Math.cos(ang)*38;
-                const py=corner.cy+24+Math.sin(ang)*20;
+                const py=corner.cy+32+Math.sin(ang)*18;
                 const pc=posColor[p.pos]||team.color;
                 return (
                   <g key={pi}>
