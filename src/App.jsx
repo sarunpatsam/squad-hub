@@ -939,18 +939,17 @@ const handlePhotoUpload = async (e) => {
                 {sel&&<CheckCircle2 size={14} color={C.green}/>}
               </button>;
             })}
-            {regData.playstyle&&(()=>{
-              const s=SM[regData.position]?.[regData.playstyle];
-              return <div style={{background:C.greenDim,border:"1px solid rgba(16,185,129,0.22)",borderRadius:13,padding:"12px 14px",margin:"10px 0"}}>
+            {regData.playstyle&&(
+              <div style={{background:C.greenDim,border:"1px solid rgba(16,185,129,0.22)",borderRadius:13,padding:"12px 14px",margin:"10px 0"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                   <span style={{fontSize:9,fontWeight:800,color:C.green,letterSpacing:1.5,textTransform:"uppercase"}}>Predicted Stats</span>
-                  <span style={{fontSize:24,fontWeight:900,color:C.text}}>{OVR(s)} <span style={{fontSize:9,color:C.sub}}>OVR</span></span>
+                  <span style={{fontSize:24,fontWeight:900,color:C.text}}>{OVR(SM[regData.position]?.[regData.playstyle])} <span style={{fontSize:9,color:C.sub}}>OVR</span></span>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-around"}}>
-                  {(KEY_STATS[regData.position]||[]).map(k=><MiniStat key={k} label={k} value={s[k]}/>)}
+                  {(KEY_STATS[regData.position]||[]).map(k=><MiniStat key={k} label={k} value={SM[regData.position]?.[regData.playstyle]?.[k]}/>)}
                 </div>
-              </div>;
-            })()}
+              </div>
+            )}
             <div style={{display:"flex",gap:8,marginTop:4}}>
               <Btn ghost onClick={()=>setRegStep(2)} style={{width:"auto",padding:"14px 16px"}}><ArrowLeft size={14}/></Btn>
               <Btn disabled={!regData.playstyle} onClick={finishRegister} style={{flex:1}}>เข้าสู่ SQUAD HUB ⚡</Btn>
@@ -1290,11 +1289,9 @@ const handlePhotoUpload = async (e) => {
             </div>
             {myTeam&&<Btn onClick={()=>setTab("checkout")}>ยืนยัน {myTeamData?.name} <ChevronRight size={15}/></Btn>}
 
-            {/* 🎖️ Captain claim button — only show if: in this team, no captain yet, I'm not captain */}
-            {myTeam===curTeam?.id&&(()=>{
-              const hasCaptain = curTeam?.players.some(p=>p.isCaptain);
-              const iAmCaptain = curTeam?.players.find(p=>p.isMe)?.isCaptain;
-              if(iAmCaptain) return (
+            {/* 🎖️ Captain claim button */}
+            {myTeam===curTeam?.id&&(
+              curTeam?.players.find(p=>p.isMe)?.isCaptain ? (
                 <div style={{marginTop:8,background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:12,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
                   <span style={{fontSize:16}}>🎖️</span>
                   <div>
@@ -1302,8 +1299,7 @@ const handlePhotoUpload = async (e) => {
                     <div style={{fontSize:10,color:C.sub}}>หลังแมตช์จบ บอทจะส่งฟอร์มสรุปให้ทาง LINE · +30 XP รอคุณ</div>
                   </div>
                 </div>
-              );
-              if(!hasCaptain) return (
+              ) : !curTeam?.players.some(p=>p.isCaptain) ? (
                 <button onClick={claimCaptain}
                   style={{marginTop:8,width:"100%",padding:"11px 16px",borderRadius:13,border:`1.5px dashed ${C.amber}55`,background:`rgba(251,191,36,0.06)`,cursor:"pointer",display:"flex",alignItems:"center",gap:10,transition:"all .2s"}}>
                   <span style={{fontSize:16}}>🎖️</span>
@@ -1313,8 +1309,7 @@ const handlePhotoUpload = async (e) => {
                   </div>
                   <ChevronRight size={14} color={C.amber}/>
                 </button>
-              );
-              return (
+              ) : (
                 <div style={{marginTop:8,background:"rgba(255,255,255,0.03)",border:`1px solid ${C.border}`,borderRadius:12,padding:"9px 14px",display:"flex",alignItems:"center",gap:7}}>
                   <span style={{fontSize:13}}>🎖️</span>
                   <div style={{fontSize:11,color:C.sub}}>
@@ -1322,8 +1317,8 @@ const handlePhotoUpload = async (e) => {
                     {curTeam?.players.find(p=>p.isCaptain)?.isMe&&<span style={{color:C.green}}> · คุณ</span>}
                   </div>
                 </div>
-              );
-            })()}
+              )
+            )}
           </div>
         )}
 
