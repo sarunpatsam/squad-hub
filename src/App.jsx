@@ -586,7 +586,7 @@ export default function SquadHub() {
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
-            setAppLoading(false)(); setTab("home");
+            setAppLoading(false); setTab("home");
           } else {
             setAppLoading(false); setTab("register");
           }
