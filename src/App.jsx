@@ -1475,7 +1475,7 @@ const handlePhotoUpload = async (e) => {
       {rank:4,name:"นิว",   ovr:80,tier:"Gold",matches:35,wins:20,change:2,nick:"สายฟ้า ⚡"},
       {rank:5,name:"โจ้",   ovr:76,tier:"Gold",matches:32,wins:16,change:0,nick:"ม้าใช้ทีม 🐎"},
     ];
-    if(player) board.push({rank:board.length+1,name:player.name,ovr:player.ovr,tier:player.tier,matches:0,wins:0,change:0,nick:player.nick,isMe:true});
+    if(player) board.push({rank:board.length+1,name:player.name,ovr:player.ovr,tier:player.tier,matches:0,wins:0,change:0,nick:player.nick,isMe:true,photo:profilePhoto});
     return (
       <div style={{paddingTop:16}}>
         <div style={{textAlign:"center",marginBottom:20}}>
@@ -1488,7 +1488,7 @@ const handlePhotoUpload = async (e) => {
           return (
             <div key={p.rank} style={{background:p.isMe?"rgba(16,185,129,0.05)":C.surface,border:`1px solid ${p.isMe?C.borderHi:C.border}`,borderRadius:14,padding:"12px 15px",marginBottom:8,display:"flex",alignItems:"center",gap:11}}>
               <div style={{width:24,fontSize:13,fontWeight:900,color:p.rank<=3?C.amber:C.sub,textAlign:"center"}}>#{p.rank}</div>
-              <Av name={p.name} size={36}/>
+              <Av name={p.name} size={36} photo={p.isMe?profilePhoto:null}/>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:800,color:C.text}}>{p.name}{p.isMe&&<span style={{fontSize:9,color:C.green}}> · คุณ</span>}</div>
                 <div style={{fontSize:10,color:C.sub,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.nick}</div>
