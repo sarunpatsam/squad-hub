@@ -523,6 +523,7 @@ const SquadLogo = ({ size = 32 }) => (
 export default function SquadHub() {
   const [tab,setTab]         = useState("register");
   const [showQR,setShowQR] = useState(false);
+  const [qrMode,setQrMode]=useState("card"); // card | scan
   const [regStep,setRegStep] = useState(1);
   const [regData,setRegData] = useState({nickname:"",position:"",playstyle:""});
   const [payStep,setPayStep] = useState("summary");
@@ -1066,89 +1067,113 @@ const handlePhotoUpload = async (e) => {
             </div>
           </div>
         </div>
-   {showQR&&(
-  <div onClick={()=>setShowQR(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}>
+{showQR&&(
+  <div onClick={()=>{setShowQR(false);setQrMode("card");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}>
     <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:320}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-        <div style={{fontSize:11,fontWeight:800,color:"#3d6b52",letterSpacing:2.5,textTransform:"uppercase"}}>QR ของฉัน</div>
-        <button onClick={()=>setShowQR(false)} style={{width:28,height:28,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:8,color:"#6b9e85",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:10,fontWeight:800,color:"#3d6b52",letterSpacing:2.5,textTransform:"uppercase"}}>QR ของฉัน</div>
+        <button onClick={()=>{setShowQR(false);setQrMode("card");}} style={{width:26,height:26,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:7,color:"#6b9e85",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
       </div>
-      <div style={{borderRadius:20,overflow:"hidden",background:"#091510",border:"1px solid rgba(16,185,129,0.25)",position:"relative"}}>
-        <div style={{height:2,background:"linear-gradient(90deg,transparent,#10d484,transparent)"}}/>
-        {/* Header */}
-        <div style={{padding:"18px 20px 16px",borderBottom:"1px solid rgba(16,185,129,0.08)",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-          <div>
-            <div style={{fontSize:8,fontWeight:800,color:"#3d6b52",letterSpacing:2.5,textTransform:"uppercase",marginBottom:5}}>Squad Hub · Player</div>
-            <div style={{fontSize:26,fontWeight:900,color:"#e8fff4",letterSpacing:-.3,lineHeight:1}}>{player.name}</div>
-            <div style={{fontSize:11,color:"#6b9e85",marginTop:4}}>{player.position} · {player.tier} · LV.{player.level}</div>
-          </div>
-          <div style={{textAlign:"right",paddingTop:2}}>
-            <div style={{fontSize:40,fontWeight:900,color:"#10d484",lineHeight:1,letterSpacing:-1}}>{player.ovr}</div>
-            <div style={{fontSize:7,color:"#3d6b52",fontWeight:800,letterSpacing:2,textTransform:"uppercase",marginTop:1}}>Overall</div>
-          </div>
-        </div>
-        {/* Mid */}
-        <div style={{padding:"16px 20px",borderBottom:"1px solid rgba(16,185,129,0.08)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
-            {profilePhoto?(
-              <div style={{width:48,height:48,clipPath:"polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)",overflow:"hidden",flexShrink:0}}>
-                <img src={profilePhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-              </div>
-            ):(
-              <div style={{width:48,height:48,clipPath:"polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)",background:"rgba(16,185,129,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:900,color:"#10d484",flexShrink:0}}>
-                {player.name?.[0]?.toUpperCase()}
-              </div>
-            )}
-            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-              <span style={{fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,background:"rgba(16,185,129,0.1)",color:"#10d484",border:"1px solid rgba(16,185,129,0.25)"}}>{player.tier}</span>
-              <span style={{fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,background:"rgba(255,255,255,0.04)",color:"#6b9e85",border:"1px solid rgba(255,255,255,0.08)"}}>{player.position}</span>
-              <span style={{fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,background:"rgba(255,255,255,0.03)",color:"#3d6b52",border:"1px solid rgba(255,255,255,0.06)"}}>SQ-{String(player.dbId||player.id).padStart(4,"0")}</span>
+      {/* Mode toggle */}
+      <div style={{display:"flex",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:8,overflow:"hidden",marginBottom:14}}>
+        {["card","scan"].map(m=>(
+          <button key={m} onClick={()=>setQrMode(m)}
+            style={{flex:1,padding:"8px",fontSize:11,fontWeight:800,border:"none",cursor:"pointer",letterSpacing:.5,background:qrMode===m?"rgba(16,185,129,0.15)":"transparent",color:qrMode===m?"#10d484":"#3d6b52",transition:"all .15s"}}>
+            {m==="card"?"Card":"Scan"}
+          </button>
+        ))}
+      </div>
+
+      {qrMode==="card"&&(
+        <div style={{borderRadius:18,overflow:"hidden",background:"#091510",border:"1px solid rgba(16,185,129,0.25)"}}>
+          <div style={{height:2,background:"linear-gradient(90deg,transparent,#10d484 40%,#10d484 60%,transparent)"}}/>
+          <div style={{padding:"16px 18px 14px",borderBottom:"1px solid rgba(16,185,129,0.07)",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <div style={{fontSize:7,fontWeight:800,color:"#3d6b52",letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>Squad Hub · Player</div>
+              <div style={{fontSize:24,fontWeight:900,color:"#e8fff4",letterSpacing:-.3,lineHeight:1}}>{player.name}</div>
+              <div style={{fontSize:10,color:"#6b9e85",marginTop:3}}>{player.position} · {player.tier} · LV.{player.level}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:36,fontWeight:900,color:"#10d484",lineHeight:1,letterSpacing:-1}}>{player.ovr}</div>
+              <div style={{fontSize:7,color:"#3d6b52",fontWeight:800,letterSpacing:2,textTransform:"uppercase"}}>Overall</div>
             </div>
           </div>
-          <div style={{display:"flex",gap:14}}>
-            {(KEY_STATS[player.position]||["pace","passing","shooting"]).map(k=>(
-              <div key={k} style={{textAlign:"center"}}>
-                <div style={{fontSize:16,fontWeight:900,color:"#e8fff4",lineHeight:1}}>{player.stats?.[k]||"—"}</div>
-                <div style={{fontSize:7,color:"#3d6b52",fontWeight:800,letterSpacing:1.5,textTransform:"uppercase",marginTop:2}}>{k.slice(0,3)}</div>
+          <div style={{padding:"14px 18px",borderBottom:"1px solid rgba(16,185,129,0.07)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+              <div style={{width:44,height:44,borderRadius:8,border:"1.5px solid rgba(16,185,129,0.4)",overflow:"hidden",flexShrink:0,background:"rgba(16,185,129,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,fontWeight:900,color:"#10d484"}}>
+                {profilePhoto?<img src={profilePhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:player.name?.[0]?.toUpperCase()}
               </div>
-            ))}
-          </div>
-        </div>
-        {/* Footer */}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px 16px"}}>
-          <div>
-            <div style={{fontSize:8,color:"#3d6b52",fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>Player ID</div>
-            <div style={{fontSize:14,fontWeight:900,color:"#10d484",fontFamily:"monospace",letterSpacing:2}}>SQ-{String(player.dbId||player.id).padStart(4,"0")}</div>
-            <div style={{fontSize:9,color:"#3d6b52",marginTop:3}}>Scan to check-in</div>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
-            <div style={{fontSize:7,color:"#3d6b52",letterSpacing:1.5,textTransform:"uppercase",fontWeight:700}}>แสดงให้สนาม</div>
-            <div style={{background:"#fff",borderRadius:8,padding:6,width:58,height:58,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <svg viewBox="0 0 40 40" width="46" height="46">
-                <rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="#000" strokeWidth="2"/>
-                <rect x="3.5" y="3.5" width="7" height="7" rx=".5" fill="#000"/>
-                <rect x="27" y="1" width="12" height="12" rx="1.5" fill="none" stroke="#000" strokeWidth="2"/>
-                <rect x="29.5" y="3.5" width="7" height="7" rx=".5" fill="#000"/>
-                <rect x="1" y="27" width="12" height="12" rx="1.5" fill="none" stroke="#000" strokeWidth="2"/>
-                <rect x="3.5" y="29.5" width="7" height="7" rx=".5" fill="#000"/>
-                <rect x="16" y="2" width="3" height="3" fill="#000"/><rect x="20" y="2" width="3" height="3" fill="#000"/>
-                <rect x="16" y="6" width="3" height="3" fill="#000"/><rect x="21" y="6" width="3" height="3" fill="#000"/>
-                <rect x="16" y="10" width="3" height="3" fill="#000"/><rect x="2" y="16" width="3" height="3" fill="#000"/>
-                <rect x="6" y="16" width="3" height="3" fill="#000"/><rect x="10" y="16" width="3" height="3" fill="#000"/>
-                <rect x="16" y="16" width="3" height="3" fill="#000"/><rect x="21" y="16" width="3" height="3" fill="#000"/>
-                <rect x="27" y="16" width="3" height="3" fill="#000"/><rect x="33" y="16" width="3" height="3" fill="#000"/>
-                <rect x="2" y="21" width="3" height="3" fill="#000"/><rect x="10" y="21" width="3" height="3" fill="#000"/>
-                <rect x="16" y="21" width="3" height="3" fill="#000"/><rect x="22" y="21" width="3" height="3" fill="#000"/>
-                <rect x="30" y="21" width="3" height="3" fill="#000"/><rect x="2" y="26" width="3" height="3" fill="#000"/>
-                <rect x="16" y="27" width="3" height="3" fill="#000"/><rect x="22" y="27" width="3" height="3" fill="#000"/>
-                <rect x="28" y="27" width="3" height="3" fill="#000"/><rect x="16" y="32" width="3" height="3" fill="#000"/>
-                <rect x="22" y="32" width="3" height="3" fill="#000"/><rect x="34" y="32" width="3" height="3" fill="#000"/>
-                <rect x="16" y="37" width="3" height="3" fill="#000"/><rect x="28" y="37" width="3" height="3" fill="#000"/>
-              </svg>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                <span style={{fontSize:8,fontWeight:800,padding:"2px 8px",borderRadius:4,background:"rgba(16,185,129,0.1)",color:"#10d484",border:"1px solid rgba(16,185,129,0.22)"}}>{player.tier}</span>
+                <span style={{fontSize:8,fontWeight:800,padding:"2px 8px",borderRadius:4,background:"rgba(255,255,255,0.04)",color:"#6b9e85",border:"1px solid rgba(255,255,255,0.07)"}}>{player.position}</span>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:14}}>
+              {(KEY_STATS[player.position]||["pace","passing","shooting"]).map(k=>(
+                <div key={k} style={{textAlign:"center"}}>
+                  <div style={{fontSize:15,fontWeight:900,color:"#e8fff4",lineHeight:1}}>{player.stats?.[k]||"—"}</div>
+                  <div style={{fontSize:6,color:"#3d6b52",fontWeight:800,letterSpacing:1.5,textTransform:"uppercase",marginTop:2}}>{k.slice(0,3)}</div>
+                </div>
+              ))}
             </div>
           </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px 14px"}}>
+            <div>
+              <div style={{fontSize:7,color:"#3d6b52",fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:3}}>Player ID</div>
+              <div style={{fontSize:13,fontWeight:900,color:"#10d484",fontFamily:"monospace",letterSpacing:2}}>SQ-{String(player.dbId||player.id).padStart(4,"0")}</div>
+              <div style={{fontSize:8,color:"#3d6b52",marginTop:2}}>Season 1</div>
+            </div>
+            <button onClick={()=>setQrMode("scan")}
+              style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:10,padding:"8px 14px",cursor:"pointer"}}>
+              <span style={{fontSize:18}}>⬛</span>
+              <span style={{fontSize:7,fontWeight:800,color:"#10d484",letterSpacing:1,textTransform:"uppercase"}}>Tap to Scan</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {qrMode==="scan"&&(
+        <div style={{borderRadius:18,overflow:"hidden",background:"#091510",border:"1px solid rgba(16,185,129,0.25)",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 18px 18px"}}>
+          <div style={{fontSize:8,fontWeight:800,color:"#3d6b52",letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>แสดง QR นี้ให้สนาม</div>
+          <div style={{background:"#fff",borderRadius:12,padding:12,width:180,height:180,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14}}>
+            <svg viewBox="0 0 60 60" width="156" height="156">
+              <rect x="1" y="1" width="18" height="18" rx="2" fill="none" stroke="#000" strokeWidth="3"/>
+              <rect x="4" y="4" width="12" height="12" rx="1" fill="#000"/>
+              <rect x="41" y="1" width="18" height="18" rx="2" fill="none" stroke="#000" strokeWidth="3"/>
+              <rect x="44" y="4" width="12" height="12" rx="1" fill="#000"/>
+              <rect x="1" y="41" width="18" height="18" rx="2" fill="none" stroke="#000" strokeWidth="3"/>
+              <rect x="4" y="44" width="12" height="12" rx="1" fill="#000"/>
+              <rect x="23" y="2" width="5" height="5" fill="#000"/><rect x="30" y="2" width="5" height="5" fill="#000"/>
+              <rect x="23" y="9" width="5" height="5" fill="#000"/><rect x="36" y="9" width="5" height="5" fill="#000"/>
+              <rect x="30" y="14" width="5" height="5" fill="#000"/><rect x="2" y="23" width="5" height="5" fill="#000"/>
+              <rect x="9" y="23" width="5" height="5" fill="#000"/><rect x="16" y="23" width="5" height="5" fill="#000"/>
+              <rect x="23" y="23" width="5" height="5" fill="#000"/><rect x="30" y="23" width="5" height="5" fill="#000"/>
+              <rect x="44" y="23" width="5" height="5" fill="#000"/><rect x="53" y="23" width="5" height="5" fill="#000"/>
+              <rect x="2" y="30" width="5" height="5" fill="#000"/><rect x="16" y="30" width="5" height="5" fill="#000"/>
+              <rect x="23" y="30" width="5" height="5" fill="#000"/><rect x="36" y="30" width="5" height="5" fill="#000"/>
+              <rect x="44" y="30" width="5" height="5" fill="#000"/><rect x="9" y="36" width="5" height="5" fill="#000"/>
+              <rect x="23" y="36" width="5" height="5" fill="#000"/><rect x="44" y="36" width="5" height="5" fill="#000"/>
+              <rect x="53" y="36" width="5" height="5" fill="#000"/><rect x="23" y="44" width="5" height="5" fill="#000"/>
+              <rect x="36" y="44" width="5" height="5" fill="#000"/><rect x="30" y="50" width="5" height="5" fill="#000"/>
+              <rect x="44" y="50" width="5" height="5" fill="#000"/><rect x="53" y="50" width="5" height="5" fill="#000"/>
+              <rect x="23" y="55" width="5" height="5" fill="#000"/><rect x="36" y="55" width="5" height="5" fill="#000"/>
+            </svg>
+          </div>
+          <div style={{fontSize:14,fontWeight:900,color:"#10d484",fontFamily:"monospace",letterSpacing:3,marginBottom:4}}>SQ-{String(player.dbId||player.id).padStart(4,"0")}</div>
+          <div style={{fontSize:9,color:"#3d6b52",marginBottom:16}}>ให้สนามส่องตรงนี้เพื่อ check-in</div>
+          <div style={{display:"flex",alignItems:"center",gap:10,background:"rgba(16,185,129,0.06)",border:"1px solid rgba(16,185,129,0.15)",borderRadius:10,padding:"10px 14px",width:"100%"}}>
+            <div style={{width:32,height:32,borderRadius:6,border:"1px solid rgba(16,185,129,0.35)",background:"rgba(16,185,129,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:900,color:"#10d484",flexShrink:0,overflow:"hidden"}}>
+              {profilePhoto?<img src={profilePhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:player.name?.[0]?.toUpperCase()}
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:900,color:"#e8fff4"}}>{player.name}</div>
+              <div style={{fontSize:10,color:"#6b9e85"}}>{player.position} · {player.tier}</div>
+            </div>
+            <div style={{fontSize:20,fontWeight:900,color:"#10d484"}}>{player.ovr}</div>
+          </div>
+        </div>
+      )}
+
       <div style={{fontSize:10,color:"#3d6b52",textAlign:"center",marginTop:12,letterSpacing:.3}}>กดที่ไหนก็ได้เพื่อปิด</div>
     </div>
   </div>
