@@ -1001,12 +1001,13 @@ const handlePhotoUpload = async (e) => {
               </div>
             </div>
           </div>
-          <div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
-  <button onClick={()=>setShowQR(true)}
-    style={{width:"100%",padding:"10px 14px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:`1px solid rgba(16,185,129,0.35)`,color:C.green,fontSize:13,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-    🔲 QR ของฉัน — ให้สนาม Scan
-  </button>
-</div>
+<div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
+            <button onClick={()=>setShowQR(true)}
+              style={{width:"100%",padding:"10px 14px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:`1px solid rgba(16,185,129,0.35)`,color:C.green,fontSize:13,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              🔲 QR ของฉัน — ให้สนาม Scan
+            </button>
+          </div>
+        </div>
               <span style={{fontSize:9,fontWeight:800,color:C.green}}>{player.xp}%</span>
             </div>
             <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99}}>
