@@ -1001,13 +1001,15 @@ const handlePhotoUpload = async (e) => {
               </div>
             </div>
           </div>
-<div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
+          <div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
             <button onClick={()=>setShowQR(true)}
               style={{width:"100%",padding:"10px 14px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:`1px solid rgba(16,185,129,0.35)`,color:C.green,fontSize:13,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
               🔲 QR ของฉัน — ให้สนาม Scan
             </button>
           </div>
-        </div>
+          <div style={{padding:"10px 20px 0",position:"relative",zIndex:2}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:9,fontWeight:700,color:C.sub,letterSpacing:1,textTransform:"uppercase"}}>XP Progress</span>
               <span style={{fontSize:9,fontWeight:800,color:C.green}}>{player.xp}%</span>
             </div>
             <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99}}>
@@ -1071,7 +1073,6 @@ const handlePhotoUpload = async (e) => {
         <div style={{fontSize:16,fontWeight:900,color:C.text}}>🔲 QR ของฉัน</div>
         <button onClick={()=>setShowQR(false)} style={{background:"rgba(255,255,255,0.06)",border:"none",color:C.sub,fontSize:13,padding:"4px 10px",borderRadius:6,cursor:"pointer"}}>✕</button>
       </div>
-      {/* QR Code */}
       <div style={{background:"#fff",borderRadius:16,padding:16,width:200,height:200,margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center"}}>
         <svg viewBox="0 0 100 100" width="168" height="168" xmlns="http://www.w3.org/2000/svg">
           <text x="50" y="54" textAnchor="middle" fontSize="9" fontFamily="monospace" fill="#000">{`SQ:${player.dbId||player.id}`}</text>
@@ -1093,7 +1094,6 @@ const handlePhotoUpload = async (e) => {
         <div style={{fontSize:11,fontWeight:800,color:C.sub,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>Player ID</div>
         <div style={{fontSize:14,fontWeight:900,color:C.green,fontFamily:"monospace",letterSpacing:2}}>SQ-{String(player.dbId||player.id).padStart(4,"0")}</div>
       </div>
-      {/* Player info */}
       <div style={{display:"flex",alignItems:"center",gap:12,background:"rgba(16,185,129,0.06)",border:`1px solid rgba(16,185,129,0.2)`,borderRadius:14,padding:14}}>
         <div style={{width:44,height:44,clipPath:"polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)",background:"rgba(139,92,246,0.2)",border:"2px solid #8b5cf6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:900,color:"#8b5cf6",flexShrink:0}}>
           {player.name?.[0]?.toUpperCase()}
