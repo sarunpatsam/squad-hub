@@ -1003,11 +1003,23 @@ const handlePhotoUpload = async (e) => {
             </div>
           </div>
           <div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
-            <button onClick={()=>setShowQR(true)}
-              style={{width:"100%",padding:"10px 14px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:`1px solid rgba(16,185,129,0.35)`,color:C.green,fontSize:13,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-              🔲 QR ของฉัน — ให้สนาม Scan
-            </button>
-          </div>
+  <button onClick={()=>setShowQR(true)}
+    style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(16,185,129,0.07)",border:"1px solid rgba(16,185,129,0.22)",borderRadius:99,padding:"5px 12px",cursor:"pointer"}}>
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+      <rect x=".5" y=".5" width="4.5" height="4.5" rx=".8" stroke="#10d484" strokeWidth="1.1"/>
+      <rect x="7" y=".5" width="4.5" height="4.5" rx=".8" stroke="#10d484" strokeWidth="1.1"/>
+      <rect x=".5" y="7" width="4.5" height="4.5" rx=".8" stroke="#10d484" strokeWidth="1.1"/>
+      <rect x="1.7" y="1.7" width="2" height="2" fill="#10d484"/>
+      <rect x="8.2" y="1.7" width="2" height="2" fill="#10d484"/>
+      <rect x="1.7" y="8.2" width="2" height="2" fill="#10d484"/>
+      <rect x="7.5" y="7.5" width="1.3" height="1.3" fill="#10d484"/>
+      <rect x="9.5" y="7.5" width="1.3" height="1.3" fill="#10d484"/>
+      <rect x="7.5" y="9.5" width="1.3" height="1.3" fill="#10d484"/>
+      <rect x="9.5" y="9.5" width="1.3" height="1.3" fill="#10d484"/>
+    </svg>
+    <span style={{fontSize:10,fontWeight:800,color:"#10d484",letterSpacing:.5}}>Player QR</span>
+  </button>
+</div>
           <div style={{padding:"10px 20px 0",position:"relative",zIndex:2}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
               <span style={{fontSize:9,fontWeight:700,color:C.sub,letterSpacing:1,textTransform:"uppercase"}}>XP Progress</span>
