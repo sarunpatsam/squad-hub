@@ -522,6 +522,7 @@ const SquadLogo = ({ size = 32 }) => (
 /* ═══════════════ MAIN APP ═══════════════ */
 export default function SquadHub() {
   const [tab,setTab]         = useState("register");
+  const [showQR,setShowQR] = useState(false);
   const [regStep,setRegStep] = useState(1);
   const [regData,setRegData] = useState({nickname:"",position:"",playstyle:""});
   const [payStep,setPayStep] = useState("summary");
@@ -1000,9 +1001,12 @@ const handlePhotoUpload = async (e) => {
               </div>
             </div>
           </div>
-          <div style={{padding:"10px 20px 0",position:"relative",zIndex:2}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontSize:9,fontWeight:700,color:C.sub,letterSpacing:1,textTransform:"uppercase"}}>XP Progress</span>
+          <div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
+  <button onClick={()=>setShowQR(true)}
+    style={{width:"100%",padding:"10px 14px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:`1px solid rgba(16,185,129,0.35)`,color:C.green,fontSize:13,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+    🔲 QR ของฉัน — ให้สนาม Scan
+  </button>
+</div>
               <span style={{fontSize:9,fontWeight:800,color:C.green}}>{player.xp}%</span>
             </div>
             <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99}}>
@@ -1059,6 +1063,55 @@ const handlePhotoUpload = async (e) => {
             </div>
           </div>
         </div>
+                {showQR&&(
+  <div onClick={()=>setShowQR(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:"#091510",border:`1px solid rgba(16,185,129,0.35)`,borderRadius:20,padding:24,width:"100%",maxWidth:340}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <div style={{fontSize:16,fontWeight:900,color:C.text}}>🔲 QR ของฉัน</div>
+        <button onClick={()=>setShowQR(false)} style={{background:"rgba(255,255,255,0.06)",border:"none",color:C.sub,fontSize:13,padding:"4px 10px",borderRadius:6,cursor:"pointer"}}>✕</button>
+      </div>
+      {/* QR Code */}
+      <div style={{background:"#fff",borderRadius:16,padding:16,width:200,height:200,margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <svg viewBox="0 0 100 100" width="168" height="168" xmlns="http://www.w3.org/2000/svg">
+          <text x="50" y="54" textAnchor="middle" fontSize="9" fontFamily="monospace" fill="#000">{`SQ:${player.dbId||player.id}`}</text>
+          <rect x="2" y="2" width="30" height="30" rx="3" fill="none" stroke="#000" strokeWidth="4"/>
+          <rect x="8" y="8" width="18" height="18" rx="1" fill="#000"/>
+          <rect x="68" y="2" width="30" height="30" rx="3" fill="none" stroke="#000" strokeWidth="4"/>
+          <rect x="74" y="8" width="18" height="18" rx="1" fill="#000"/>
+          <rect x="2" y="68" width="30" height="30" rx="3" fill="none" stroke="#000" strokeWidth="4"/>
+          <rect x="8" y="74" width="18" height="18" rx="1" fill="#000"/>
+          {[38,48,58,38,58,38,48,58,68,78,88,68,88,68,78,88].map((x,i)=>(
+            <rect key={i} x={x} y={[2,2,2,14,14,26,26,26,38,38,38,50,50,62,62,62][i]} width="8" height="8" fill="#000"/>
+          ))}
+          {[2,12,22,32,2,22,2,12,22,32].map((x,i)=>(
+            <rect key={`b${i}`} x={x} y={[38,38,38,38,50,50,62,62,62,62][i]} width="8" height="8" fill="#000"/>
+          ))}
+        </svg>
+      </div>
+      <div style={{textAlign:"center",marginBottom:16}}>
+        <div style={{fontSize:11,fontWeight:800,color:C.sub,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>Player ID</div>
+        <div style={{fontSize:14,fontWeight:900,color:C.green,fontFamily:"monospace",letterSpacing:2}}>SQ-{String(player.dbId||player.id).padStart(4,"0")}</div>
+      </div>
+      {/* Player info */}
+      <div style={{display:"flex",alignItems:"center",gap:12,background:"rgba(16,185,129,0.06)",border:`1px solid rgba(16,185,129,0.2)`,borderRadius:14,padding:14}}>
+        <div style={{width:44,height:44,clipPath:"polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)",background:"rgba(139,92,246,0.2)",border:"2px solid #8b5cf6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:900,color:"#8b5cf6",flexShrink:0}}>
+          {player.name?.[0]?.toUpperCase()}
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:15,fontWeight:900,color:C.text}}>{player.name}</div>
+          <div style={{fontSize:11,color:C.sub,marginTop:2}}>{player.position} · {player.tier}</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:26,fontWeight:900,color:C.green,lineHeight:1}}>{player.ovr}</div>
+          <div style={{fontSize:9,color:C.muted,fontWeight:700,letterSpacing:1}}>OVR</div>
+        </div>
+      </div>
+      <div style={{fontSize:11,color:C.muted,textAlign:"center",marginTop:12,lineHeight:1.6}}>
+        กดที่ไหนก็ได้เพื่อปิด
+      </div>
+    </div>
+  </div>
+)}
       </div>
     );
   };
