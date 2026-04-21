@@ -518,7 +518,42 @@ const SquadLogo = ({ size = 32 }) => (
     }}
   />
 );
-
+/* ═══ QR CODE GENERATOR ═══ */
+const QRCode = ({value,size=156}) => {
+  const canvasRef = useRef(null);
+  useEffect(()=>{
+    if(!canvasRef.current||!value)return;
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+    script.onload = () => {
+      if(!canvasRef.current)return;
+      canvasRef.current.innerHTML = "";
+      new window.QRCode(canvasRef.current,{
+        text: value,
+        width: size,
+        height: size,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: window.QRCode.CorrectLevel.H,
+      });
+    };
+    if(window.QRCode){
+      canvasRef.current.innerHTML = "";
+      new window.QRCode(canvasRef.current,{
+        text: value,
+        width: size,
+        height: size,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: window.QRCode.CorrectLevel.H,
+      });
+    } else {
+      document.head.appendChild(script);
+    }
+    return ()=>{if(document.head.contains(script))document.head.removeChild(script);};
+  },[value,size]);
+  return <div ref={canvasRef} style={{width:size,height:size}}/>;
+};
 /* ═══════════════ MAIN APP ═══════════════ */
 export default function SquadHub() {
   const [tab,setTab]         = useState("register");
@@ -1148,29 +1183,8 @@ const handlePhotoUpload = async (e) => {
         <div style={{borderRadius:18,overflow:"hidden",background:"#091510",border:"1px solid rgba(16,185,129,0.25)",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 18px 18px"}}>
           <div style={{fontSize:8,fontWeight:800,color:"#3d6b52",letterSpacing:2,textTransform:"uppercase",marginBottom:14}}>แสดง QR นี้ให้สนาม</div>
           <div style={{background:"#fff",borderRadius:12,padding:12,width:180,height:180,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14}}>
-            <svg viewBox="0 0 60 60" width="156" height="156">
-              <rect x="1" y="1" width="18" height="18" rx="2" fill="none" stroke="#000" strokeWidth="3"/>
-              <rect x="4" y="4" width="12" height="12" rx="1" fill="#000"/>
-              <rect x="41" y="1" width="18" height="18" rx="2" fill="none" stroke="#000" strokeWidth="3"/>
-              <rect x="44" y="4" width="12" height="12" rx="1" fill="#000"/>
-              <rect x="1" y="41" width="18" height="18" rx="2" fill="none" stroke="#000" strokeWidth="3"/>
-              <rect x="4" y="44" width="12" height="12" rx="1" fill="#000"/>
-              <rect x="23" y="2" width="5" height="5" fill="#000"/><rect x="30" y="2" width="5" height="5" fill="#000"/>
-              <rect x="23" y="9" width="5" height="5" fill="#000"/><rect x="36" y="9" width="5" height="5" fill="#000"/>
-              <rect x="30" y="14" width="5" height="5" fill="#000"/><rect x="2" y="23" width="5" height="5" fill="#000"/>
-              <rect x="9" y="23" width="5" height="5" fill="#000"/><rect x="16" y="23" width="5" height="5" fill="#000"/>
-              <rect x="23" y="23" width="5" height="5" fill="#000"/><rect x="30" y="23" width="5" height="5" fill="#000"/>
-              <rect x="44" y="23" width="5" height="5" fill="#000"/><rect x="53" y="23" width="5" height="5" fill="#000"/>
-              <rect x="2" y="30" width="5" height="5" fill="#000"/><rect x="16" y="30" width="5" height="5" fill="#000"/>
-              <rect x="23" y="30" width="5" height="5" fill="#000"/><rect x="36" y="30" width="5" height="5" fill="#000"/>
-              <rect x="44" y="30" width="5" height="5" fill="#000"/><rect x="9" y="36" width="5" height="5" fill="#000"/>
-              <rect x="23" y="36" width="5" height="5" fill="#000"/><rect x="44" y="36" width="5" height="5" fill="#000"/>
-              <rect x="53" y="36" width="5" height="5" fill="#000"/><rect x="23" y="44" width="5" height="5" fill="#000"/>
-              <rect x="36" y="44" width="5" height="5" fill="#000"/><rect x="30" y="50" width="5" height="5" fill="#000"/>
-              <rect x="44" y="50" width="5" height="5" fill="#000"/><rect x="53" y="50" width="5" height="5" fill="#000"/>
-              <rect x="23" y="55" width="5" height="5" fill="#000"/><rect x="36" y="55" width="5" height="5" fill="#000"/>
-            </svg>
-          </div>
+  <QRCode value={`SQ:${player.dbId||player.id}`} size={156}/>
+</div>
           <div style={{fontSize:14,fontWeight:900,color:"#10d484",fontFamily:"monospace",letterSpacing:3,marginBottom:4}}>SQ-{String(player.dbId||player.id).padStart(4,"0")}</div>
           <div style={{fontSize:9,color:"#3d6b52",marginBottom:16}}>ให้สนามส่องตรงนี้เพื่อ check-in</div>
           <div style={{display:"flex",alignItems:"center",gap:10,background:"rgba(16,185,129,0.06)",border:"1px solid rgba(16,185,129,0.15)",borderRadius:10,padding:"10px 14px",width:"100%"}}>
