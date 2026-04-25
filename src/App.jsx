@@ -63,7 +63,7 @@ const NICKS = {
 };
 
 const VENUES = [
-  { id:1, name:"S-One Football Club", area:"ลาดพร้าว", distance:"2.5 km", rating:4.8, slots:[
+  { id:1, name:"Soccer Intrend 87", area:"ลาดพร้าว", distance:"2.5 km", rating:4.8, slots:[
     {id:101,time:"16:00",end:"18:00",type:"7v7",price:150,fee:20,status:"Open",  filled:8, total:28},
     {id:102,time:"18:00",end:"20:00",type:"7v7",price:150,fee:20,status:"Hot",   filled:24,total:28},
     {id:103,time:"20:00",end:"22:00",type:"5v5",price:120,fee:20,status:"Open",  filled:4, total:20},
@@ -1227,7 +1227,7 @@ const handlePhotoUpload = async (e) => {
           <Tag color={C.red}><Flame size={9}/> {T("แมทช์ยอดนิยม","HOT MATCH")}</Tag>
           <span style={{fontSize:10,color:C.sub}}>{T("เหลือ 4 slot","4 slots left")}</span>
         </div>
-        <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>S-One Football Club</div>
+        <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>Soccer Intrend 87</div>
         <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:10}}>18:00–20:00 · 7v7 · ฿170/คน</div>
         <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99,marginBottom:8}}>
           <div style={{height:"100%",width:"86%",background:"linear-gradient(90deg,#dc2626,#ef4444)",borderRadius:99}}/>
