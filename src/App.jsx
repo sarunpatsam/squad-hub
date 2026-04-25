@@ -42,19 +42,24 @@ const PC = { FW:"#ef4444", MF:"#10b981", DF:"#60a5fa", GK:"#fbbf24" };
 const TC = { A:"#ef4444", B:"#60a5fa", C:"#10b981", D:"#fbbf24" };
 
 const SM = {
-  FW:{ Speedster:{pace:90,shooting:80,passing:65,dribbling:82,defending:40,physical:70}, Finisher:{pace:72,shooting:93,passing:60,dribbling:76,defending:38,physical:74}, Playmaker:{pace:68,shooting:72,passing:89,dribbling:79,defending:45,physical:65} },
-  MF:{ Speedster:{pace:84,shooting:65,passing:78,dribbling:80,defending:55,physical:72}, Finisher:{pace:70,shooting:78,passing:76,dribbling:72,defending:58,physical:75}, Playmaker:{pace:66,shooting:60,passing:93,dribbling:83,defending:63,physical:65} },
-  DF:{ Speedster:{pace:86,shooting:44,passing:68,dribbling:65,defending:83,physical:79}, "The Wall":{pace:58,shooting:40,passing:64,dribbling:54,defending:93,physical:89}, Playmaker:{pace:64,shooting:47,passing:81,dribbling:68,defending:86,physical:74} },
-  GK:{ "The Wall":{pace:54,shooting:28,passing:62,dribbling:42,defending:93,physical:86}, Speedster:{pace:70,shooting:30,passing:64,dribbling:50,defending:89,physical:80}, Playmaker:{pace:57,shooting:33,passing:76,dribbling:48,defending:90,physical:78} },
+  FW:{ Speedster:{pace:90,shooting:80,passing:65,dribbling:82,defending:40,physical:70}, Finisher:{pace:72,shooting:93,passing:60,dribbling:76,defending:38,physical:74}, Playmaker:{pace:68,shooting:72,passing:89,dribbling:79,defending:45,physical:65}, Dribbler:{pace:85,shooting:74,passing:70,dribbling:94,defending:36,physical:62}, "Target Man":{pace:60,shooting:86,passing:62,dribbling:65,defending:50,physical:90} },
+  MF:{ Speedster:{pace:84,shooting:65,passing:78,dribbling:80,defending:55,physical:72}, Finisher:{pace:70,shooting:78,passing:76,dribbling:72,defending:58,physical:75}, Playmaker:{pace:66,shooting:60,passing:93,dribbling:83,defending:63,physical:65}, Enforcer:{pace:70,shooting:62,passing:72,dribbling:68,defending:84,physical:88}, "Box-to-Box":{pace:80,shooting:70,passing:80,dribbling:75,defending:72,physical:82} },
+  DF:{ Speedster:{pace:86,shooting:44,passing:68,dribbling:65,defending:83,physical:79}, "The Wall":{pace:58,shooting:40,passing:64,dribbling:54,defending:93,physical:89}, Playmaker:{pace:64,shooting:47,passing:81,dribbling:68,defending:86,physical:74}, Aggressive:{pace:76,shooting:46,passing:62,dribbling:60,defending:90,physical:87}, Overlapper:{pace:83,shooting:52,passing:74,dribbling:72,defending:80,physical:76} },
+  GK:{ "The Wall":{pace:54,shooting:28,passing:62,dribbling:42,defending:93,physical:86}, Speedster:{pace:70,shooting:30,passing:64,dribbling:50,defending:89,physical:80}, Playmaker:{pace:57,shooting:33,passing:76,dribbling:48,defending:90,physical:78}, Commander:{pace:58,shooting:28,passing:68,dribbling:44,defending:91,physical:85}, "Shot-Stopper":{pace:55,shooting:25,passing:58,dribbling:40,defending:95,physical:84} },
 };
-const PLS = { FW:["Speedster","Finisher","Playmaker"], MF:["Speedster","Finisher","Playmaker"], DF:["Speedster","The Wall","Playmaker"], GK:["The Wall","Speedster","Playmaker"] };
+const PLS = {
+  FW:["Speedster","Finisher","Playmaker","Dribbler","Target Man"],
+  MF:["Speedster","Finisher","Playmaker","Enforcer","Box-to-Box"],
+  DF:["Speedster","The Wall","Playmaker","Aggressive","Overlapper"],
+  GK:["The Wall","Speedster","Playmaker","Commander","Shot-Stopper"],
+};
 const OVR = s => Math.round(s.pace*.18+s.shooting*.18+s.passing*.16+s.dribbling*.16+s.defending*.16+s.physical*.16);
 const KEY_STATS = { FW:["shooting","pace","dribbling"], MF:["passing","dribbling","pace"], DF:["defending","physical","pace"], GK:["defending","physical","passing"] };
 const NICKS = {
-  FW:{ Speedster:{nick:"สายฟ้า ⚡",tags:["#SpeedDemon","#ปีกไฟ","#เร็วกว่าเงา"]}, Finisher:{nick:"เครื่องทำประตู 🎯",tags:["#GoalMachine","#หน้าเป้า","#ไม่มีพลาด"]}, Playmaker:{nick:"จอมวางเกม 🧠",tags:["#CreativeFW","#ตัวจี๊ด","#จ่ายแล้วบุก"]} },
-  MF:{ Speedster:{nick:"ม้าใช้ทีม 🐎",tags:["#BoxToBox","#วิ่งไม่หยุด","#ปอดเหล็ก"]}, Finisher:{nick:"MF หน้าเป้า 💥",tags:["#GoalMidfield","#ยิงจากนอก","#ไม่ใช่แค่ส่ง"]}, Playmaker:{nick:"ปรมาจารย์จ่าย 🎼",tags:["#KingAssist","#VisionGod","#จ่ายทะลุแนว"]} },
-  DF:{ Speedster:{nick:"กำแพงเคลื่อนที่ 🏃",tags:["#SweepKeeper","#ดักบุก","#ไล่ไม่ทัน"]}, "The Wall":{nick:"กำแพงเหล็ก 🧱",tags:["#TheWall","#ผ่านไม่ได้","#หัวโขก"]}, Playmaker:{nick:"ลิเบโร่ 🎯",tags:["#Libero","#บิ้วจากหลัง","#กองหลังจ่ายได้"]} },
-  GK:{ "The Wall":{nick:"เทพเจ้าประตู 🧤",tags:["#WallGK","#เซฟไม่ยั้ง","#ผ่านไม่ผ่าน"]}, Speedster:{nick:"GK ปีกเร็ว ⚡",tags:["#SweepingGK","#ออกมาเลย","#ปอดเหล็ก"]}, Playmaker:{nick:"สร้างเกมจากหลัง 🎼",tags:["#PlaymakingGK","#เริ่มเกมจากประตู","#จ่ายทะลุ"]} },
+  FW:{ Speedster:{nick:"สายฟ้า ⚡",tags:["#SpeedDemon","#ปีกไฟ","#เร็วกว่าเงา"]}, Finisher:{nick:"เครื่องทำประตู 🎯",tags:["#GoalMachine","#หน้าเป้า","#ไม่มีพลาด"]}, Playmaker:{nick:"จอมวางเกม 🧠",tags:["#CreativeFW","#ตัวจี๊ด","#จ่ายแล้วบุก"]}, Dribbler:{nick:"งูเห่าบอล 🐍",tags:["#DribbleMaster","#ไม่มีใครแย่งได้","#ลูกติดเท้า"]}, "Target Man":{nick:"หัวหอก 🗡️",tags:["#TargetMan","#โหม่งก็ได้","#ยิงก็ดี"]} },
+  MF:{ Speedster:{nick:"ม้าใช้ทีม 🐎",tags:["#BoxToBox","#วิ่งไม่หยุด","#ปอดเหล็ก"]}, Finisher:{nick:"MF หน้าเป้า 💥",tags:["#GoalMidfield","#ยิงจากนอก","#ไม่ใช่แค่ส่ง"]}, Playmaker:{nick:"ปรมาจารย์จ่าย 🎼",tags:["#KingAssist","#VisionGod","#จ่ายทะลุแนว"]}, Enforcer:{nick:"จอมทำลาย 💪",tags:["#Enforcer","#ดักกลางสนาม","#ล้มไม่ลง"]}, "Box-to-Box":{nick:"สองหน้าสองหลัง 🔄",tags:["#B2B","#ครบเครื่อง","#ทำได้ทุกอย่าง"]} },
+  DF:{ Speedster:{nick:"กำแพงเคลื่อนที่ 🏃",tags:["#SweepKeeper","#ดักบุก","#ไล่ไม่ทัน"]}, "The Wall":{nick:"กำแพงเหล็ก 🧱",tags:["#TheWall","#ผ่านไม่ได้","#หัวโขก"]}, Playmaker:{nick:"ลิเบโร่ 🎯",tags:["#Libero","#บิ้วจากหลัง","#กองหลังจ่ายได้"]}, Aggressive:{nick:"นักล่า 🦁",tags:["#Aggressive","#สไลด์ทุกอย่าง","#อย่ามาแถว"]}, Overlapper:{nick:"ปีกป้องกัน 🚀",tags:["#WingBack","#ขึ้นบุก","#ลงป้องกัน"]} },
+  GK:{ "The Wall":{nick:"เทพเจ้าประตู 🧤",tags:["#WallGK","#เซฟไม่ยั้ง","#ผ่านไม่ผ่าน"]}, Speedster:{nick:"GK ปีกเร็ว ⚡",tags:["#SweepingGK","#ออกมาเลย","#ปอดเหล็ก"]}, Playmaker:{nick:"สร้างเกมจากหลัง 🎼",tags:["#PlaymakingGK","#เริ่มเกมจากประตู","#จ่ายทะลุ"]}, Commander:{nick:"แม่ทัพกองหลัง 📢",tags:["#Commander","#สั่งการ","#หัวโขก"]}, "Shot-Stopper":{nick:"มือเวทย์ 🪄",tags:["#ShotStopper","#เซฟแล้วเซฟอีก","#ผ่านประตูไม่ได้"]} },
 };
 
 const VENUES = [
@@ -964,7 +969,7 @@ const handlePhotoUpload = async (e) => {
             <div style={{fontSize:19,fontWeight:900,color:C.text,marginBottom:4}}>สไตล์การเล่น</div>
             <div style={{fontSize:11,color:C.sub,marginBottom:16}}>ระบบคำนวณ Stats + ฉายาอัตโนมัติ</div>
             {(PLS[regData.position]||[]).map(style=>{
-              const icons={Speedster:<Wind size={14}/>,Finisher:<Target size={14}/>,Playmaker:<Activity size={14}/>,"The Wall":<Shield size={14}/>};
+              const icons={Speedster:<Wind size={14}/>,Finisher:<Target size={14}/>,Playmaker:<Activity size={14}/>,"The Wall":<Shield size={14}/>,Dribbler:<Zap size={14}/>,"Target Man":<Target size={14}/>,Enforcer:<Shield size={14}/>,"Box-to-Box":<Activity size={14}/>,Aggressive:<Shield size={14}/>,Overlapper:<Wind size={14}/>,Commander:<Trophy size={14}/>,"Shot-Stopper":<ShieldCheck size={14}/>};
               const sel=regData.playstyle===style;
               const ni=NICKS[regData.position]?.[style];
               return <button key={style} onClick={()=>setRegData({...regData,playstyle:style})} style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`2px solid ${sel?C.green:C.border}`,background:sel?C.greenDim:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:10,marginBottom:8,transition:"all .2s"}}>
@@ -1495,8 +1500,6 @@ const handlePhotoUpload = async (e) => {
   };
 
   /* ── CHECKOUT ── */
-  const PROMPTPAY_ID = "0800706187"; // ← เปลี่ยนเป็นเบอร์จริงของนาย
-
   const generatePromptPayQR = (phoneNumber, amount) => {
     const cleanPhone = phoneNumber.replace(/\D/g, "");
     const formattedPhone = "0066" + cleanPhone.slice(1);
@@ -1516,8 +1519,12 @@ const handlePhotoUpload = async (e) => {
   };
 
   const renderCheckout = () => {
-    const total = (slot?.price||0)+(slot?.fee||0);
-    const qrData = generatePromptPayQR(PROMPTPAY_ID, total);
+    const venuePromptpay = venue?.promptpay_id || "0800706187";
+    const venueName = venue?.promptpay_name || venue?.name || "สนาม";
+    const matchPrice = slot?.price||0;
+    const platformFee = slot?.fee||0; // Season 1 = 0
+    const total = matchPrice; // ไม่รวม fee เพราะ Season 1 ฟรี
+    const qrData = generatePromptPayQR(venuePromptpay, total);
     const qrURL  = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrData)}`;
 
     /* ── Step 1: สรุปยอด ── */
@@ -1530,15 +1537,27 @@ const handlePhotoUpload = async (e) => {
             <div><div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:2}}>{venue?.name}</div><div style={{fontSize:11,color:C.sub}}>{slot?.time}–{slot?.end} · {slot?.type}</div></div>
             {myTeamData&&<Tag color={myTeamData.color}>{myTeamData.name}</Tag>}
           </div>
-          {[{l:"ค่าแมทช์",v:`฿${slot?.price}`},{l:"Platform Fee",v:`฿${slot?.fee}`}].map(r=>(
-            <div key={r.l} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.sub,marginBottom:9}}>
-              <span>{r.l}</span><span style={{color:C.text,fontWeight:700}}>{r.v}</span>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.sub,marginBottom:9}}>
+            <span>ค่าแมทช์</span><span style={{color:C.text,fontWeight:700}}>฿{matchPrice}</span>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.sub,marginBottom:9,alignItems:"center"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span>Platform Fee</span>
+              <span style={{fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:99,background:"rgba(16,185,129,0.1)",color:C.green,border:`1px solid rgba(16,185,129,0.25)`}}>⚡ S1 ฟรี</span>
             </div>
-          ))}
+            <div style={{display:"flex",alignItems:"center",gap:5}}>
+              <span style={{color:C.muted,textDecoration:"line-through",fontSize:11}}>฿19</span>
+              <span style={{color:C.green,fontWeight:800}}>฿0</span>
+            </div>
+          </div>
           <div style={{borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:13,fontWeight:800,color:C.text}}>Total</span>
             <span style={{fontSize:30,fontWeight:900,color:C.green,fontStyle:"italic"}}>฿{total}</span>
           </div>
+        </div>
+        <div style={{background:"rgba(16,185,129,0.05)",border:"1px solid rgba(16,185,129,0.15)",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+          <div style={{fontSize:11,color:C.green,fontWeight:800,marginBottom:2}}>📍 โอนตรงให้สนาม</div>
+          <div style={{fontSize:11,color:C.sub,lineHeight:1.6}}>PromptPay: {venuePromptpay} · {venueName}</div>
         </div>
         <div style={{background:"rgba(251,191,36,0.07)",border:"1px solid rgba(251,191,36,0.18)",borderRadius:12,padding:"10px 14px",marginBottom:20}}>
           <span style={{fontSize:11,color:C.amber,lineHeight:1.6}}>⚠️ {T("การยกเลิกหลัง 30 นาทีก่อนแมทช์จะส่งผลต่อ Reliability Score","Cancellation within 30 min of match affects your Reliability Score")}</span>
@@ -1554,27 +1573,25 @@ const handlePhotoUpload = async (e) => {
           <ArrowLeft size={14}/>กลับ
         </button>
         <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:4,color:C.text}}>PromptPay QR</div>
-        <div style={{fontSize:12,color:C.sub,marginBottom:20}}>สแกน QR เพื่อชำระเงิน</div>
+        <div style={{fontSize:12,color:C.sub,marginBottom:20}}>โอนตรงให้สนาม · {venueName}</div>
 
-        {/* QR Card — Premium Style */}
+        {/* QR Card */}
         <div style={{position:"relative",borderRadius:24,overflow:"hidden",marginBottom:16,background:"linear-gradient(160deg,#0d1f14,#091824)",border:`1.5px solid ${C.borderHi}`,boxShadow:`0 0 40px rgba(16,185,129,0.12)`}}>
-
-          {/* Top glow */}
           <div style={{position:"absolute",top:-40,left:"50%",transform:"translateX(-50%)",width:200,height:200,background:`radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%)`,pointerEvents:"none"}}/>
-
-          {/* Header */}
           <div style={{padding:"20px 20px 0",textAlign:"center",position:"relative"}}>
             <div style={{fontSize:9,fontWeight:800,letterSpacing:3,textTransform:"uppercase",color:C.green,marginBottom:4}}>ยอดที่ต้องชำระ</div>
-            <div style={{fontSize:44,fontWeight:900,color:C.green,fontStyle:"italic",lineHeight:1,marginBottom:20}}>฿{total}</div>
+            <div style={{fontSize:44,fontWeight:900,color:C.green,fontStyle:"italic",lineHeight:1,marginBottom:8}}>฿{total}</div>
+            <div style={{fontSize:11,color:C.sub,marginBottom:20}}>PromptPay · {venuePromptpay}</div>
           </div>
-
-          {/* QR Frame */}
           <div style={{display:"flex",justifyContent:"center",padding:"0 24px",marginBottom:24}}>
             <div style={{position:"relative",padding:3,borderRadius:20,background:`linear-gradient(135deg,${C.green},#059669,${C.green})`,boxShadow:`0 8px 32px rgba(16,185,129,0.25)`}}>
               <div style={{background:"#fff",borderRadius:17,padding:14}}>
                 <img src={qrURL} alt="PromptPay QR" width={190} height={190} style={{display:"block",borderRadius:8}}/>
               </div>
             </div>
+          </div>
+          <div style={{padding:"0 20px 20px",textAlign:"center"}}>
+            <div style={{fontSize:11,color:C.sub}}>สแกนด้วยแอปธนาคารหรือ Mobile Banking</div>
           </div>
         </div>
 
