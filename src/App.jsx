@@ -8,7 +8,7 @@ import {
   ArrowLeft, Flame, Clock, CheckCircle2, Medal, Bell,
   Search, Hexagon, Wind, Target, Shield, Activity,
   Send, MessageCircle, Users, Copy, Hash, Camera,
-  Upload, Edit3, Star
+  Upload, Edit3, Star, Calendar
 } from "lucide-react";
 
 /* ═══════════════ DESIGN TOKENS ═══════════════ */
@@ -585,7 +585,18 @@ export default function SquadHub() {
   const [captainToast,setCaptainToast] = useState(null);
   const [venues,setVenues]   = useState(VENUES); // เริ่มจาก mock ก่อน แล้ว override ด้วย DB
   const [venuesLoading,setVenuesLoading] = useState(false);
+  const [selectedDate,setSelectedDate] = useState(new Date());
+  const [showCal,setShowCal] = useState(false);
   const fileRef = useRef(null);
+
+  /* ── DATE HELPERS ── */
+  const next30Days = Array.from({length:30},(_,i)=>{
+    const d=new Date(); d.setDate(d.getDate()+i); return d;
+  });
+  const fmtDate = d => d.toISOString().split("T")[0];
+  const isToday = d => fmtDate(d)===fmtDate(new Date());
+  const dayTH = ["อา","จ","อ","พ","พฤ","ศ","ส"];
+  const monthTH = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 
   /* ── LIFF INIT + AUTO-LOGIN ── */
   useEffect(()=>{
@@ -720,44 +731,35 @@ export default function SquadHub() {
     return d<1?`${Math.round(d*1000)} ม.`:`${d.toFixed(1)} km`;
   };
 
-  useEffect(()=>{
-    (async()=>{
-      setVenuesLoading(true);
-      const { data, error } = await supabase
-        .from("venues")
-        .select(`*, slots(*)`)
-        .eq("is_active", true)
-        .order("id");
-      if(!error && data && data.length > 0){
-        /* แปลง format ให้ตรงกับ VENUES mock */
-        const mapped = data.map(v=>({
-          id:       v.id,
-          name:     v.name,
-          area:     v.area || "",
-          lat:      v.lat||null,
-          lng:      v.lng||null,
-          address:  v.address||"",
-          distance: "— km",
-          rating:   v.rating || 5.0,
-          promptpay_id: v.promptpay_id||"",
-          promptpay_name: v.promptpay_name||v.name||"",
-          slots:    (v.slots||[]).map(s=>({
-            id:     s.id,
-            time:   s.start_time?.slice(0,5) || "—",
-            end:    s.end_time?.slice(0,5) || "—",
-            type:   s.match_type || "7v7",
-            price:  s.price_per_player || 150,
-            fee:    s.platform_fee || 20,
-            status: s.status === "open" ? "Open" : s.status === "full" ? "Full" : "Hot",
-            filled: 0,
-            total:  s.max_players || 14,
+  const fetchVenues = async(date=selectedDate) => {
+    setVenuesLoading(true);
+    const dateStr = fmtDate(date);
+    const {data,error} = await supabase
+      .from("venues").select(`*, slots(*)`)
+      .eq("is_active",true).order("id");
+    if(!error&&data&&data.length>0){
+      const mapped=data.map(v=>({
+        id:v.id, name:v.name, area:v.area||"",
+        lat:v.lat||null, lng:v.lng||null, address:v.address||"",
+        distance:"— km", rating:v.rating||5.0,
+        promptpay_id:v.promptpay_id||"", promptpay_name:v.promptpay_name||v.name||"",
+        slots:(v.slots||[])
+          .filter(s=>s.date===dateStr)
+          .map(s=>({
+            id:s.id, time:s.start_time?.slice(0,5)||"—",
+            end:s.end_time?.slice(0,5)||"—", type:s.match_type||"7v7",
+            price:s.price_per_player||150, fee:0,
+            status:s.status==="open"?"Open":s.status==="full"?"Full":"Hot",
+            filled:0, total:s.max_players||14,
           })),
-        }));
-        setVenues(mapped);
-      }
-      setVenuesLoading(false);
-    })();
-  },[]);
+      }));
+      setVenues(mapped);
+    }
+    setVenuesLoading(false);
+  };
+
+  useEffect(()=>{ fetchVenues(); },[]);
+  useEffect(()=>{ fetchVenues(selectedDate); },[selectedDate]);
 
   useEffect(()=>{
     if(!userLoc||!venues.length)return;
@@ -1270,6 +1272,65 @@ const handlePhotoUpload = async (e) => {
         </div>
       </div>
       <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:12}}>{T("สนามใกล้คุณ","Nearby Venues")}</div>
+
+      {/* Date Scroll Row */}
+      <div style={{marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div style={{fontSize:12,fontWeight:800,color:C.text}}>
+            {isToday(selectedDate)?"วันนี้":selectedDate.toLocaleDateString("th-TH",{weekday:"long",day:"numeric",month:"short"})}
+          </div>
+          <button onClick={()=>setShowCal(c=>!c)}
+            style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:700,color:C.green,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.22)",borderRadius:8,padding:"5px 10px",cursor:"pointer"}}>
+            <Calendar size={12}/> เลือกวัน
+          </button>
+        </div>
+        {/* Scroll strip */}
+        <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,scrollbarWidth:"none"}}>
+          {next30Days.slice(0,14).map((d,i)=>{
+            const sel=fmtDate(d)===fmtDate(selectedDate);
+            return(
+              <button key={i} onClick={()=>setSelectedDate(d)}
+                style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",padding:"8px 10px",borderRadius:10,border:`1px solid ${sel?C.borderHi:C.border}`,background:sel?C.greenDim:"transparent",cursor:"pointer",minWidth:44,transition:"all .15s"}}>
+                <span style={{fontSize:9,fontWeight:700,color:sel?C.green:C.muted,marginBottom:2}}>{dayTH[d.getDay()]}</span>
+                <span style={{fontSize:15,fontWeight:900,color:sel?C.green:C.text,lineHeight:1}}>{d.getDate()}</span>
+                {isToday(d)&&<span style={{fontSize:7,color:C.green,fontWeight:800,marginTop:2}}>วันนี้</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Calendar Popup */}
+      {showCal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowCal(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:"20px 20px 0 0",padding:"20px 16px 32px",width:"100%",maxWidth:480}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{fontSize:15,fontWeight:900,color:C.text}}>เลือกวันที่ต้องการเล่น</div>
+              <button onClick={()=>setShowCal(false)} style={{background:"rgba(255,255,255,0.06)",border:"none",color:C.sub,fontSize:13,padding:"4px 10px",borderRadius:7,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:8}}>
+              {dayTH.map(d=><div key={d} style={{textAlign:"center",fontSize:9,fontWeight:700,color:C.muted,padding:"4px 0"}}>{d}</div>)}
+            </div>
+            {/* Month grid — show 30 days from today */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+              {/* Empty cells before first day */}
+              {Array.from({length:new Date().getDay()}).map((_,i)=><div key={i}/>)}
+              {next30Days.map((d,i)=>{
+                const sel=fmtDate(d)===fmtDate(selectedDate);
+                const tod=isToday(d);
+                return(
+                  <button key={i} onClick={()=>{setSelectedDate(d);setShowCal(false);}}
+                    style={{padding:"8px 4px",borderRadius:8,border:`1px solid ${sel?C.borderHi:tod?"rgba(16,185,129,0.3)":"transparent"}`,background:sel?C.greenDim:tod?"rgba(16,185,129,0.06)":"transparent",cursor:"pointer",textAlign:"center"}}>
+                    <div style={{fontSize:13,fontWeight:sel?900:600,color:sel?C.green:tod?C.green:C.text}}>{d.getDate()}</div>
+                    {tod&&<div style={{fontSize:6,color:C.green,fontWeight:800}}>วันนี้</div>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {venuesLoading && <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:C.sub}}>กำลังโหลดสนาม...</div>}
       {venues.map(v=>(
         <div key={v.id} onClick={()=>{setVenue(v);setTab("venue");}}
