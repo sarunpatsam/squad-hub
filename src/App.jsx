@@ -63,7 +63,7 @@ const NICKS = {
 };
 
 const VENUES = [
-  { id:1, name:"Soccer Intrend 87", area:"ลาดพร้าว", distance:"2.5 km", rating:4.8, slots:[
+  { id:1, name:"S-One Football Club", area:"ลาดพร้าว", distance:"2.5 km", rating:4.8, slots:[
     {id:101,time:"16:00",end:"18:00",type:"7v7",price:150,fee:20,status:"Open",  filled:8, total:28},
     {id:102,time:"18:00",end:"20:00",type:"7v7",price:150,fee:20,status:"Hot",   filled:24,total:28},
     {id:103,time:"20:00",end:"22:00",type:"5v5",price:120,fee:20,status:"Open",  filled:4, total:20},
@@ -701,6 +701,25 @@ export default function SquadHub() {
   },[]);
 
   /* ── FETCH VENUES จาก Supabase ── */
+  const [userLoc,setUserLoc]=useState(null);
+
+  useEffect(()=>{
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        pos=>setUserLoc({lat:pos.coords.latitude,lng:pos.coords.longitude}),
+        ()=>{}
+      );
+    }
+  },[]);
+
+  const calcDist=(lat1,lng1,lat2,lng2)=>{
+    if(!lat1||!lat2)return null;
+    const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+    const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+    const d=R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    return d<1?`${Math.round(d*1000)} ม.`:`${d.toFixed(1)} km`;
+  };
+
   useEffect(()=>{
     (async()=>{
       setVenuesLoading(true);
@@ -715,8 +734,13 @@ export default function SquadHub() {
           id:       v.id,
           name:     v.name,
           area:     v.area || "",
+          lat:      v.lat||null,
+          lng:      v.lng||null,
+          address:  v.address||"",
           distance: "— km",
           rating:   v.rating || 5.0,
+          promptpay_id: v.promptpay_id||"",
+          promptpay_name: v.promptpay_name||v.name||"",
           slots:    (v.slots||[]).map(s=>({
             id:     s.id,
             time:   s.start_time?.slice(0,5) || "—",
@@ -734,6 +758,14 @@ export default function SquadHub() {
       setVenuesLoading(false);
     })();
   },[]);
+
+  useEffect(()=>{
+    if(!userLoc||!venues.length)return;
+    setVenues(prev=>prev.map(v=>({
+      ...v,
+      distance:calcDist(userLoc.lat,userLoc.lng,v.lat,v.lng)||"— km",
+    })));
+  },[userLoc]);
 
 const handlePhotoUpload = async (e) => {
   const file = e.target.files?.[0];
@@ -1227,7 +1259,7 @@ const handlePhotoUpload = async (e) => {
           <Tag color={C.red}><Flame size={9}/> {T("แมทช์ยอดนิยม","HOT MATCH")}</Tag>
           <span style={{fontSize:10,color:C.sub}}>{T("เหลือ 4 slot","4 slots left")}</span>
         </div>
-        <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>Soccer Intrend 87</div>
+        <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>S-One Football Club</div>
         <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:10}}>18:00–20:00 · 7v7 · ฿170/คน</div>
         <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99,marginBottom:8}}>
           <div style={{height:"100%",width:"86%",background:"linear-gradient(90deg,#dc2626,#ef4444)",borderRadius:99}}/>
@@ -1245,8 +1277,13 @@ const handlePhotoUpload = async (e) => {
           <div style={{width:42,height:42,background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><MapPin size={17} color={C.green}/></div>
           <div style={{flex:1}}>
             <div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:3}}>{v.name}</div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:10,color:C.sub}}>{v.area} · {v.distance}</span>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <span style={{fontSize:10,color:C.sub}}>{v.area}</span>
+              {v.distance&&v.distance!=="— km"?(
+                <span style={{fontSize:10,fontWeight:800,color:C.green,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",padding:"1px 7px",borderRadius:99}}>📍 {v.distance}</span>
+              ):(
+                <span style={{fontSize:10,color:C.muted}}>📍 {v.distance}</span>
+              )}
               <span style={{fontSize:10,color:C.amber,fontWeight:700}}>★ {v.rating}</span>
             </div>
           </div>
@@ -1262,10 +1299,29 @@ const handlePhotoUpload = async (e) => {
     <div style={{paddingTop:16}}>
       <BackBtn onClick={()=>setTab("home")}/>
       <div style={{fontSize:21,fontWeight:900,color:C.text,marginBottom:3}}>{venue?.name}</div>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20}}>
-        <span style={{fontSize:11,color:C.sub}}>{venue?.area} · {venue?.distance}</span>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <span style={{fontSize:11,color:C.sub}}>{venue?.area}</span>
+        {venue?.distance&&venue.distance!=="— km"&&(
+          <span style={{fontSize:11,fontWeight:800,color:C.green,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",padding:"2px 8px",borderRadius:99}}>📍 {venue.distance}</span>
+        )}
         <span style={{fontSize:11,color:C.amber,fontWeight:700}}>★ {venue?.rating}</span>
       </div>
+      {(venue?.lat||venue?.address)&&(
+        <div style={{display:"flex",gap:8,marginBottom:18}}>
+          {venue?.lat&&venue?.lng&&(
+            <a href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`} target="_blank" rel="noreferrer"
+              style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",color:C.green,fontSize:12,fontWeight:800,textDecoration:"none"}}
+              onClick={e=>e.stopPropagation()}>
+              <MapPin size={13}/> นำทางไปสนาม
+            </a>
+          )}
+          {venue?.address&&(
+            <div style={{fontSize:11,color:C.sub,display:"flex",alignItems:"center",gap:4,padding:"8px 0"}}>
+              <MapPin size={11}/>{venue.address}
+            </div>
+          )}
+        </div>
+      )}
       <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>ตารางแมทช์วันนี้</div>
       {venue?.slots.map(s=>{
         const sc=s.status==="Full"?C.sub:s.status==="Hot"?C.red:C.green;
