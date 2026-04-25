@@ -1259,7 +1259,7 @@ const handlePhotoUpload = async (e) => {
           <Tag color={C.red}><Flame size={9}/> {T("แมทช์ยอดนิยม","HOT MATCH")}</Tag>
           <span style={{fontSize:10,color:C.sub}}>{T("เหลือ 4 slot","4 slots left")}</span>
         </div>
-        <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>S-One Football Club</div>
+        <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>Grand Soccer Pro Kaset-Nawamin</div>
         <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:10}}>18:00–20:00 · 7v7 · ฿170/คน</div>
         <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99,marginBottom:8}}>
           <div style={{height:"100%",width:"86%",background:"linear-gradient(90deg,#dc2626,#ef4444)",borderRadius:99}}/>
