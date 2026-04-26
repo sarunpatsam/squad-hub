@@ -1491,9 +1491,9 @@ const handlePhotoUpload = async (e) => {
 
   /* ── VENUE ── */
   const renderVenue = () => {
-    const VENUE_FACILITIES = {
-      "S-One Football Club":["⚽ สนามหญ้าเทียม 3 สนาม","🅿️ ที่จอดรถฟรี","☕ คาเฟ่","🚿 ห้องอาบน้ำ","❄️ แอร์ในล็อบบี้","📶 WiFi"],
-      "Grand Soccer Pro":["⚽ สนามในร่ม 4 สนาม","🅿️ ที่จอดรถ","🛒 ร้านอุปกรณ์กีฬา","🚿 ห้องน้ำ","📶 WiFi","👪 พื้นที่นั่งรอ"],
+    const VENUE_FAC = {
+      "S-One Football Club":["⚽ สนามหญ้าเทียม 3 สนาม","🅿️ ที่จอดรถฟรี","☕ คาเฟ่","🚿 ห้องอาบน้ำ","❄️ แอร์ในล็อบบี้","📶 WiFi ฟรี"],
+      "Grand Soccer Pro":["⚽ สนามในร่ม 4 สนาม","🅿️ ที่จอดรถ","🛒 ร้านอุปกรณ์","🚿 ห้องน้ำ","📶 WiFi","👪 พื้นที่นั่งรอ"],
       "Polo Football Park":["⚽ สนามหญ้าธรรมชาติ","🌳 สวนรอบสนาม","☕ ร้านกาแฟ","🅿️ 100 คัน","📷 กล้องวงจรปิด"],
       "Pro Zone Arena":["⚽ Futsal 2 สนาม","❄️ แอร์ตลอด","🚿 ห้องน้ำ","📶 WiFi","🎮 ห้องรอ TV"],
       "Bangkok United Park":["⚽ 3 สนาม","🅿️ ที่จอดรถ","☕ ร้านน้ำ","🚿 ห้องอาบน้ำ","👨‍👩‍👧 พื้นที่ครอบครัว"],
@@ -1503,56 +1503,39 @@ const handlePhotoUpload = async (e) => {
       "Minburi FC Ground":["⚽ 4 สนาม","🌳 กลางแจ้ง","🅿️ ฟรี","🚿 ห้องอาบน้ำ"],
       "Thonburi Soccer Club":["⚽ 3 สนาม","☕ ร้านน้ำ","🅿️ ที่จอดรถ","📶 WiFi","👪 โซนนั่งรอ"],
     };
-    const facilities=venue?.facilities||VENUE_FACILITIES[venue?.name]||["⚽ สนามฟุตบอล","🅿️ ที่จอดรถ","🚿 ห้องน้ำ"];
+    const facilities = venue?.facilities || VENUE_FAC[venue?.name] || ["⚽ สนามฟุตบอล","🅿️ ที่จอดรถ","🚿 ห้องน้ำ"];
     return (
-    <div style={{paddingTop:16}}>
-      <BackBtn onClick={()=>setTab("home")}/>
-      <div style={{fontSize:21,fontWeight:900,color:C.text,marginBottom:3}}>{venue?.name}</div>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
-        <span style={{fontSize:11,color:C.sub}}>{venue?.area}</span>
-        {venue?.distance&&venue.distance!=="— km"&&(
-          <span style={{fontSize:11,fontWeight:800,color:C.green,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",padding:"2px 8px",borderRadius:99}}>📍 {venue.distance}</span>
-        )}
-        <span style={{fontSize:11,color:C.amber,fontWeight:700}}>★ {venue?.rating}</span>
-      </div>
-      {(venue?.lat||venue?.address)&&(
-        <div style={{display:"flex",gap:8,marginBottom:18}}>
-          {venue?.lat&&venue?.lng&&(
-            <a href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`} target="_blank" rel="noreferrer"
-              style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",color:C.green,fontSize:12,fontWeight:800,textDecoration:"none"}}
-              onClick={e=>e.stopPropagation()}>
-              <MapPin size={13}/> {T("นำทางไปสนาม","Navigate")}
-            </a>
+      <div style={{paddingTop:16}}>
+        <BackBtn onClick={()=>setTab("home")}/>
+        <div style={{fontSize:21,fontWeight:900,color:C.text,marginBottom:3}}>{venue?.name}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+          <span style={{fontSize:11,color:C.sub}}>{venue?.area}</span>
+          {venue?.distance&&venue.distance!=="— km"&&(
+            <span style={{fontSize:11,fontWeight:800,color:C.green,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",padding:"2px 8px",borderRadius:99}}>📍 {venue.distance}</span>
           )}
-          {venue?.address&&(
-            <div style={{fontSize:11,color:C.sub,display:"flex",alignItems:"center",gap:4,padding:"8px 0"}}>
-              <MapPin size={11}/>{venue.address}
-            </div>
-          )}
+          <span style={{fontSize:11,color:C.amber,fontWeight:700}}>★ {venue?.rating}</span>
         </div>
-      )}
-      {/* Facility Info */}
-      {(()=>{
-        const VENUE_FACILITIES = {
-          "S-One Football Club":        ["⚽ สนามหญ้าเทียม 3 สนาม","🅿️ ที่จอดรถฟรี 50 คัน","☕ คาเฟ่และร้านอาหาร","🚿 ห้องอาบน้ำ","❄️ แอร์ในล็อบบี้","📶 WiFi ฟรี"],
-          "Grand Soccer Pro":            ["⚽ สนามในร่ม 4 สนาม","🅿️ ที่จอดรถ","🛒 ร้านค้าอุปกรณ์กีฬา","🚿 ห้องน้ำและอาบน้ำ","📶 WiFi","👪 พื้นที่นั่งรอ"],
-          "Polo Football Park":          ["⚽ สนามหญ้าธรรมชาติ","🌳 สวนสาธารณะรอบสนาม","☕ ร้านกาแฟ","🅿️ ที่จอดรถ 100 คัน","📷 กล้องวงจรปิด"],
-          "Pro Zone Arena":              ["⚽ สนาม Futsal 2 สนาม","❄️ แอร์ตลอด","🚿 ห้องน้ำ","📶 WiFi","🎮 ห้องรอพร้อม TV"],
-          "Bangkok United Park":         ["⚽ 3 สนาม","🅿️ ที่จอดรถ","☕ ร้านน้ำ","🚿 ห้องอาบน้ำ","👨‍👩‍👧 พื้นที่สำหรับครอบครัว"],
-          "King Power Stadium":          ["⚽ 5 สนาม Premium","❄️ สนามในร่มแอร์","☕ Food Court","🛒 Pro Shop","🅿️ ที่จอดรถ 200 คัน","📶 WiFi","🚿 ห้องอาบน้ำ VIP"],
-          "Siam Sport Complex":          ["⚽ 3 สนาม","❄️ แอร์","☕ คาเฟ่","📶 WiFi","🅿️ ที่จอดรถ","🚿 ห้องน้ำ"],
-          "On Nut Football Park":        ["⚽ 2 สนาม Futsal","🅿️ ที่จอดรถ","☕ ร้านกาแฟ","📶 WiFi"],
-          "Minburi FC Ground":           ["⚽ 4 สนาม","🌳 สนามกลางแจ้ง","🅿️ ที่จอดรถฟรี","🚿 ห้องอาบน้ำ"],
-          "Thonburi Soccer Club":        ["⚽ 3 สนาม","☕ ร้านน้ำ","🅿️ ที่จอดรถ","📶 WiFi","👪 โซนนั่งรอ"],
-        };
-      {/* Facility Info */}
-      <>
-        <>
-          <button onClick={()=>setShowFac(f=>!f)}
+        {(venue?.lat||venue?.address)&&(
+          <div style={{display:"flex",gap:8,marginBottom:18}}>
+            {venue?.lat&&venue?.lng&&(
+              <a href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`} target="_blank" rel="noreferrer"
+                style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",color:C.green,fontSize:12,fontWeight:800,textDecoration:"none"}}
+                onClick={e=>e.stopPropagation()}>
+                <MapPin size={13}/> {T("นำทางไปสนาม","Navigate")}
+              </a>
+            )}
+            {venue?.address&&(
+              <div style={{fontSize:11,color:C.sub,display:"flex",alignItems:"center",gap:4,padding:"8px 0"}}>
+                <MapPin size={11}/>{venue.address}
+              </div>
+            )}
+          </div>
+        )}
+        <button onClick={()=>setShowFac(f=>!f)}
           style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"12px 16px",borderRadius:12,background:C.surface,border:`1px solid ${showFac?C.borderHi:C.border}`,cursor:"pointer",marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:16}}>🏟️</span>
-            <span style={{fontSize:13,fontWeight:800,color:C.text}}>{T("ข้อมูลสิ่งอำนวยความสะดวก","Facilities & Info")}</span>
+            <span style={{fontSize:13,fontWeight:800,color:C.text}}>{T("สิ่งอำนวยความสะดวก","Facilities")}</span>
           </div>
           <span style={{fontSize:12,color:C.green,fontWeight:700}}>{showFac?"▲":"▼"}</span>
         </button>
@@ -1566,39 +1549,36 @@ const handlePhotoUpload = async (e) => {
                 </div>
               ))}
             </div>
-            {venue?.description&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid rgba(16,185,129,0.08)`,fontSize:12,color:C.sub,lineHeight:1.6}}>{venue.description}</div>}
           </div>
         )}
-        </>
-      <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>{T("ตารางแมทช์วันนี้","Today's Matches")}</div>
-      {venue?.slots.map(s=>{
-        const sc=s.status==="Full"?C.sub:s.status==="Hot"?C.red:C.green;
-        const pct=Math.round((s.filled/s.total)*100);
-        return (
-          <div key={s.id} onClick={()=>{if(s.status!=="Full"){setSlot(s);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}}}
-            style={{background:C.surface,border:`1px solid ${s.status==="Hot"?"rgba(239,68,68,0.22)":C.border}`,borderRadius:15,padding:"15px 17px",marginBottom:10,cursor:s.status==="Full"?"default":"pointer",opacity:s.status==="Full"?.5:1}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-              <div>
-                <div style={{fontSize:17,fontWeight:900,color:C.text}}>{s.time} <span style={{fontSize:12,color:C.sub}}>– {s.end}</span></div>
-                <div style={{fontSize:11,color:C.sub,marginTop:2}}>{s.type} · 4 {T("ทีม","teams")} · ฿{s.price+s.fee}/{T("คน","p")}</div>
+        <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>{T("ตารางแมทช์วันนี้","Today's Matches")}</div>
+        {venue?.slots.map(s=>{
+          const sc=s.status==="Full"?C.sub:s.status==="Hot"?C.red:C.green;
+          const pct=Math.round((s.filled/s.total)*100)||0;
+          return (
+            <div key={s.id} onClick={()=>{if(s.status!=="Full"){setSlot(s);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}}}
+              style={{background:C.surface,border:`1px solid ${s.status==="Hot"?"rgba(239,68,68,0.22)":C.border}`,borderRadius:15,padding:"15px 17px",marginBottom:10,cursor:s.status==="Full"?"default":"pointer",opacity:s.status==="Full"?.5:1}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:17,fontWeight:900,color:C.text}}>{s.time} <span style={{fontSize:12,color:C.sub}}>– {s.end}</span></div>
+                  <div style={{fontSize:11,color:C.sub,marginTop:2}}>{s.type} · 4 {T("ทีม","teams")} · ฿{s.price+s.fee}/{T("คน","p")}</div>
+                </div>
+                <Tag color={sc}>{s.status}</Tag>
               </div>
-              <Tag color={sc}>{s.status}</Tag>
+              <div style={{height:3,background:"rgba(255,255,255,0.06)",borderRadius:99,marginBottom:7}}>
+                <div style={{height:"100%",width:`${pct}%`,background:s.status==="Full"?"#374151":s.status==="Hot"?C.red:C.green,borderRadius:99}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontSize:10,color:C.sub}}>{s.filled}/{s.total} {T("ผู้เล่น","players")}</span>
+                <span style={{fontSize:10,color:sc,fontWeight:700}}>{pct}%</span>
+              </div>
             </div>
-            <div style={{height:3,background:"rgba(255,255,255,0.06)",borderRadius:99,marginBottom:7}}>
-              <div style={{height:"100%",width:`${pct}%`,background:s.status==="Full"?"#374151":s.status==="Hot"?C.red:C.green,borderRadius:99}}/>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between"}}>
-              <span style={{fontSize:10,color:C.sub}}>{s.filled}/{s.total} {T("ผู้เล่น","players")}</span>
-              <span style={{fontSize:10,color:sc,fontWeight:700}}>{pct}%</span>
-            </div>
-          </div>
-        );
-      })}
-      </>
-    </div>
-  ); };
+          );
+        })}
+      </div>
+    );
+  };
 
-  /* ── ROOM ── */
   const renderRoom = () => {
     const curTeam=teams[activeTeam];
     return (
