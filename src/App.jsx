@@ -587,6 +587,9 @@ export default function SquadHub() {
   const [venuesLoading,setVenuesLoading] = useState(false);
   const [selectedDate,setSelectedDate] = useState(new Date());
   const [showCal,setShowCal] = useState(false);
+  const [showNotif,setShowNotif] = useState(false);
+  const [searchQuery,setSearchQuery] = useState("");
+  const [searchActive,setSearchActive] = useState(false);
   const fileRef = useRef(null);
 
   /* ── DATE HELPERS ── */
@@ -1248,52 +1251,104 @@ const handlePhotoUpload = async (e) => {
   };
 
     /* ── HOME ── */
+  const VenueIcon = ()=>(
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10d484" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="14" rx="2"/>
+      <path d="M2 11h20M12 7V4M8 4h8"/>
+      <circle cx="12" cy="15" r="2"/>
+      <path d="M7 21v-3M17 21v-3"/>
+    </svg>
+  );
+
+  const searchResults = searchQuery.trim().length>0 ? [
+    ...venues.filter(v=>v.name.toLowerCase().includes(searchQuery.toLowerCase())||v.area?.toLowerCase().includes(searchQuery.toLowerCase())),
+    ...venues.flatMap(v=>v.slots.filter(s=>s.id?.toString().includes(searchQuery)||(s.name||"").toLowerCase().includes(searchQuery.toLowerCase())).map(s=>({...s,_isSlot:true,_venue:v}))),
+  ] : [];
+
+  const hotSlot = venues.flatMap(v=>v.slots.map(s=>({...s,_venue:v}))).find(s=>s.status==="Hot"||s.status==="Open");
+  const isHotToday = hotSlot && fmtDate(selectedDate)===fmtDate(new Date());
+
   const renderHome = () => (
     <div style={{paddingTop:16}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"11px 16px",marginBottom:20}}>
-        <Search size={15} color={C.sub}/>
-        <span style={{fontSize:13,color:C.sub}}>{T("ค้นหาสนาม, แมทช์...","Search venues, matches...")}</span>
+      {/* Search Bar */}
+      <div style={{position:"relative",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,background:C.surface,border:`1px solid ${searchActive?C.borderHi:C.border}`,borderRadius:12,padding:"11px 16px",cursor:"text"}}
+          onClick={()=>setSearchActive(true)}>
+          <Search size={15} color={searchActive?C.green:C.sub}/>
+          <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
+            onFocus={()=>setSearchActive(true)} onBlur={()=>setTimeout(()=>setSearchActive(false),200)}
+            placeholder={T("ค้นหาสนาม, code ห้อง...","Search venues, room code...")}
+            style={{flex:1,background:"none",border:"none",outline:"none",fontSize:13,color:C.text,fontFamily:"inherit"}}/>
+          {searchQuery&&<button onClick={()=>setSearchQuery("")} style={{background:"none",border:"none",color:C.sub,cursor:"pointer",fontSize:14,padding:0}}>✕</button>}
+        </div>
+        {/* Search results dropdown */}
+        {searchResults.length>0&&searchActive&&(
+          <div style={{position:"absolute",top:"100%",left:0,right:0,background:C.bg2,border:`1px solid ${C.borderHi}`,borderRadius:12,overflow:"hidden",zIndex:100,marginTop:4,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>
+            {searchResults.slice(0,5).map((item,i)=>(
+              <div key={i} onClick={()=>{
+                if(item._isSlot){setVenue(item._venue);setSlot(item);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}
+                else{setVenue(item);setTab("venue");}
+                setSearchQuery("");
+              }} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:i<searchResults.length-1?`1px solid rgba(16,185,129,0.06)`:"none",cursor:"pointer"}}>
+                <div style={{width:30,height:30,background:item._isSlot?"rgba(251,191,36,0.08)":"rgba(16,185,129,0.08)",border:`1px solid ${item._isSlot?"rgba(251,191,36,0.2)":"rgba(16,185,129,0.18)"}`,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  {item._isSlot?<Hash size={13} color={C.amber}/>:<VenueIcon/>}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:C.text}}>{item._isSlot?item.name||`SQ Room ${item.id}`:item.name}</div>
+                  <div style={{fontSize:9,color:C.sub,marginTop:1}}>{item._isSlot?`${item._venue.name} · ${item.time}–${item.end}`:item.area}</div>
+                </div>
+                {!item._isSlot&&item.distance&&item.distance!=="— km"&&<span style={{fontSize:9,fontWeight:800,color:C.green}}>📍{item.distance}</span>}
+                {item._isSlot&&<span style={{fontSize:9,fontWeight:800,color:C.amber,background:"rgba(251,191,36,0.08)",padding:"1px 6px",borderRadius:99}}>code</span>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <div onClick={()=>{setVenue(venues[0]);setSlot(venues[0]?.slots[1]||venues[0]?.slots[0]);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}}
-        style={{background:"linear-gradient(135deg,#0b1f14,#0d1824)",border:"1px solid rgba(239,68,68,0.22)",borderRadius:18,padding:"16px 18px",marginBottom:20,cursor:"pointer",position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,background:"radial-gradient(circle,rgba(239,68,68,0.07) 0%,transparent 70%)"}}/>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <Tag color={C.red}><Flame size={9}/> {T("แมทช์ยอดนิยม","HOT MATCH")}</Tag>
-          <span style={{fontSize:10,color:C.sub}}>{T("เหลือ 4 slot","4 slots left")}</span>
+
+      {/* Hot/Today banner */}
+      {hotSlot&&(
+        <div onClick={()=>{setVenue(hotSlot._venue);setSlot(hotSlot);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}}
+          style={{background:"linear-gradient(135deg,#0b1f14,#0d1824)",border:"1px solid rgba(239,68,68,0.22)",borderRadius:18,padding:"16px 18px",marginBottom:20,cursor:"pointer",position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,background:"radial-gradient(circle,rgba(239,68,68,0.07) 0%,transparent 70%)"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <Tag color={isHotToday?C.red:"#60a5fa"}>{isHotToday?<><Flame size={9}/> {T("วันนี้","TODAY")}</>:<><Clock size={9}/> {T("เร็วๆนี้","COMING SOON")}</>}</Tag>
+            <span style={{fontSize:10,color:C.sub}}>{T(`เหลือ ${(hotSlot._venue?.slots||[]).filter(s=>s.status!=="Full").length} slot`,`${(hotSlot._venue?.slots||[]).filter(s=>s.status!=="Full").length} slots left`)}</span>
+          </div>
+          <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>{hotSlot._venue?.name}</div>
+          <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:10}}>{hotSlot.time}–{hotSlot.end} · {hotSlot.type} · ฿{hotSlot.price}/{T("คน","p")}</div>
+          <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99,marginBottom:8}}>
+            <div style={{height:"100%",width:`${Math.round((hotSlot.filled||0)/(hotSlot.total||14)*100)||60}%`,background:"linear-gradient(90deg,#dc2626,#ef4444)",borderRadius:99}}/>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:10,color:C.sub}}>{hotSlot.filled||0}/{hotSlot.total||14} {T("ผู้เล่น","players")}</span>
+            <div style={{display:"flex",alignItems:"center",gap:3,fontSize:12,fontWeight:700,color:C.green}}>Join <ChevronRight size={13}/></div>
+          </div>
         </div>
-        <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>Grand Soccer Pro Kaset-Nawamin</div>
-        <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:10}}>18:00–20:00 · 7v7 · ฿170/คน</div>
-        <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99,marginBottom:8}}>
-          <div style={{height:"100%",width:"86%",background:"linear-gradient(90deg,#dc2626,#ef4444)",borderRadius:99}}/>
-        </div>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:10,color:C.sub}}>24/28 ผู้เล่น · 4 ทีม</span>
-          <div style={{display:"flex",alignItems:"center",gap:3,fontSize:12,fontWeight:700,color:C.green}}>Join <ChevronRight size={13}/></div>
-        </div>
-      </div>
+      )}
+
       <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:12}}>{T("สนามใกล้คุณ","Nearby Venues")}</div>
 
       {/* Date Scroll Row */}
       <div style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
           <div style={{fontSize:12,fontWeight:800,color:C.text}}>
-            {isToday(selectedDate)?"วันนี้":selectedDate.toLocaleDateString("th-TH",{weekday:"long",day:"numeric",month:"short"})}
+            {isToday(selectedDate)?T("วันนี้","Today"):selectedDate.toLocaleDateString(lang==="th"?"th-TH":"en-US",{weekday:"short",day:"numeric",month:"short"})}
           </div>
           <button onClick={()=>setShowCal(c=>!c)}
             style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:700,color:C.green,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.22)",borderRadius:8,padding:"5px 10px",cursor:"pointer"}}>
-            <Calendar size={12}/> เลือกวัน
+            <Calendar size={12}/> {T("เลือกวัน","Pick date")}
           </button>
         </div>
-        {/* Scroll strip */}
         <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,scrollbarWidth:"none"}}>
           {next30Days.slice(0,14).map((d,i)=>{
             const sel=fmtDate(d)===fmtDate(selectedDate);
             return(
               <button key={i} onClick={()=>setSelectedDate(d)}
-                style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",padding:"8px 10px",borderRadius:10,border:`1px solid ${sel?C.borderHi:C.border}`,background:sel?C.greenDim:"transparent",cursor:"pointer",minWidth:44,transition:"all .15s"}}>
-                <span style={{fontSize:9,fontWeight:700,color:sel?C.green:C.muted,marginBottom:2}}>{dayTH[d.getDay()]}</span>
-                <span style={{fontSize:15,fontWeight:900,color:sel?C.green:C.text,lineHeight:1}}>{d.getDate()}</span>
-                {isToday(d)&&<span style={{fontSize:7,color:C.green,fontWeight:800,marginTop:2}}>วันนี้</span>}
+                style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",padding:"8px 10px",borderRadius:10,border:`1px solid ${sel?"transparent":C.border}`,background:sel?C.green:"transparent",cursor:"pointer",minWidth:48,transition:"all .15s"}}>
+                <span style={{fontSize:9,fontWeight:700,color:sel?"#001a0d":C.muted,marginBottom:2}}>{dayTH[d.getDay()]}</span>
+                <span style={{fontSize:15,fontWeight:900,color:sel?"#001a0d":C.text,lineHeight:1}}>{d.getDate()}</span>
+                <span style={{fontSize:7,fontWeight:800,color:sel?"#003d1a":C.muted,marginTop:2}}>{monthTH[d.getMonth()]}</span>
+                {isToday(d)&&!sel&&<span style={{width:4,height:4,borderRadius:"50%",background:C.green,marginTop:2,display:"block"}}/>}
               </button>
             );
           })}
@@ -1303,26 +1358,24 @@ const handlePhotoUpload = async (e) => {
       {/* Calendar Popup */}
       {showCal&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowCal(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:"20px 20px 0 0",padding:"20px 16px 32px",width:"100%",maxWidth:480}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.bg2,borderRadius:"20px 20px 0 0",padding:"20px 16px 32px",width:"100%",maxWidth:480,border:"1px solid rgba(16,185,129,0.15)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{fontSize:15,fontWeight:900,color:C.text}}>เลือกวันที่ต้องการเล่น</div>
+              <div style={{fontSize:15,fontWeight:900,color:C.text}}>{T("เลือกวันที่ต้องการเล่น","Select date")}</div>
               <button onClick={()=>setShowCal(false)} style={{background:"rgba(255,255,255,0.06)",border:"none",color:C.sub,fontSize:13,padding:"4px 10px",borderRadius:7,cursor:"pointer"}}>✕</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:8}}>
               {dayTH.map(d=><div key={d} style={{textAlign:"center",fontSize:9,fontWeight:700,color:C.muted,padding:"4px 0"}}>{d}</div>)}
             </div>
-            {/* Month grid — show 30 days from today */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
-              {/* Empty cells before first day */}
               {Array.from({length:new Date().getDay()}).map((_,i)=><div key={i}/>)}
               {next30Days.map((d,i)=>{
                 const sel=fmtDate(d)===fmtDate(selectedDate);
                 const tod=isToday(d);
                 return(
                   <button key={i} onClick={()=>{setSelectedDate(d);setShowCal(false);}}
-                    style={{padding:"8px 4px",borderRadius:8,border:`1px solid ${sel?C.borderHi:tod?"rgba(16,185,129,0.3)":"transparent"}`,background:sel?C.greenDim:tod?"rgba(16,185,129,0.06)":"transparent",cursor:"pointer",textAlign:"center"}}>
-                    <div style={{fontSize:13,fontWeight:sel?900:600,color:sel?C.green:tod?C.green:C.text}}>{d.getDate()}</div>
-                    {tod&&<div style={{fontSize:6,color:C.green,fontWeight:800}}>วันนี้</div>}
+                    style={{padding:"8px 4px",borderRadius:8,border:"none",background:sel?C.green:tod?"rgba(16,185,129,0.08)":"transparent",cursor:"pointer",textAlign:"center"}}>
+                    <div style={{fontSize:13,fontWeight:sel?900:600,color:sel?"#001a0d":tod?C.green:C.text}}>{d.getDate()}</div>
+                    {tod&&!sel&&<div style={{fontSize:6,color:C.green,fontWeight:800}}>•</div>}
                   </button>
                 );
               })}
@@ -1331,11 +1384,13 @@ const handlePhotoUpload = async (e) => {
         </div>
       )}
 
-      {venuesLoading && <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:C.sub}}>กำลังโหลดสนาม...</div>}
+      {venuesLoading&&<div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:C.sub}}>{T("กำลังโหลดสนาม...","Loading venues...")}</div>}
       {venues.map(v=>(
         <div key={v.id} onClick={()=>{setVenue(v);setTab("venue");}}
           style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"13px 15px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:13}}>
-          <div style={{width:42,height:42,background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><MapPin size={17} color={C.green}/></div>
+          <div style={{width:42,height:42,background:C.greenDim,border:`1px solid rgba(16,185,129,0.2)`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <VenueIcon/>
+          </div>
           <div style={{flex:1}}>
             <div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:3}}>{v.name}</div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -1348,7 +1403,10 @@ const handlePhotoUpload = async (e) => {
               <span style={{fontSize:10,color:C.amber,fontWeight:700}}>★ {v.rating}</span>
             </div>
           </div>
-          <div style={{textAlign:"center"}}><div style={{fontSize:15,fontWeight:900,color:C.green}}>{v.slots.filter(s=>s.status!=="Full").length}</div><div style={{fontSize:8,color:C.sub,fontWeight:700}}>OPEN</div></div>
+          <div style={{textAlign:"center",flexShrink:0}}>
+            <div style={{fontSize:15,fontWeight:900,color:v.slots.filter(s=>s.status!=="Full").length>0?C.green:C.muted}}>{v.slots.filter(s=>s.status!=="Full").length}</div>
+            <div style={{fontSize:8,color:C.sub,fontWeight:700}}>OPEN</div>
+          </div>
           <ChevronRight size={14} color={C.sub}/>
         </div>
       ))}
@@ -1856,7 +1914,7 @@ const handlePhotoUpload = async (e) => {
               {lang==="th"?"EN":"TH"}
             </button>
             {player&&<Tag color={C.green} sm>LV.{player.level}</Tag>}
-            <button style={{position:"relative",background:"rgba(0,255,135,0.06)",border:`1px solid rgba(0,255,135,0.2)`,borderRadius:8,cursor:"pointer",padding:"6px 8px",color:C.green}}>
+            <button onClick={()=>setShowNotif(true)} style={{position:"relative",background:"rgba(0,255,135,0.06)",border:`1px solid rgba(0,255,135,0.2)`,borderRadius:8,cursor:"pointer",padding:"6px 8px",color:C.green}}>
               <Bell size={16}/>
               <div style={{position:"absolute",top:4,right:4,width:5,height:5,background:C.green,borderRadius:"50%",border:`1.5px solid ${C.bg}`,boxShadow:`0 0 4px ${C.green}`}}/>
             </button>
@@ -1892,6 +1950,61 @@ const handlePhotoUpload = async (e) => {
       )}
 
       {showJoin&&<JoinModal teams={teams} onJoin={doJoin} onClose={()=>setShowJoin(false)}/>}
+
+      {/* Booking Pass Panel */}
+      {showNotif&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowNotif(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.bg2,borderRadius:"20px 20px 0 0",padding:"20px 16px 36px",width:"100%",maxWidth:430,margin:"0 auto",border:"1px solid rgba(16,185,129,0.18)"}}>
+            <div style={{width:36,height:3,borderRadius:99,background:"rgba(255,255,255,0.15)",margin:"0 auto 16px"}}/>
+            <div style={{fontSize:16,fontWeight:900,color:C.text,marginBottom:16}}>🎫 {T("Booking ของฉัน","My Bookings")}</div>
+            {player?(
+              venues.flatMap(v=>v.slots).length>0?(
+                <div style={{background:"#050f0a",border:`1px solid rgba(16,185,129,0.25)`,borderRadius:16,padding:16}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venues[0]?.name}</div>
+                      <div style={{fontSize:11,color:C.sub,marginTop:2}}>{T("พรุ่งนี้","Tomorrow")} · {venues[0]?.slots[0]?.time}–{venues[0]?.slots[0]?.end}</div>
+                    </div>
+                    <div style={{fontSize:10,fontWeight:800,padding:"3px 10px",borderRadius:99,background:"rgba(16,185,129,0.12)",color:C.green,border:`1px solid rgba(16,185,129,0.25)`}}>Confirmed</div>
+                  </div>
+                  <div style={{display:"flex",gap:14,marginBottom:12}}>
+                    {[{l:T("แมตช์","Match"),v:venues[0]?.slots[0]?.type||"7v7"},{l:T("ราคา","Price"),v:`฿${venues[0]?.slots[0]?.price||150}`,c:C.green}].map((item,i)=>(
+                      <div key={i}>
+                        <div style={{fontSize:8,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>{item.l}</div>
+                        <div style={{fontSize:14,fontWeight:800,color:item.c||C.text,marginTop:2}}>{item.v}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{background:"#fff",borderRadius:10,padding:"10px",display:"flex",justifyContent:"center",marginBottom:8}}>
+                    <svg viewBox="0 0 60 60" width="90" height="90">
+                      <rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="#000" strokeWidth="2"/>
+                      <rect x="3.5" y="3.5" width="7" height="7" rx=".5" fill="#000"/>
+                      <rect x="27" y="1" width="12" height="12" rx="1.5" fill="none" stroke="#000" strokeWidth="2"/>
+                      <rect x="29.5" y="3.5" width="7" height="7" rx=".5" fill="#000"/>
+                      <rect x="1" y="27" width="12" height="12" rx="1.5" fill="none" stroke="#000" strokeWidth="2"/>
+                      <rect x="3.5" y="29.5" width="7" height="7" rx=".5" fill="#000"/>
+                      <rect x="16" y="2" width="3" height="3" fill="#000"/><rect x="20" y="2" width="3" height="3" fill="#000"/>
+                      <rect x="16" y="8" width="3" height="3" fill="#000"/><rect x="22" y="14" width="3" height="3" fill="#000"/>
+                      <rect x="2" y="16" width="3" height="3" fill="#000"/><rect x="8" y="16" width="3" height="3" fill="#000"/>
+                      <rect x="16" y="16" width="3" height="3" fill="#000"/><rect x="22" y="22" width="3" height="3" fill="#000"/>
+                      <rect x="30" y="16" width="3" height="3" fill="#000"/><rect x="2" y="22" width="3" height="3" fill="#000"/>
+                      <rect x="16" y="22" width="3" height="3" fill="#000"/><rect x="22" y="28" width="3" height="3" fill="#000"/>
+                    </svg>
+                  </div>
+                  <div style={{fontSize:10,color:C.muted,textAlign:"center"}}>{T("แสดง QR เพื่อ Check-in ที่สนาม","Show QR to Check-in at venue")}</div>
+                </div>
+              ):(
+                <div style={{textAlign:"center",padding:"24px 0",color:C.muted,fontSize:13}}>
+                  <div style={{fontSize:32,marginBottom:8}}>📅</div>
+                  {T("ยังไม่มี Booking","No bookings yet")}
+                </div>
+              )
+            ):(
+              <div style={{textAlign:"center",padding:"24px 0",color:C.muted,fontSize:13}}>{T("กรุณาเข้าสู่ระบบก่อน","Please login first")}</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 🎖️ Captain Toast Notification */}
       {captainToast&&(
