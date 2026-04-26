@@ -1490,7 +1490,21 @@ const handlePhotoUpload = async (e) => {
   );
 
   /* ── VENUE ── */
-  const renderVenue = () => (
+  const renderVenue = () => {
+    const VENUE_FACILITIES = {
+      "S-One Football Club":["⚽ สนามหญ้าเทียม 3 สนาม","🅿️ ที่จอดรถฟรี","☕ คาเฟ่","🚿 ห้องอาบน้ำ","❄️ แอร์ในล็อบบี้","📶 WiFi"],
+      "Grand Soccer Pro":["⚽ สนามในร่ม 4 สนาม","🅿️ ที่จอดรถ","🛒 ร้านอุปกรณ์กีฬา","🚿 ห้องน้ำ","📶 WiFi","👪 พื้นที่นั่งรอ"],
+      "Polo Football Park":["⚽ สนามหญ้าธรรมชาติ","🌳 สวนรอบสนาม","☕ ร้านกาแฟ","🅿️ 100 คัน","📷 กล้องวงจรปิด"],
+      "Pro Zone Arena":["⚽ Futsal 2 สนาม","❄️ แอร์ตลอด","🚿 ห้องน้ำ","📶 WiFi","🎮 ห้องรอ TV"],
+      "Bangkok United Park":["⚽ 3 สนาม","🅿️ ที่จอดรถ","☕ ร้านน้ำ","🚿 ห้องอาบน้ำ","👨‍👩‍👧 พื้นที่ครอบครัว"],
+      "King Power Stadium":["⚽ 5 สนาม Premium","❄️ สนามในร่มแอร์","☕ Food Court","🛒 Pro Shop","🅿️ 200 คัน","📶 WiFi","🚿 ห้องอาบน้ำ VIP"],
+      "Siam Sport Complex":["⚽ 3 สนาม","❄️ แอร์","☕ คาเฟ่","📶 WiFi","🅿️ ที่จอดรถ","🚿 ห้องน้ำ"],
+      "On Nut Football Park":["⚽ 2 สนาม Futsal","🅿️ ที่จอดรถ","☕ ร้านกาแฟ","📶 WiFi"],
+      "Minburi FC Ground":["⚽ 4 สนาม","🌳 กลางแจ้ง","🅿️ ฟรี","🚿 ห้องอาบน้ำ"],
+      "Thonburi Soccer Club":["⚽ 3 สนาม","☕ ร้านน้ำ","🅿️ ที่จอดรถ","📶 WiFi","👪 โซนนั่งรอ"],
+    };
+    const facilities=venue?.facilities||VENUE_FACILITIES[venue?.name]||["⚽ สนามฟุตบอล","🅿️ ที่จอดรถ","🚿 ห้องน้ำ"];
+    return (
     <div style={{paddingTop:16}}>
       <BackBtn onClick={()=>setTab("home")}/>
       <div style={{fontSize:21,fontWeight:900,color:C.text,marginBottom:3}}>{venue?.name}</div>
@@ -1532,46 +1546,29 @@ const handlePhotoUpload = async (e) => {
           "Thonburi Soccer Club":        ["⚽ 3 สนาม","☕ ร้านน้ำ","🅿️ ที่จอดรถ","📶 WiFi","👪 โซนนั่งรอ"],
         };
       {/* Facility Info */}
-      {(()=>{
-        const VENUE_FACILITIES = {
-          "S-One Football Club":["⚽ สนามหญ้าเทียม 3 สนาม","🅿️ ที่จอดรถฟรี","☕ คาเฟ่","🚿 ห้องอาบน้ำ","❄️ แอร์ในล็อบบี้","📶 WiFi"],
-          "Grand Soccer Pro":["⚽ สนามในร่ม 4 สนาม","🅿️ ที่จอดรถ","🛒 ร้านอุปกรณ์กีฬา","🚿 ห้องน้ำ","📶 WiFi","👪 พื้นที่นั่งรอ"],
-          "Polo Football Park":["⚽ สนามหญ้าธรรมชาติ","🌳 สวนรอบสนาม","☕ ร้านกาแฟ","🅿️ 100 คัน","📷 กล้องวงจรปิด"],
-          "Pro Zone Arena":["⚽ Futsal 2 สนาม","❄️ แอร์ตลอด","🚿 ห้องน้ำ","📶 WiFi","🎮 ห้องรอ TV"],
-          "Bangkok United Park":["⚽ 3 สนาม","🅿️ ที่จอดรถ","☕ ร้านน้ำ","🚿 ห้องอาบน้ำ","👨‍👩‍👧 พื้นที่ครอบครัว"],
-          "King Power Stadium":["⚽ 5 สนาม Premium","❄️ สนามในร่มแอร์","☕ Food Court","🛒 Pro Shop","🅿️ 200 คัน","📶 WiFi","🚿 ห้องอาบน้ำ VIP"],
-          "Siam Sport Complex":["⚽ 3 สนาม","❄️ แอร์","☕ คาเฟ่","📶 WiFi","🅿️ ที่จอดรถ","🚿 ห้องน้ำ"],
-          "On Nut Football Park":["⚽ 2 สนาม Futsal","🅿️ ที่จอดรถ","☕ ร้านกาแฟ","📶 WiFi"],
-          "Minburi FC Ground":["⚽ 4 สนาม","🌳 กลางแจ้ง","🅿️ ฟรี","🚿 ห้องอาบน้ำ"],
-          "Thonburi Soccer Club":["⚽ 3 สนาม","☕ ร้านน้ำ","🅿️ ที่จอดรถ","📶 WiFi","👪 โซนนั่งรอ"],
-        };
-        const facilities=venue?.facilities||VENUE_FACILITIES[venue?.name]||["⚽ สนามฟุตบอล","🅿️ ที่จอดรถ","🚿 ห้องน้ำ"];
-        return(
-          <>
-            <button onClick={()=>setShowFac(f=>!f)}
-              style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"12px 16px",borderRadius:12,background:C.surface,border:`1px solid ${showFac?C.borderHi:C.border}`,cursor:"pointer",marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:16}}>🏟️</span>
-                <span style={{fontSize:13,fontWeight:800,color:C.text}}>{T("ข้อมูลสิ่งอำนวยความสะดวก","Facilities & Info")}</span>
-              </div>
-              <span style={{fontSize:12,color:C.green,fontWeight:700}}>{showFac?"▲":"▼"}</span>
-            </button>
-            {showFac&&(
-              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"14px 16px",marginBottom:14}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                  {facilities.map((f,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{fontSize:13}}>{f.split(" ")[0]}</span>
-                      <span style={{fontSize:11,color:C.sub}}>{f.slice(f.indexOf(" ")+1)}</span>
-                    </div>
-                  ))}
+      <>
+        <button onClick={()=>setShowFac(f=>!f)}
+          style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"12px 16px",borderRadius:12,background:C.surface,border:`1px solid ${showFac?C.borderHi:C.border}`,cursor:"pointer",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:16}}>🏟️</span>
+            <span style={{fontSize:13,fontWeight:800,color:C.text}}>{T("ข้อมูลสิ่งอำนวยความสะดวก","Facilities & Info")}</span>
+          </div>
+          <span style={{fontSize:12,color:C.green,fontWeight:700}}>{showFac?"▲":"▼"}</span>
+        </button>
+        {showFac&&(
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"14px 16px",marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {facilities.map((f,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:13}}>{f.split(" ")[0]}</span>
+                  <span style={{fontSize:11,color:C.sub}}>{f.slice(f.indexOf(" ")+1)}</span>
                 </div>
-                {venue?.description&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid rgba(16,185,129,0.08)`,fontSize:12,color:C.sub,lineHeight:1.6}}>{venue.description}</div>}
-              </div>
-            )}
-          </>
-        );
-      })()}
+              ))}
+            </div>
+            {venue?.description&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid rgba(16,185,129,0.08)`,fontSize:12,color:C.sub,lineHeight:1.6}}>{venue.description}</div>}
+          </div>
+        )}
+      </>
       <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>{T("ตารางแมทช์วันนี้","Today's Matches")}</div>
       {venue?.slots.map(s=>{
         const sc=s.status==="Full"?C.sub:s.status==="Hot"?C.red:C.green;
@@ -1597,7 +1594,7 @@ const handlePhotoUpload = async (e) => {
         );
       })}
     </div>
-  );
+  ); };
 
   /* ── ROOM ── */
   const renderRoom = () => {
