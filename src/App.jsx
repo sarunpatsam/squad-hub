@@ -1547,7 +1547,8 @@ const handlePhotoUpload = async (e) => {
         };
       {/* Facility Info */}
       <>
-        <button onClick={()=>setShowFac(f=>!f)}
+        <>
+          <button onClick={()=>setShowFac(f=>!f)}
           style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"12px 16px",borderRadius:12,background:C.surface,border:`1px solid ${showFac?C.borderHi:C.border}`,cursor:"pointer",marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:16}}>🏟️</span>
@@ -1568,7 +1569,7 @@ const handlePhotoUpload = async (e) => {
             {venue?.description&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid rgba(16,185,129,0.08)`,fontSize:12,color:C.sub,lineHeight:1.6}}>{venue.description}</div>}
           </div>
         )}
-      </>
+        </>
       <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>{T("ตารางแมทช์วันนี้","Today's Matches")}</div>
       {venue?.slots.map(s=>{
         const sc=s.status==="Full"?C.sub:s.status==="Hot"?C.red:C.green;
@@ -1593,6 +1594,7 @@ const handlePhotoUpload = async (e) => {
           </div>
         );
       })}
+      </>
     </div>
   ); };
 
