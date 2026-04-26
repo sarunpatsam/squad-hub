@@ -594,7 +594,8 @@ export default function SquadHub() {
   const [showCal,setShowCal] = useState(false);
   const [calViewDate,setCalViewDate] = useState(new Date()); // แยก view month จาก selected date
   const [showNotif,setShowNotif] = useState(false);
-  const [notifTab,setNotifTab] = useState("booking"); // state อยู่นอก render
+  const [showFac,setShowFac] = useState(false);
+  const [notifTab,setNotifTab] = useState("booking");
   const [searchQuery,setSearchQuery] = useState("");
   const [searchActive,setSearchActive] = useState(false);
   const fileRef = useRef(null);
@@ -1317,8 +1318,10 @@ const handlePhotoUpload = async (e) => {
     else{setVenue(item._venue);setSlot(item);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}
   };
 
-  const hotSlot = venues.flatMap(v=>v.slots.map(s=>({...s,_venue:v}))).find(s=>s.status==="Hot"||s.status==="Open");
-  const isHotToday = hotSlot && fmtDate(selectedDate)===fmtDate(new Date());
+  const hotSlot = venues.flatMap(v=>v.slots.map(s=>({...s,_venue:v})))
+    .filter(s=>s.status!=="Full"&&s.status!=="blocked"&&s.status!=="cancelled")
+    .sort((a,b)=>(b.filled||0)-(a.filled||0))[0];
+  const openSlotsCount = hotSlot?hotSlot._venue.slots.filter(s=>s.status!=="Full"&&s.status!=="blocked").length:0;
 
   const renderHome = () => (
     <div style={{paddingTop:16}}>
@@ -1361,12 +1364,12 @@ const handlePhotoUpload = async (e) => {
           <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,background:"radial-gradient(circle,rgba(239,68,68,0.07) 0%,transparent 70%)"}}/>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <Tag color={C.red}><Flame size={9}/> {T("HOT MATCH · ใกล้เต็ม 🔥","HOT MATCH · Almost Full 🔥")}</Tag>
-            <span style={{fontSize:10,color:C.sub}}>{T(`เหลือ ${(hotSlot._venue?.slots||[]).filter(s=>s.status!=="Full").length} slot`,`${(hotSlot._venue?.slots||[]).filter(s=>s.status!=="Full").length} slots left`)}</span>
+            <span style={{fontSize:10,color:C.sub}}>{T(`เหลือ ${openSlotsCount} slot`,`${openSlotsCount} slots left`)}</span>
           </div>
           <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>{hotSlot._venue?.name}</div>
           <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:10}}>{hotSlot.time}–{hotSlot.end} · {hotSlot.type} · ฿{hotSlot.price}/{T("คน","p")}</div>
           <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99,marginBottom:8}}>
-            <div style={{height:"100%",width:`${Math.round((hotSlot.filled||0)/(hotSlot.total||14)*100)||60}%`,background:"linear-gradient(90deg,#dc2626,#ef4444)",borderRadius:99}}/>
+            <div style={{height:"100%",width:`${hotSlot.total>0?Math.round((hotSlot.filled||0)/hotSlot.total*100):0}%`,background:"linear-gradient(90deg,#dc2626,#ef4444)",borderRadius:99,minWidth:hotSlot.filled>0?"8px":"0"}}/>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:10,color:C.sub}}>{hotSlot.filled||0}/{hotSlot.total||14} {T("ผู้เล่น","players")}</span>
@@ -1528,8 +1531,21 @@ const handlePhotoUpload = async (e) => {
           "Minburi FC Ground":           ["⚽ 4 สนาม","🌳 สนามกลางแจ้ง","🅿️ ที่จอดรถฟรี","🚿 ห้องอาบน้ำ"],
           "Thonburi Soccer Club":        ["⚽ 3 สนาม","☕ ร้านน้ำ","🅿️ ที่จอดรถ","📶 WiFi","👪 โซนนั่งรอ"],
         };
-        const facilities = venue?.facilities || VENUE_FACILITIES[venue?.name] || ["⚽ สนามฟุตบอล","🅿️ ที่จอดรถ","🚿 ห้องน้ำ"];
-        const [showFac,setShowFac] = useState(false);
+      {/* Facility Info */}
+      {(()=>{
+        const VENUE_FACILITIES = {
+          "S-One Football Club":["⚽ สนามหญ้าเทียม 3 สนาม","🅿️ ที่จอดรถฟรี","☕ คาเฟ่","🚿 ห้องอาบน้ำ","❄️ แอร์ในล็อบบี้","📶 WiFi"],
+          "Grand Soccer Pro":["⚽ สนามในร่ม 4 สนาม","🅿️ ที่จอดรถ","🛒 ร้านอุปกรณ์กีฬา","🚿 ห้องน้ำ","📶 WiFi","👪 พื้นที่นั่งรอ"],
+          "Polo Football Park":["⚽ สนามหญ้าธรรมชาติ","🌳 สวนรอบสนาม","☕ ร้านกาแฟ","🅿️ 100 คัน","📷 กล้องวงจรปิด"],
+          "Pro Zone Arena":["⚽ Futsal 2 สนาม","❄️ แอร์ตลอด","🚿 ห้องน้ำ","📶 WiFi","🎮 ห้องรอ TV"],
+          "Bangkok United Park":["⚽ 3 สนาม","🅿️ ที่จอดรถ","☕ ร้านน้ำ","🚿 ห้องอาบน้ำ","👨‍👩‍👧 พื้นที่ครอบครัว"],
+          "King Power Stadium":["⚽ 5 สนาม Premium","❄️ สนามในร่มแอร์","☕ Food Court","🛒 Pro Shop","🅿️ 200 คัน","📶 WiFi","🚿 ห้องอาบน้ำ VIP"],
+          "Siam Sport Complex":["⚽ 3 สนาม","❄️ แอร์","☕ คาเฟ่","📶 WiFi","🅿️ ที่จอดรถ","🚿 ห้องน้ำ"],
+          "On Nut Football Park":["⚽ 2 สนาม Futsal","🅿️ ที่จอดรถ","☕ ร้านกาแฟ","📶 WiFi"],
+          "Minburi FC Ground":["⚽ 4 สนาม","🌳 กลางแจ้ง","🅿️ ฟรี","🚿 ห้องอาบน้ำ"],
+          "Thonburi Soccer Club":["⚽ 3 สนาม","☕ ร้านน้ำ","🅿️ ที่จอดรถ","📶 WiFi","👪 โซนนั่งรอ"],
+        };
+        const facilities=venue?.facilities||VENUE_FACILITIES[venue?.name]||["⚽ สนามฟุตบอล","🅿️ ที่จอดรถ","🚿 ห้องน้ำ"];
         return(
           <>
             <button onClick={()=>setShowFac(f=>!f)}
@@ -1544,15 +1560,13 @@ const handlePhotoUpload = async (e) => {
               <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"14px 16px",marginBottom:14}}>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                   {facilities.map((f,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.text,fontWeight:600}}>
-                      <span style={{fontSize:14}}>{typeof f==="string"?f.split(" ")[0]:"✓"}</span>
-                      <span style={{color:C.sub,fontSize:11}}>{typeof f==="string"?f.slice(f.indexOf(" ")+1):f}</span>
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:13}}>{f.split(" ")[0]}</span>
+                      <span style={{fontSize:11,color:C.sub}}>{f.slice(f.indexOf(" ")+1)}</span>
                     </div>
                   ))}
                 </div>
-                {venue?.description&&(
-                  <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid rgba(16,185,129,0.08)`,fontSize:12,color:C.sub,lineHeight:1.6}}>{venue.description}</div>
-                )}
+                {venue?.description&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid rgba(16,185,129,0.08)`,fontSize:12,color:C.sub,lineHeight:1.6}}>{venue.description}</div>}
               </div>
             )}
           </>
