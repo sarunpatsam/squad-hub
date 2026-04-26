@@ -567,7 +567,12 @@ export default function SquadHub() {
   const [regStep,setRegStep] = useState(1);
   const [regData,setRegData] = useState({nickname:"",position:"",playstyle:""});
   const [payStep,setPayStep] = useState("summary");
-  const [lang,setLang]       = useState("th");
+  const [lang,setLang] = useState(()=>localStorage.getItem("sq_lang")||"th");
+  const toggleLang = ()=>{
+    const next=lang==="th"?"en":"th";
+    setLang(next);
+    localStorage.setItem("sq_lang",next);
+  };
   const T = (th,en) => lang==="th" ? th : en;
   const [appLoading,setAppLoading] = useState(true);
   const [player,setPlayer]   = useState(null);
@@ -1251,19 +1256,32 @@ const handlePhotoUpload = async (e) => {
   };
 
     /* ── HOME ── */
-  const VenueIcon = ()=>(
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10d484" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="7" width="20" height="14" rx="2"/>
-      <path d="M2 11h20M12 7V4M8 4h8"/>
-      <circle cx="12" cy="15" r="2"/>
-      <path d="M7 21v-3M17 21v-3"/>
+  const VenueIcon = ({size=20})=>(
+    <svg width={size} height={size} viewBox="0 0 44 44" fill="none">
+      <rect x="3" y="6" width="38" height="32" rx="3" stroke="#10d484" strokeWidth="2" fill="rgba(16,185,129,0.05)"/>
+      <line x1="22" y1="6" x2="22" y2="38" stroke="#10d484" strokeWidth="1.2" opacity=".6"/>
+      <circle cx="22" cy="22" r="5.5" stroke="#10d484" strokeWidth="1.2" fill="none" opacity=".6"/>
+      <circle cx="22" cy="22" r="1.5" fill="#10d484"/>
+      <rect x="3" y="14" width="9" height="16" stroke="#10d484" strokeWidth="1.2" fill="none" opacity=".7"/>
+      <rect x="32" y="14" width="9" height="16" stroke="#10d484" strokeWidth="1.2" fill="none" opacity=".7"/>
     </svg>
   );
 
   const searchResults = searchQuery.trim().length>0 ? [
-    ...venues.filter(v=>v.name.toLowerCase().includes(searchQuery.toLowerCase())||v.area?.toLowerCase().includes(searchQuery.toLowerCase())),
-    ...venues.flatMap(v=>v.slots.filter(s=>s.id?.toString().includes(searchQuery)||(s.name||"").toLowerCase().includes(searchQuery.toLowerCase())).map(s=>({...s,_isSlot:true,_venue:v}))),
-  ] : [];
+    ...venues.filter(v=>
+      v.name.toLowerCase().includes(searchQuery.toLowerCase())||
+      (v.area||"").toLowerCase().includes(searchQuery.toLowerCase())
+    ).map(v=>({...v,_isSlot:false})),
+    ...venues.flatMap(v=>v.slots
+      .filter(s=>
+        (s.name||"").toLowerCase().includes(searchQuery.toLowerCase())||
+        String(s.id||"").includes(searchQuery)||
+        (`SQ-${s.id}`).toLowerCase().includes(searchQuery.toLowerCase())||
+        (s.time||"").includes(searchQuery)
+      )
+      .map(s=>({...s,_isSlot:true,_venue:v}))
+    ),
+  ].slice(0,6) : [];
 
   const hotSlot = venues.flatMap(v=>v.slots.map(s=>({...s,_venue:v}))).find(s=>s.status==="Hot"||s.status==="Open");
   const isHotToday = hotSlot && fmtDate(selectedDate)===fmtDate(new Date());
@@ -1311,7 +1329,7 @@ const handlePhotoUpload = async (e) => {
           style={{background:"linear-gradient(135deg,#0b1f14,#0d1824)",border:"1px solid rgba(239,68,68,0.22)",borderRadius:18,padding:"16px 18px",marginBottom:20,cursor:"pointer",position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,background:"radial-gradient(circle,rgba(239,68,68,0.07) 0%,transparent 70%)"}}/>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <Tag color={isHotToday?C.red:"#60a5fa"}>{isHotToday?<><Flame size={9}/> {T("วันนี้","TODAY")}</>:<><Clock size={9}/> {T("เร็วๆนี้","COMING SOON")}</>}</Tag>
+            <Tag color={C.red}><Flame size={9}/> {T("HOT MATCH · ใกล้เต็ม 🔥","HOT MATCH · Almost Full 🔥")}</Tag>
             <span style={{fontSize:10,color:C.sub}}>{T(`เหลือ ${(hotSlot._venue?.slots||[]).filter(s=>s.status!=="Full").length} slot`,`${(hotSlot._venue?.slots||[]).filter(s=>s.status!=="Full").length} slots left`)}</span>
           </div>
           <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>{hotSlot._venue?.name}</div>
@@ -1356,33 +1374,61 @@ const handlePhotoUpload = async (e) => {
       </div>
 
       {/* Calendar Popup */}
-      {showCal&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowCal(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:C.bg2,borderRadius:"20px 20px 0 0",padding:"20px 16px 32px",width:"100%",maxWidth:480,border:"1px solid rgba(16,185,129,0.15)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{fontSize:15,fontWeight:900,color:C.text}}>{T("เลือกวันที่ต้องการเล่น","Select date")}</div>
-              <button onClick={()=>setShowCal(false)} style={{background:"rgba(255,255,255,0.06)",border:"none",color:C.sub,fontSize:13,padding:"4px 10px",borderRadius:7,cursor:"pointer"}}>✕</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:8}}>
-              {dayTH.map(d=><div key={d} style={{textAlign:"center",fontSize:9,fontWeight:700,color:C.muted,padding:"4px 0"}}>{d}</div>)}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
-              {Array.from({length:new Date().getDay()}).map((_,i)=><div key={i}/>)}
-              {next30Days.map((d,i)=>{
-                const sel=fmtDate(d)===fmtDate(selectedDate);
-                const tod=isToday(d);
-                return(
-                  <button key={i} onClick={()=>{setSelectedDate(d);setShowCal(false);}}
-                    style={{padding:"8px 4px",borderRadius:8,border:"none",background:sel?C.green:tod?"rgba(16,185,129,0.08)":"transparent",cursor:"pointer",textAlign:"center"}}>
-                    <div style={{fontSize:13,fontWeight:sel?900:600,color:sel?"#001a0d":tod?C.green:C.text}}>{d.getDate()}</div>
-                    {tod&&!sel&&<div style={{fontSize:6,color:C.green,fontWeight:800}}>•</div>}
-                  </button>
-                );
-              })}
+      {showCal&&(()=>{
+        const viewMonth=selectedDate.getMonth();
+        const viewYear=selectedDate.getFullYear();
+        const firstDay=new Date(viewYear,viewMonth,1).getDay();
+        const daysInMonth=new Date(viewYear,viewMonth+1,0).getDate();
+        const slotDates=new Set(venues.flatMap(v=>v.slots.map(s=>s.date||fmtDate(selectedDate))));
+        return(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowCal(false)}>
+            <div onClick={e=>e.stopPropagation()} style={{background:C.bg2,borderRadius:"20px 20px 0 0",padding:"20px 16px 36px",width:"100%",maxWidth:430,border:"1px solid rgba(16,185,129,0.2)"}}>
+              <div style={{width:36,height:3,borderRadius:99,background:"rgba(255,255,255,0.15)",margin:"0 auto 16px"}}/>
+              {/* Nav */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                <button onClick={e=>{e.stopPropagation();const d=new Date(selectedDate);d.setMonth(d.getMonth()-1);setSelectedDate(d);}}
+                  style={{width:32,height:32,borderRadius:9,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",color:C.green,fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:16,fontWeight:900,color:C.text}}>{monthTH[viewMonth]}</div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.green}}>{viewYear+543}</div>
+                </div>
+                <button onClick={e=>{e.stopPropagation();const d=new Date(selectedDate);d.setMonth(d.getMonth()+1);setSelectedDate(d);}}
+                  style={{width:32,height:32,borderRadius:9,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",color:C.green,fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+              </div>
+              {/* Day labels */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:6}}>
+                {dayTH.map(d=><div key={d} style={{textAlign:"center",fontSize:9,fontWeight:700,color:C.muted,padding:"3px 0"}}>{d}</div>)}
+              </div>
+              {/* Day grid */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+                {Array.from({length:firstDay}).map((_,i)=><div key={i}/>)}
+                {Array.from({length:daysInMonth}).map((_,i)=>{
+                  const day=i+1;
+                  const d=new Date(viewYear,viewMonth,day);
+                  const dStr=fmtDate(d);
+                  const sel=dStr===fmtDate(selectedDate);
+                  const tod=dStr===fmtDate(new Date());
+                  const hasSlot=slotDates.has(dStr);
+                  const isPast=d<new Date(new Date().setHours(0,0,0,0));
+                  return(
+                    <button key={i} onClick={()=>{if(!isPast){setSelectedDate(d);setShowCal(false);}}}
+                      style={{height:38,borderRadius:9,border:"none",background:sel?C.green:tod?"rgba(16,185,129,0.1)":"transparent",cursor:isPast?"not-allowed":"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",opacity:isPast?0.35:1,transition:"all .12s"}}>
+                      <span style={{fontSize:13,fontWeight:sel?900:tod?800:500,color:sel?"#001a0d":tod?C.green:C.text,lineHeight:1}}>{day}</span>
+                      {hasSlot&&<span style={{width:4,height:4,borderRadius:"50%",background:sel?"#003d1a":C.green,marginTop:2,display:"block"}}/>}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Legend */}
+              <div style={{display:"flex",alignItems:"center",gap:12,marginTop:14,padding:"10px 0",borderTop:"1px solid rgba(16,185,129,0.08)"}}>
+                <div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:6,height:6,borderRadius:"50%",background:C.green}}/><span style={{fontSize:9,color:C.muted}}>มี slot ว่าง</span></div>
+                <div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:16,height:16,borderRadius:5,background:C.green}}/><span style={{fontSize:9,color:C.muted}}>วันที่เลือก</span></div>
+                <div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:16,height:16,borderRadius:5,background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.3)"}}/><span style={{fontSize:9,color:C.muted}}>วันนี้</span></div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {venuesLoading&&<div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:C.sub}}>{T("กำลังโหลดสนาม...","Loading venues...")}</div>}
       {venues.map(v=>(
@@ -1909,7 +1955,7 @@ const handlePhotoUpload = async (e) => {
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             {/* Lang Toggle */}
-            <button onClick={()=>setLang(l=>l==="th"?"en":"th")}
+            <button onClick={toggleLang}
               style={{padding:"4px 10px",borderRadius:6,border:`1px solid rgba(0,255,135,0.3)`,background:"rgba(0,255,135,0.07)",cursor:"pointer",fontSize:10,fontWeight:900,color:C.green,letterSpacing:1}}>
               {lang==="th"?"EN":"TH"}
             </button>
@@ -1952,59 +1998,76 @@ const handlePhotoUpload = async (e) => {
       {showJoin&&<JoinModal teams={teams} onJoin={doJoin} onClose={()=>setShowJoin(false)}/>}
 
       {/* Booking Pass Panel */}
-      {showNotif&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowNotif(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:C.bg2,borderRadius:"20px 20px 0 0",padding:"20px 16px 36px",width:"100%",maxWidth:430,margin:"0 auto",border:"1px solid rgba(16,185,129,0.18)"}}>
-            <div style={{width:36,height:3,borderRadius:99,background:"rgba(255,255,255,0.15)",margin:"0 auto 16px"}}/>
-            <div style={{fontSize:16,fontWeight:900,color:C.text,marginBottom:16}}>🎫 {T("Booking ของฉัน","My Bookings")}</div>
-            {player?(
-              venues.flatMap(v=>v.slots).length>0?(
-                <div style={{background:"#050f0a",border:`1px solid rgba(16,185,129,0.25)`,borderRadius:16,padding:16}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-                    <div>
-                      <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venues[0]?.name}</div>
-                      <div style={{fontSize:11,color:C.sub,marginTop:2}}>{T("พรุ่งนี้","Tomorrow")} · {venues[0]?.slots[0]?.time}–{venues[0]?.slots[0]?.end}</div>
-                    </div>
-                    <div style={{fontSize:10,fontWeight:800,padding:"3px 10px",borderRadius:99,background:"rgba(16,185,129,0.12)",color:C.green,border:`1px solid rgba(16,185,129,0.25)`}}>Confirmed</div>
-                  </div>
-                  <div style={{display:"flex",gap:14,marginBottom:12}}>
-                    {[{l:T("แมตช์","Match"),v:venues[0]?.slots[0]?.type||"7v7"},{l:T("ราคา","Price"),v:`฿${venues[0]?.slots[0]?.price||150}`,c:C.green}].map((item,i)=>(
-                      <div key={i}>
-                        <div style={{fontSize:8,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>{item.l}</div>
-                        <div style={{fontSize:14,fontWeight:800,color:item.c||C.text,marginTop:2}}>{item.v}</div>
+      {showNotif&&(()=>{
+        const [notifTab,setNotifTab_]=useState("booking");
+        const NEWS=[
+          {dot:"#10d484",title:T("🎉 Season 1 เปิดตัวแล้ว!","🎉 Season 1 is live!"),meta:T("SQUAD HUB · 2 ชั่วโมงที่แล้ว","SQUAD HUB · 2h ago")},
+          {dot:"#fbbf24",title:T("⚡ XP Bonus Weekend — ได้ XP x2!","⚡ XP Bonus Weekend — Get x2 XP!"),meta:T("SQUAD HUB · เมื่อวาน","SQUAD HUB · Yesterday")},
+          {dot:"#60a5fa",title:T("🏟️ สนามใหม่เข้าร่วม: King Power","🏟️ New venue: King Power"),meta:T("SQUAD HUB · 3 วันที่แล้ว","SQUAD HUB · 3 days ago")},
+          {dot:"#a78bfa",title:T("🏆 ผล Leaderboard ประจำสัปดาห์","🏆 Weekly Leaderboard results"),meta:T("SQUAD HUB · 5 วันที่แล้ว","SQUAD HUB · 5 days ago")},
+        ];
+        return(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowNotif(false)}>
+            <div onClick={e=>e.stopPropagation()} style={{background:C.bg2,borderRadius:"20px 20px 0 0",padding:"20px 16px 36px",width:"100%",maxWidth:430,margin:"0 auto",border:"1px solid rgba(16,185,129,0.18)"}}>
+              <div style={{width:36,height:3,borderRadius:99,background:"rgba(255,255,255,0.15)",margin:"0 auto 16px"}}/>
+              <div style={{fontSize:16,fontWeight:900,color:C.text,marginBottom:12}}>🔔 {T("แจ้งเตือน","Notifications")}</div>
+              {/* Tabs */}
+              <div style={{display:"flex",gap:6,marginBottom:14}}>
+                {[{id:"booking",l:T("📅 Booking","📅 Booking")},{id:"news",l:T("📢 ข่าวสาร","📢 News")}].map(t=>(
+                  <button key={t.id} onClick={()=>setNotifTab_(t.id)}
+                    style={{padding:"6px 16px",borderRadius:8,fontSize:12,fontWeight:800,cursor:"pointer",border:`1px solid ${notifTab===t.id?C.borderHi:C.border}`,background:notifTab===t.id?C.greenDim:"transparent",color:notifTab===t.id?C.green:C.sub}}>
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+              {/* Booking Tab */}
+              {notifTab==="booking"&&(
+                player?(
+                  <>
+                    <div style={{background:"#050f0a",border:`1px solid rgba(16,185,129,0.25)`,borderRadius:14,padding:14,marginBottom:10}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venues[0]?.name||"Grand Soccer Pro"}</div>
+                          <div style={{fontSize:11,color:C.sub,marginTop:2}}>{T("พรุ่งนี้","Tomorrow")} · {venues[0]?.slots[0]?.time||"20:00"}–{venues[0]?.slots[0]?.end||"22:00"}</div>
+                        </div>
+                        <div style={{fontSize:10,fontWeight:800,padding:"3px 10px",borderRadius:99,background:"rgba(16,185,129,0.12)",color:C.green,border:`1px solid rgba(16,185,129,0.25)`}}>Confirmed ✓</div>
                       </div>
-                    ))}
+                      <div style={{display:"flex",gap:14}}>
+                        {[{l:T("แมตช์","Match"),v:venues[0]?.slots[0]?.type||"7v7"},{l:T("ทีม","Team"),v:"Red",c:"#ef4444"},{l:T("ราคา","Price"),v:`฿${venues[0]?.slots[0]?.price||170}`,c:C.green}].map((item,i)=>(
+                          <div key={i}>
+                            <div style={{fontSize:8,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>{item.l}</div>
+                            <div style={{fontSize:13,fontWeight:800,color:item.c||C.text,marginTop:2}}>{item.v}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{textAlign:"center",padding:"10px 0",color:C.muted,fontSize:12}}>{T("ดู QR check-in ได้จาก 'Player QR' ในหน้า Profile","View check-in QR from 'Player QR' in Profile")}</div>
+                  </>
+                ):(
+                  <div style={{textAlign:"center",padding:"24px 0",color:C.muted,fontSize:13}}>
+                    <div style={{fontSize:32,marginBottom:8}}>📅</div>
+                    {T("ยังไม่มี Booking","No bookings yet")}
                   </div>
-                  <div style={{background:"#fff",borderRadius:10,padding:"10px",display:"flex",justifyContent:"center",marginBottom:8}}>
-                    <svg viewBox="0 0 60 60" width="90" height="90">
-                      <rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="#000" strokeWidth="2"/>
-                      <rect x="3.5" y="3.5" width="7" height="7" rx=".5" fill="#000"/>
-                      <rect x="27" y="1" width="12" height="12" rx="1.5" fill="none" stroke="#000" strokeWidth="2"/>
-                      <rect x="29.5" y="3.5" width="7" height="7" rx=".5" fill="#000"/>
-                      <rect x="1" y="27" width="12" height="12" rx="1.5" fill="none" stroke="#000" strokeWidth="2"/>
-                      <rect x="3.5" y="29.5" width="7" height="7" rx=".5" fill="#000"/>
-                      <rect x="16" y="2" width="3" height="3" fill="#000"/><rect x="20" y="2" width="3" height="3" fill="#000"/>
-                      <rect x="16" y="8" width="3" height="3" fill="#000"/><rect x="22" y="14" width="3" height="3" fill="#000"/>
-                      <rect x="2" y="16" width="3" height="3" fill="#000"/><rect x="8" y="16" width="3" height="3" fill="#000"/>
-                      <rect x="16" y="16" width="3" height="3" fill="#000"/><rect x="22" y="22" width="3" height="3" fill="#000"/>
-                      <rect x="30" y="16" width="3" height="3" fill="#000"/><rect x="2" y="22" width="3" height="3" fill="#000"/>
-                      <rect x="16" y="22" width="3" height="3" fill="#000"/><rect x="22" y="28" width="3" height="3" fill="#000"/>
-                    </svg>
-                  </div>
-                  <div style={{fontSize:10,color:C.muted,textAlign:"center"}}>{T("แสดง QR เพื่อ Check-in ที่สนาม","Show QR to Check-in at venue")}</div>
+                )
+              )}
+              {/* News Tab */}
+              {notifTab==="news"&&(
+                <div>
+                  {NEWS.map((n,i)=>(
+                    <div key={i} style={{display:"flex",gap:10,padding:"10px 0",borderBottom:i<NEWS.length-1?"1px solid rgba(16,185,129,0.06)":"none"}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:n.dot,flexShrink:0,marginTop:4}}/>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:3}}>{n.title}</div>
+                        <div style={{fontSize:10,color:C.muted}}>{n.meta}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ):(
-                <div style={{textAlign:"center",padding:"24px 0",color:C.muted,fontSize:13}}>
-                  <div style={{fontSize:32,marginBottom:8}}>📅</div>
-                  {T("ยังไม่มี Booking","No bookings yet")}
-                </div>
-              )
-            ):(
-              <div style={{textAlign:"center",padding:"24px 0",color:C.muted,fontSize:13}}>{T("กรุณาเข้าสู่ระบบก่อน","Please login first")}</div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 🎖️ Captain Toast Notification */}
       {captainToast&&(
