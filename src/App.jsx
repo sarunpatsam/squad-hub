@@ -600,11 +600,16 @@ export default function SquadHub() {
   const fileRef = useRef(null);
 
   /* ── DATE HELPERS ── */
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const fmtDate = d => {
+    const dd = new Date(d);
+    return `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
+  };
+  const isToday = d => fmtDate(d)===fmtDate(today);
   const next30Days = Array.from({length:30},(_,i)=>{
-    const d=new Date(); d.setDate(d.getDate()+i); return d;
+    const d=new Date(today); d.setDate(d.getDate()+i); return d;
   });
-  const fmtDate = d => d.toISOString().split("T")[0];
-  const isToday = d => fmtDate(d)===fmtDate(new Date());
   const dayTH = ["อา","จ","อ","พ","พฤ","ศ","ส"];
   const monthTH = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 
@@ -1269,24 +1274,35 @@ const handlePhotoUpload = async (e) => {
     </svg>
   );
 
-  const searchResults = searchQuery.trim().length>0 ? [
-    ...venues.filter(v=>
-      v.name.toLowerCase().includes(searchQuery.toLowerCase())||
-      (v.area||"").toLowerCase().includes(searchQuery.toLowerCase())
-    ).map(v=>({...v,_type:"venue"})),
-    ...venues.flatMap(v=>v.slots
-      .filter(s=>
-        (s.name||"").toLowerCase().includes(searchQuery.toLowerCase())||
-        String(s.id||"").includes(searchQuery)||
-        `SQ-${s.id}`.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      .map(s=>({...s,_type:"slot",_venue:v}))
-    ),
-  ].slice(0,5) : [];
+  const searchResults = searchQuery.trim().length>0 ? (()=>{
+    const q = searchQuery.trim().toLowerCase();
+    const results = [];
+    // ค้นหาด้วย team code 4 หลัก — priority สูงสุด
+    venues.forEach(v=>{
+      v.slots.forEach(s=>{
+        const slotTeams = SEED_TEAMS();
+        slotTeams.forEach(t=>{
+          if(t.code.toLowerCase()===q){
+            results.push({_type:"teamcode",_venue:v,_slot:s,_team:t,code:t.code,name:`ทีม ${t.name}`,meta:`${v.name} · ${s.time}–${s.end}`,color:t.color});
+          }
+        });
+      });
+    });
+    // ค้นหาสนาม
+    venues.filter(v=>
+      v.name.toLowerCase().includes(q)||(v.area||"").toLowerCase().includes(q)
+    ).forEach(v=>results.push({...v,_type:"venue"}));
+    // ค้นหาชื่อห้อง
+    venues.flatMap(v=>v.slots.filter(s=>(s.name||"").toLowerCase().includes(q)||(String(s.id||"")).includes(q)).map(s=>({...s,_type:"slot",_venue:v}))).forEach(s=>results.push(s));
+    return results.slice(0,5);
+  })() : [];
 
   const handleSearchSelect = (item)=>{
     setSearchQuery("");setSearchActive(false);
-    if(item._type==="venue"){setVenue(item);setTab("venue");}
+    if(item._type==="teamcode"){
+      setVenue(item._venue);setSlot(item._slot);
+      const t=SEED_TEAMS();setTeams(t);setMyTeam(item._team.id);setLobbyTab("pitch");setTab("room");
+    } else if(item._type==="venue"){setVenue(item);setTab("venue");}
     else{setVenue(item._venue);setSlot(item);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}
   };
 
@@ -1302,7 +1318,7 @@ const handlePhotoUpload = async (e) => {
           <Search size={15} color={searchActive?C.green:C.sub}/>
           <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
             onFocus={()=>setSearchActive(true)} onBlur={()=>setTimeout(()=>setSearchActive(false),200)}
-            placeholder={T("ค้นหาสนาม, code ห้อง...","Search venues, room code...")}
+            placeholder={T("ค้นหาสนาม หรือใส่ Team Code 4 หลัก...","Search venue or enter 4-digit Team Code...")}
             style={{flex:1,background:"none",border:"none",outline:"none",fontSize:13,color:C.text,fontFamily:"inherit"}}/>
           {searchQuery&&<button onClick={()=>setSearchQuery("")} style={{background:"none",border:"none",color:C.sub,cursor:"pointer",fontSize:14,padding:0}}>✕</button>}
         </div>
@@ -1311,13 +1327,14 @@ const handlePhotoUpload = async (e) => {
           <div style={{position:"absolute",top:"100%",left:0,right:0,background:C.bg2,border:`1px solid ${C.borderHi}`,borderRadius:12,overflow:"hidden",zIndex:100,marginTop:4,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>
             {searchResults.slice(0,5).map((item,i)=>(
               <div key={i} onClick={()=>handleSearchSelect(item)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:i<searchResults.length-1?`1px solid rgba(16,185,129,0.06)`:"none",cursor:"pointer"}}>
-                <div style={{width:30,height:30,background:item._type==="slot"?"rgba(251,191,36,0.08)":"rgba(16,185,129,0.08)",border:`1px solid ${item._type==="slot"?"rgba(251,191,36,0.2)":"rgba(16,185,129,0.18)"}`,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  {item._type==="slot"?<Hash size={13} color={C.amber}/>:<VenueIcon/>}
+                <div style={{width:30,height:30,background:item._type==="teamcode"?`${item.color}22`:item._type==="slot"?"rgba(251,191,36,0.08)":"rgba(16,185,129,0.08)",border:`1px solid ${item._type==="teamcode"?(item.color+"55"):item._type==="slot"?"rgba(251,191,36,0.2)":"rgba(16,185,129,0.18)"}`,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:11,fontWeight:900,color:item._type==="teamcode"?item.color:""}}>
+                  {item._type==="teamcode"?item.code.slice(0,2):item._type==="slot"?<Hash size={13} color={C.amber}/>:<VenueIcon/>}
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:700,color:C.text}}>{item._type==="slot"?item.name||`ห้อง SQ-${item.id}`:item.name}</div>
-                  <div style={{fontSize:9,color:C.sub,marginTop:1}}>{item._type==="slot"?`${item._venue.name} · ${item.time}–${item.end}`:item.area}</div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.text}}>{item._type==="teamcode"?item.name:item._type==="slot"?item.name||`ห้อง SQ-${item.id}`:item.name}</div>
+                  <div style={{fontSize:9,color:C.sub,marginTop:1}}>{item._type==="teamcode"?item.meta:item._type==="slot"?`${item._venue.name} · ${item.time}–${item.end}`:item.area}</div>
                 </div>
+                {item._type==="teamcode"&&<span style={{fontSize:10,fontWeight:900,color:item.color,background:`${item.color}18`,padding:"2px 8px",borderRadius:99,border:`1px solid ${item.color}44`}}>→ Join</span>}
                 {item._type==="venue"&&item.distance&&item.distance!=="— km"&&<span style={{fontSize:9,fontWeight:800,color:C.green}}>📍{item.distance}</span>}
                 {item._type==="slot"&&<span style={{fontSize:9,fontWeight:800,color:C.amber,background:"rgba(251,191,36,0.08)",padding:"1px 6px",borderRadius:99}}>→ เข้าห้อง</span>}
               </div>
@@ -1409,7 +1426,7 @@ const handlePhotoUpload = async (e) => {
                   const sel=dStr===fmtDate(selectedDate);
                   const tod=dStr===fmtDate(new Date());
                   const hasSlot=slotDates.has(dStr);
-                  const isPast=d<new Date(new Date().setHours(0,0,0,0));
+                  const isPast=d<today;
                   return(
                     <button key={i} onClick={()=>{if(!isPast){setSelectedDate(d);setShowCal(false);}}}
                       style={{height:38,borderRadius:9,border:"none",background:sel?C.green:tod?"rgba(16,185,129,0.1)":"transparent",cursor:isPast?"not-allowed":"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",opacity:isPast?0.35:1}}>
@@ -1476,7 +1493,7 @@ const handlePhotoUpload = async (e) => {
             <a href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`} target="_blank" rel="noreferrer"
               style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",color:C.green,fontSize:12,fontWeight:800,textDecoration:"none"}}
               onClick={e=>e.stopPropagation()}>
-              <MapPin size={13}/> นำทางไปสนาม
+              <MapPin size={13}/> {T("นำทางไปสนาม","Navigate")}
             </a>
           )}
           {venue?.address&&(
@@ -1486,7 +1503,7 @@ const handlePhotoUpload = async (e) => {
           )}
         </div>
       )}
-      <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>ตารางแมทช์วันนี้</div>
+      <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>{T("ตารางแมทช์วันนี้","Today's Matches")}</div>
       {venue?.slots.map(s=>{
         const sc=s.status==="Full"?C.sub:s.status==="Hot"?C.red:C.green;
         const pct=Math.round((s.filled/s.total)*100);
@@ -1496,7 +1513,7 @@ const handlePhotoUpload = async (e) => {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
               <div>
                 <div style={{fontSize:17,fontWeight:900,color:C.text}}>{s.time} <span style={{fontSize:12,color:C.sub}}>– {s.end}</span></div>
-                <div style={{fontSize:11,color:C.sub,marginTop:2}}>{s.type} · 4 ทีม · ฿{s.price+s.fee}/คน</div>
+                <div style={{fontSize:11,color:C.sub,marginTop:2}}>{s.type} · 4 {T("ทีม","teams")} · ฿{s.price+s.fee}/{T("คน","p")}</div>
               </div>
               <Tag color={sc}>{s.status}</Tag>
             </div>
@@ -1504,7 +1521,7 @@ const handlePhotoUpload = async (e) => {
               <div style={{height:"100%",width:`${pct}%`,background:s.status==="Full"?"#374151":s.status==="Hot"?C.red:C.green,borderRadius:99}}/>
             </div>
             <div style={{display:"flex",justifyContent:"space-between"}}>
-              <span style={{fontSize:10,color:C.sub}}>{s.filled}/{s.total} ผู้เล่น</span>
+              <span style={{fontSize:10,color:C.sub}}>{s.filled}/{s.total} {T("ผู้เล่น","players")}</span>
               <span style={{fontSize:10,color:sc,fontWeight:700}}>{pct}%</span>
             </div>
           </div>
