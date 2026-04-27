@@ -1358,25 +1358,32 @@ const handlePhotoUpload = async (e) => {
       </div>
 
       {/* Hot/Today banner */}
-      {hotSlot&&(
-        <div onClick={()=>{setVenue(hotSlot._venue);setSlot(hotSlot);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}}
-          style={{background:"linear-gradient(135deg,#0b1f14,#0d1824)",border:"1px solid rgba(239,68,68,0.22)",borderRadius:18,padding:"16px 18px",marginBottom:20,cursor:"pointer",position:"relative",overflow:"hidden"}}>
-          <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,background:"radial-gradient(circle,rgba(239,68,68,0.07) 0%,transparent 70%)"}}/>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <Tag color={C.red}><Flame size={9}/> {T("HOT MATCH · ใกล้เต็ม 🔥","HOT MATCH · Almost Full 🔥")}</Tag>
-            <span style={{fontSize:10,color:C.sub}}>{T(`เหลือ ${openSlotsCount} slot`,`${openSlotsCount} slots left`)}</span>
+      {hotSlot&&(()=>{
+        const pct=hotSlot.total>0?Math.round((hotSlot.filled||0)/hotSlot.total*100):0;
+        const spotsLeft=(hotSlot.total||14)-(hotSlot.filled||0);
+        return(
+          <div onClick={()=>{setVenue(hotSlot._venue);setSlot(hotSlot);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}}
+            style={{background:"#0a0a0a",border:"1.5px solid #ef4444",borderRadius:18,padding:"16px 18px",marginBottom:20,cursor:"pointer",position:"relative",overflow:"hidden",boxShadow:"0 0 24px rgba(239,68,68,0.15),inset 0 0 20px rgba(239,68,68,0.04)"}}>
+            <div style={{position:"absolute",top:-30,right:-30,width:120,height:120,background:"radial-gradient(circle,rgba(239,68,68,0.12),transparent 70%)",pointerEvents:"none"}}/>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <div style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:9,fontWeight:900,letterSpacing:1.5,textTransform:"uppercase",padding:"3px 10px",borderRadius:99,background:"rgba(239,68,68,0.12)",color:"#ef4444",border:"1px solid rgba(239,68,68,0.35)"}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:"#ef4444",animation:"pulse 1.5s infinite"}}/>
+                {T("HOT · ใกล้เต็ม","HOT · Almost Full")}
+              </div>
+              <div style={{fontSize:10,fontWeight:800,color:"#ef4444"}}>{pct}% {T("เต็มแล้ว","full")}</div>
+            </div>
+            <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2,position:"relative"}}>{hotSlot._venue?.name}</div>
+            <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:10}}>{hotSlot.time}–{hotSlot.end} · {hotSlot.type} · ฿{hotSlot.price}/{T("คน","p")}</div>
+            <div style={{height:4,background:"rgba(255,255,255,0.08)",borderRadius:99,marginBottom:8,overflow:"hidden"}}>
+              <div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#ef4444,#f97316,#fbbf24)",borderRadius:99,transition:"width .3s"}}/>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:11,color:C.sub}}>{hotSlot.filled||0}/{hotSlot.total||14} {T("ผู้เล่น","players")} · {T(`เหลือ ${spotsLeft} ที่`,`${spotsLeft} spots left`)}</div>
+              <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontWeight:900,color:C.green}}>Join ›</div>
+            </div>
           </div>
-          <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>{hotSlot._venue?.name}</div>
-          <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:10}}>{hotSlot.time}–{hotSlot.end} · {hotSlot.type} · ฿{hotSlot.price}/{T("คน","p")}</div>
-          <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99,marginBottom:8}}>
-            <div style={{height:"100%",width:`${hotSlot.total>0?Math.round((hotSlot.filled||0)/hotSlot.total*100):0}%`,background:"linear-gradient(90deg,#dc2626,#ef4444)",borderRadius:99,minWidth:hotSlot.filled>0?"8px":"0"}}/>
-          </div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontSize:10,color:C.sub}}>{hotSlot.filled||0}/{hotSlot.total||14} {T("ผู้เล่น","players")}</span>
-            <div style={{display:"flex",alignItems:"center",gap:3,fontSize:12,fontWeight:700,color:C.green}}>Join <ChevronRight size={13}/></div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:12}}>{T("สนามใกล้คุณ","Nearby Venues")}</div>
 
@@ -2078,20 +2085,49 @@ const handlePhotoUpload = async (e) => {
             {notifTab==="booking"&&(player?(
               <>
                 <div style={{background:"#050f0a",border:`1px solid rgba(16,185,129,0.25)`,borderRadius:14,padding:14,marginBottom:10}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                    <div>
-                      <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venues[0]?.name||"Grand Soccer Pro"}</div>
-                      <div style={{fontSize:11,color:C.sub,marginTop:2}}>{T("พรุ่งนี้","Tomorrow")} · {venues[0]?.slots[0]?.time||"20:00"}–{venues[0]?.slots[0]?.end||"22:00"}</div>
+                  {/* Status banner */}
+                  <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",marginBottom:12}}>
+                    <div style={{width:8,height:8,borderRadius:"50%",background:C.green,flexShrink:0}}/>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,fontWeight:800,color:C.green}}>{T("✓ Booking Confirmed","✓ Booking Confirmed")}</div>
+                      <div style={{fontSize:9,color:C.sub,marginTop:1}}>{T("รอ scan QR เข้าสนามวันแข่ง","Show QR at venue on match day")}</div>
                     </div>
-                    <div style={{fontSize:10,fontWeight:800,padding:"3px 10px",borderRadius:99,background:"rgba(16,185,129,0.12)",color:C.green,border:`1px solid rgba(16,185,129,0.25)`}}>Confirmed ✓</div>
+                    <div style={{fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:99,background:"rgba(16,185,129,0.12)",color:C.green,border:`1px solid rgba(16,185,129,0.25)`}}>Confirmed</div>
                   </div>
-                  <div style={{display:"flex",gap:14}}>
-                    {[{l:T("แมตช์","Match"),v:venues[0]?.slots[0]?.type||"7v7"},{l:T("ราคา","Price"),v:`฿${venues[0]?.slots[0]?.price||170}`,c:C.green}].map((item,i)=>(
-                      <div key={i}><div style={{fontSize:8,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>{item.l}</div><div style={{fontSize:13,fontWeight:800,color:item.c||C.text,marginTop:2}}>{item.v}</div></div>
+                  {/* Venue + time */}
+                  <div style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+                    <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venues[0]?.name||"—"}</div>
+                    <div style={{fontSize:11,color:C.sub,marginTop:2}}>{venues[0]?.slots[0]?.time||"—"}–{venues[0]?.slots[0]?.end||"—"} · {venues[0]?.area||"—"}</div>
+                  </div>
+                  {/* Info grid */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+                    {[
+                      {l:T("แมตช์","Match"),v:venues[0]?.slots[0]?.type||"7v7",c:C.text},
+                      {l:T("ราคา","Price"),v:`฿${venues[0]?.slots[0]?.price||170}`,c:C.green},
+                      {l:T("ผู้เล่น","Players"),v:`${venues[0]?.slots[0]?.filled||0}/${venues[0]?.slots[0]?.total||14}`,c:C.text},
+                    ].map((item,i)=>(
+                      <div key={i} style={{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
+                        <div style={{fontSize:8,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{item.l}</div>
+                        <div style={{fontSize:13,fontWeight:800,color:item.c}}>{item.v}</div>
+                      </div>
                     ))}
                   </div>
+                  {/* Team info */}
+                  {myTeam&&(()=>{
+                    const td=teams.find(t=>t.id===myTeam);
+                    return td?(
+                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:`${td.color}12`,border:`1px solid ${td.color}40`}}>
+                        <div style={{width:12,height:12,borderRadius:3,background:td.color,flexShrink:0}}/>
+                        <div>
+                          <div style={{fontSize:12,fontWeight:800,color:C.text}}>{T("ทีม","Team")} {td.name}</div>
+                          <div style={{fontSize:10,color:C.sub}}>{player?.position} · {player?.playstyle} · OVR {player?.ovr}</div>
+                        </div>
+                        <div style={{marginLeft:"auto",fontSize:10,color:td.color,fontWeight:800}}>{td.players?.length||0} {T("คน","members")}</div>
+                      </div>
+                    ):null;
+                  })()}
                 </div>
-                <div style={{textAlign:"center",padding:"8px 0",color:C.muted,fontSize:11}}>{T("ดู QR check-in จาก Player QR ในหน้า Profile","View check-in QR from Player QR in Profile")}</div>
+                <div style={{textAlign:"center",padding:"8px 0",color:C.muted,fontSize:11}}>{T("ดู Player QR สำหรับ Check-in ได้ที่หน้า Profile","View Player QR for Check-in in Profile")}</div>
               </>
             ):(
               <div style={{textAlign:"center",padding:"24px 0",color:C.muted,fontSize:13}}>
