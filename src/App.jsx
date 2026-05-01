@@ -2084,55 +2084,70 @@ const handlePhotoUpload = async (e) => {
             </div>
             {notifTab==="booking"&&(player?(
               <>
-                <div style={{background:"#050f0a",border:`1px solid rgba(16,185,129,0.25)`,borderRadius:14,padding:14,marginBottom:10}}>
-                  {/* Status banner */}
-                  <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",marginBottom:12}}>
-                    <div style={{width:8,height:8,borderRadius:"50%",background:C.green,flexShrink:0}}/>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:11,fontWeight:800,color:C.green}}>{T("✓ Booking Confirmed","✓ Booking Confirmed")}</div>
-                      <div style={{fontSize:9,color:C.sub,marginTop:1}}>{T("รอ scan QR เข้าสนามวันแข่ง","Show QR at venue on match day")}</div>
+                {/* Journey Steps */}
+                <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:16,padding:"10px 14px",background:"rgba(16,185,129,0.04)",border:"1px solid rgba(16,185,129,0.12)",borderRadius:12}}>
+                  {[
+                    {icon:"✓",label:T("จองแล้ว","Booked"),done:true},
+                    {icon:"📱",label:T("Scan QR","Scan QR"),done:false,active:true},
+                    {icon:"⚽",label:T("แข่ง","Play"),done:false},
+                    {icon:"🏆",label:T("จบ","Done"),done:false},
+                  ].map((s,i,arr)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",flex:i<arr.length-1?1:"none"}}>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                        <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,background:s.done?"rgba(16,185,129,0.15)":s.active?"rgba(251,191,36,0.12)":"rgba(255,255,255,0.04)",border:`1px solid ${s.done?"rgba(16,185,129,0.4)":s.active?"rgba(251,191,36,0.4)":"rgba(255,255,255,0.08)"}`}}>{s.icon}</div>
+                        <div style={{fontSize:8,fontWeight:700,color:s.done?C.green:s.active?C.amber:C.muted,whiteSpace:"nowrap"}}>{s.label}</div>
+                      </div>
+                      {i<arr.length-1&&<div style={{flex:1,height:1,background:s.done?"rgba(16,185,129,0.3)":"rgba(255,255,255,0.07)",margin:"0 4px",marginBottom:14}}/>}
                     </div>
-                    <div style={{fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:99,background:"rgba(16,185,129,0.12)",color:C.green,border:`1px solid rgba(16,185,129,0.25)`}}>Confirmed</div>
-                  </div>
-                  {/* Venue + time */}
-                  <div style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
-                    <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venues[0]?.name||"—"}</div>
-                    <div style={{fontSize:11,color:C.sub,marginTop:2}}>{venues[0]?.slots[0]?.time||"—"}–{venues[0]?.slots[0]?.end||"—"} · {venues[0]?.area||"—"}</div>
+                  ))}
+                </div>
+                {/* Booking card */}
+                <div style={{background:"#050f0a",border:"1px solid rgba(16,185,129,0.22)",borderRadius:14,padding:14,marginBottom:10}}>
+                  {/* Venue row */}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",paddingBottom:10,marginBottom:10,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venues[0]?.name||"—"}</div>
+                      <div style={{fontSize:10,color:C.sub,marginTop:2}}>{venues[0]?.slots[0]?.time||"—"}–{venues[0]?.slots[0]?.end||"—"} · {venues[0]?.area||"—"}</div>
+                    </div>
+                    <div style={{fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,background:"rgba(16,185,129,0.1)",color:C.green,border:"1px solid rgba(16,185,129,0.25)",flexShrink:0}}>✓ Confirmed</div>
                   </div>
                   {/* Info grid */}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
                     {[
-                      {l:T("แมตช์","Match"),v:venues[0]?.slots[0]?.type||"7v7",c:C.text},
+                      {l:T("แมตช์","Match"),v:venues[0]?.slots[0]?.type||"7v7"},
                       {l:T("ราคา","Price"),v:`฿${venues[0]?.slots[0]?.price||170}`,c:C.green},
-                      {l:T("ผู้เล่น","Players"),v:`${venues[0]?.slots[0]?.filled||0}/${venues[0]?.slots[0]?.total||14}`,c:C.text},
+                      {l:T("ผู้เล่น","Players"),v:`${venues[0]?.slots[0]?.filled||0}/${venues[0]?.slots[0]?.total||14}`},
                     ].map((item,i)=>(
-                      <div key={i} style={{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
-                        <div style={{fontSize:8,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{item.l}</div>
-                        <div style={{fontSize:13,fontWeight:800,color:item.c}}>{item.v}</div>
+                      <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:8,padding:"8px 4px",textAlign:"center"}}>
+                        <div style={{fontSize:7,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>{item.l}</div>
+                        <div style={{fontSize:13,fontWeight:800,color:item.c||C.text}}>{item.v}</div>
                       </div>
                     ))}
                   </div>
-                  {/* Team info */}
-                  {myTeam&&(()=>{
+                  {/* Team card */}
+                  {myTeam?(()=>{
                     const td=teams.find(t=>t.id===myTeam);
                     return td?(
-                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:`${td.color}12`,border:`1px solid ${td.color}40`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",borderRadius:10,background:`${td.color}10`,border:`1px solid ${td.color}35`}}>
                         <div style={{width:12,height:12,borderRadius:3,background:td.color,flexShrink:0}}/>
-                        <div>
+                        <div style={{flex:1}}>
                           <div style={{fontSize:12,fontWeight:800,color:C.text}}>{T("ทีม","Team")} {td.name}</div>
-                          <div style={{fontSize:10,color:C.sub}}>{player?.position} · {player?.playstyle} · OVR {player?.ovr}</div>
+                          <div style={{fontSize:9,color:C.sub,marginTop:1}}>{player?.position} · {player?.playstyle} · OVR {player?.ovr||"—"}</div>
                         </div>
-                        <div style={{marginLeft:"auto",fontSize:10,color:td.color,fontWeight:800}}>{td.players?.length||0} {T("คน","members")}</div>
+                        <div style={{fontSize:10,fontWeight:800,color:td.color,background:`${td.color}15`,padding:"2px 8px",borderRadius:99,border:`1px solid ${td.color}30`}}>{td.players?.length||0} {T("คน","p")}</div>
                       </div>
                     ):null;
-                  })()}
+                  })():(
+                    <div style={{textAlign:"center",fontSize:10,color:C.muted,padding:"6px 0"}}>{T("ยังไม่ได้เลือกทีม","No team selected yet")}</div>
+                  )}
                 </div>
-                <div style={{textAlign:"center",padding:"8px 0",color:C.muted,fontSize:11}}>{T("ดู Player QR สำหรับ Check-in ได้ที่หน้า Profile","View Player QR for Check-in in Profile")}</div>
+                <div style={{textAlign:"center",padding:"6px 0",color:C.muted,fontSize:10}}>{T("Player QR สำหรับ Check-in อยู่ที่ Profile →","Player QR for Check-in is in Profile →")}</div>
               </>
             ):(
-              <div style={{textAlign:"center",padding:"24px 0",color:C.muted,fontSize:13}}>
-                <div style={{fontSize:32,marginBottom:8}}>📅</div>
-                {T("ยังไม่มี Booking","No bookings yet")}
+              <div style={{textAlign:"center",padding:"28px 0",color:C.muted,fontSize:13}}>
+                <div style={{fontSize:36,marginBottom:8}}>📅</div>
+                <div style={{fontWeight:700,marginBottom:4}}>{T("ยังไม่มี Booking","No bookings yet")}</div>
+                <div style={{fontSize:11}}>{T("จองแมตช์แล้วจะเห็นข้อมูลที่นี่","Book a match to see details here")}</div>
               </div>
             ))}
             {notifTab==="news"&&(
