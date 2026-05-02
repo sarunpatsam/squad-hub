@@ -1887,9 +1887,26 @@ const handlePhotoUpload = async (e) => {
           </div>
         </div>
 
-        <Btn onClick={()=>{setPayStep("verifying");setTimeout(()=>{setPayStep("summary");setTab("success");},2000);}}>
-          โอนแล้ว · ยืนยันการชำระ ✓
-        </Btn>
+        <Btn onClick={async ()=>{
+  setPayStep("verifying");
+  try {
+    await supabase.from("bookings").insert({
+      player_id: player?.dbId,
+      slot_id: slot?.id,
+      venue_id: venue?.id,
+      amount: total,
+      status: "pending",
+      payment_ref: `PAY-${Date.now()}`
+    });
+    setPayStep("done");
+    setTab("success");
+  } catch(e) {
+    console.error(e);
+    setPayStep("qr");
+  }
+}}>
+  โอนแล้ว · ยืนยันการชำระ ✓
+</Btn>
       </div>
     );
 
