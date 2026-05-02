@@ -1924,18 +1924,25 @@ const handlePhotoUpload = async (e) => {
 
   /* ── SUCCESS ── */
   const renderSuccess = () => (
-    <div style={{textAlign:"center",padding:"56px 20px 40px"}}>
-      <div style={{width:68,height:68,background:C.greenDim,border:`2px solid ${C.borderHi}`,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px"}}><CheckCircle2 size={30} color={C.green}/></div>
-      <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:6,color:C.text}}>{T("เข้าร่วมแล้ว!","You're In!")}</div>
-      <div style={{fontSize:13,color:C.sub,marginBottom:3}}>{myTeamData?.name} · {venue?.name}</div>
-      <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:28}}>{slot?.time}–{slot?.end}</div>
-      <div style={{background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:14,padding:"14px 18px",marginBottom:20,textAlign:"left"}}>
-        <div style={{fontSize:9,fontWeight:800,color:C.green,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>Reminder</div>
-        <div style={{fontSize:12,color:C.sub,lineHeight:1.8}}>📍 {venue?.name}<br/>⏰ {T("เริ่ม","Starts")} {slot?.time} · {T("มาก่อน 15 นาที","arrive 15 min early")}<br/>🔑 {T("โค้ดทีม","Team Code")}: <span style={{color:myTeamData?.color,fontWeight:900,fontFamily:"monospace"}}>{myTeamData?.code}</span></div>
-      </div>
-      <Btn ghost onClick={()=>setTab("profile")}>{T("ดู Player Profile","View Player Profile")}</Btn>
+  <div style={{textAlign:"center",padding:"56px 20px 40px"}}>
+    <div style={{width:68,height:68,background:"rgba(234,179,8,0.1)",border:`2px solid #ca8a04`,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px"}}>
+      <Clock size={30} color="#eab308"/>
     </div>
-  );
+    <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:6,color:C.text}}>{T("รอการยืนยัน","Pending Confirmation")}</div>
+    <div style={{fontSize:13,color:C.sub,marginBottom:3}}>{myTeamData?.name} · {venue?.name}</div>
+    <div style={{fontSize:12,color:"#eab308",fontWeight:700,marginBottom:28}}>{slot?.time}–{slot?.end}</div>
+    <div style={{background:"rgba(234,179,8,0.08)",border:`1px solid rgba(202,138,4,0.4)`,borderRadius:14,padding:"14px 18px",marginBottom:20,textAlign:"left"}}>
+      <div style={{fontSize:9,fontWeight:800,color:"#eab308",letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>สถานะ</div>
+      <div style={{fontSize:12,color:C.sub,lineHeight:1.8}}>
+        📍 {venue?.name}<br/>
+        ⏰ {slot?.time}–{slot?.end}<br/>
+        💳 {T("รอ Partner ยืนยันการชำระเงิน","Awaiting payment confirmation")}<br/>
+        📲 {T("ระบบจะแจ้งผลทาง LINE","You'll be notified via LINE")}
+      </div>
+    </div>
+    <Btn ghost onClick={()=>setTab("profile")}>{T("ดู Player Profile","View Player Profile")}</Btn>
+  </div>
+);
 
   /* ── LEADERBOARD ── */
   const renderLeaderboard = () => {
