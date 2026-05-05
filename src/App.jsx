@@ -2147,33 +2147,35 @@ const handlePhotoUpload = async (e) => {
                   ))}
                 </div>
                 {/* Booking card */}
-                <div style={{background:"#050f0a",border:"1px solid rgba(16,185,129,0.22)",borderRadius:14,padding:14,marginBottom:10}}>
-                  {/* Venue row */}
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",paddingBottom:10,marginBottom:10,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
-                    <div>
-                      <div style={{fontSize:14,fontWeight:800,color:C.text}}>{myBooking?.venues?.name||"—"}</div>
-<div style={{fontSize:10,color:C.sub,marginTop:2}}>{myBooking?.slots?.start_time?.slice(0,5)||"—"}–{myBooking?.slots?.end_time?.slice(0,5)||"—"} · {myBooking?.venues?.area||"—"}</div>
-                    <div style={{
-  fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,flexShrink:0,
-  background: myBooking?.status==="confirmed" ? "rgba(16,185,129,0.1)" : "rgba(251,191,36,0.1)",
-  color: myBooking?.status==="confirmed" ? C.green : "#fbbf24",
-  border: `1px solid ${myBooking?.status==="confirmed" ? "rgba(16,185,129,0.25)" : "rgba(251,191,36,0.3)"}`,
-}}>
-  {myBooking?.status==="confirmed" ? "✓ Confirmed" : "⏳ รอยืนยัน"}
-</div>
-                  {/* Info grid */}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
-                    {[
-                      {l:T("แมตช์","Match"),v:venues[0]?.slots[0]?.type||"7v7"},
-                      {l:T("ราคา","Price"),v:`฿${venues[0]?.slots[0]?.price||170}`,c:C.green},
-                      {l:T("ผู้เล่น","Players"),v:`${venues[0]?.slots[0]?.filled||0}/${venues[0]?.slots[0]?.total||14}`},
-                    ].map((item,i)=>(
-                      <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:8,padding:"8px 4px",textAlign:"center"}}>
-                        <div style={{fontSize:7,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>{item.l}</div>
-                        <div style={{fontSize:13,fontWeight:800,color:item.c||C.text}}>{item.v}</div>
-                      </div>
-                    ))}
-                  </div>
+<div style={{background:"#050f0a",border:"1px solid rgba(16,185,129,0.22)",borderRadius:14,padding:14,marginBottom:10}}>
+  {/* Venue row */}
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",paddingBottom:10,marginBottom:10,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+    <div>
+      <div style={{fontSize:14,fontWeight:800,color:C.text}}>{myBooking?.venues?.name||"—"}</div>
+      <div style={{fontSize:10,color:C.sub,marginTop:2}}>{myBooking?.slots?.start_time?.slice(0,5)||"—"}–{myBooking?.slots?.end_time?.slice(0,5)||"—"} · {myBooking?.venues?.area||"—"}</div>
+    </div>
+    <div style={{
+      fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,flexShrink:0,
+      background:myBooking?.status==="confirmed"?"rgba(16,185,129,0.1)":"rgba(251,191,36,0.1)",
+      color:myBooking?.status==="confirmed"?C.green:"#fbbf24",
+      border:`1px solid ${myBooking?.status==="confirmed"?"rgba(16,185,129,0.25)":"rgba(251,191,36,0.3)"}`,
+    }}>
+      {myBooking?.status==="confirmed"?"✓ Confirmed":"⏳ รอยืนยัน"}
+    </div>
+  </div>
+  {/* Info grid */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
+    {[
+      {l:T("แมตช์","Match"),v:formatMatchType(myBooking?.slots?.match_type||"7v7")},
+      {l:T("ราคา","Price"),v:`฿${myBooking?.slots?.price_per_player||170}`,c:C.green},
+      {l:T("ผู้เล่น","Players"),v:`${myBooking?.slots?.filled||0}/${myBooking?.slots?.max_players||14}`},
+    ].map((item,i)=>(
+      <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:8,padding:"8px 4px",textAlign:"center"}}>
+        <div style={{fontSize:7,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>{item.l}</div>
+        <div style={{fontSize:13,fontWeight:800,color:item.c||C.text}}>{item.v}</div>
+      </div>
+    ))}
+  </div>
                   {/* Team card */}
                   {myTeam?(()=>{
                     const td=teams.find(t=>t.id===myTeam);
