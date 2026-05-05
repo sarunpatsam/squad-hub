@@ -1598,7 +1598,7 @@ const handlePhotoUpload = async (e) => {
             Match Lobby · Live
           </div>
           <div style={{fontSize:20,fontWeight:900,color:C.text,letterSpacing:.5}}>{venue?.name}</div>
-          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {slot?.type} · 4 Teams</div>
+          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {formatMatchType(slot?.type)}</div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:14}}>
           {[{id:"pitch",label:"🏟️ Stadium"},{id:"team",label:"👥 Team"},{id:"chat",label:"💬 Chat"}].map(lt=>(
@@ -1826,7 +1826,7 @@ const handlePhotoUpload = async (e) => {
         <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:20,color:C.text}}>Checkout</div>
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:18,padding:"18px 20px",marginBottom:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:14,borderBottom:"1px dashed rgba(255,255,255,0.07)",marginBottom:14}}>
-            <div><div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:2}}>{venue?.name}</div><div style={{fontSize:11,color:C.sub}}>{slot?.time}–{slot?.end} · {slot?.type}</div></div>
+            <div><div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:2}}>{venue?.name}</div><div style={{fontSize:11,color:C.sub}}>{slot?.time}–{slot?.end} · {formatMatchType(slot?.type)}</div></div>
             {myTeamData&&<Tag color={myTeamData.color}>{myTeamData.name}</Tag>}
           </div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.sub,marginBottom:9}}>
