@@ -12,6 +12,11 @@ import {
 } from "lucide-react";
 
 /* ═══════════════ DESIGN TOKENS ═══════════════ */
+const formatMatchType = (t="") => {
+  const m = t.match(/^(\d+v\d+)_(\d+)t$/);
+  if(!m) return t;
+  return `${m[1]} · ${m[2]} teams`;
+};
 const C = {
   bg:"#050f0a", bg2:"#091510", surface:"rgba(16,185,129,0.04)",
   border:"rgba(16,185,129,0.14)", borderHi:"rgba(16,185,129,0.35)",
