@@ -604,6 +604,7 @@ export default function SquadHub() {
   const [searchQuery,setSearchQuery] = useState("");
   const [searchActive,setSearchActive] = useState(false);
   const fileRef = useRef(null);
+const [myBooking, setMyBooking] = useState(null);
 
   /* ── DATE HELPERS ── */
   const today = new Date();
@@ -731,6 +732,21 @@ export default function SquadHub() {
 }
     })();
   },[]);
+
+  /* ── FETCH MY BOOKING ── */
+  useEffect(()=>{
+    if(!player?.dbId) return;
+    (async()=>{
+      const { data } = await supabase
+        .from("bookings")
+        .select("*, slots(*), venues(*)")
+        .eq("player_id", player.dbId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if(data) setMyBooking(data);
+    })();
+  },[player?.dbId]);
 
   /* ── FETCH VENUES จาก Supabase ── */
   const [userLoc,setUserLoc]=useState(null);
@@ -2135,11 +2151,16 @@ const handlePhotoUpload = async (e) => {
                   {/* Venue row */}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",paddingBottom:10,marginBottom:10,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
                     <div>
-                      <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venues[0]?.name||"—"}</div>
-                      <div style={{fontSize:10,color:C.sub,marginTop:2}}>{venues[0]?.slots[0]?.time||"—"}–{venues[0]?.slots[0]?.end||"—"} · {venues[0]?.area||"—"}</div>
-                    </div>
-                    <div style={{fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,background:"rgba(16,185,129,0.1)",color:C.green,border:"1px solid rgba(16,185,129,0.25)",flexShrink:0}}>✓ Confirmed</div>
-                  </div>
+                      <div style={{fontSize:14,fontWeight:800,color:C.text}}>{myBooking?.venues?.name||"—"}</div>
+<div style={{fontSize:10,color:C.sub,marginTop:2}}>{myBooking?.slots?.start_time?.slice(0,5)||"—"}–{myBooking?.slots?.end_time?.slice(0,5)||"—"} · {myBooking?.venues?.area||"—"}</div>
+                    <div style={{
+  fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,flexShrink:0,
+  background: myBooking?.status==="confirmed" ? "rgba(16,185,129,0.1)" : "rgba(251,191,36,0.1)",
+  color: myBooking?.status==="confirmed" ? C.green : "#fbbf24",
+  border: `1px solid ${myBooking?.status==="confirmed" ? "rgba(16,185,129,0.25)" : "rgba(251,191,36,0.3)"}`,
+}}>
+  {myBooking?.status==="confirmed" ? "✓ Confirmed" : "⏳ รอยืนยัน"}
+</div>
                   {/* Info grid */}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
                     {[
