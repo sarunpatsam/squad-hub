@@ -735,19 +735,21 @@ const [myBooking, setMyBooking] = useState(null);
 
   /* ── FETCH MY BOOKING ── */
   useEffect(()=>{
-    if(!player?.dbId) return;
-    (async()=>{
-      const { data } = await supabase
-        .from("bookings")
-        .select("*, slots(*), venues(*)")
-        .eq("player_id", player.dbId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-      if(data) setMyBooking(data);
-    })();
-  },[player?.dbId]);
-
+  if(!player?.dbId) return;
+  const fetchBooking = async()=>{
+    const { data } = await supabase
+      .from("bookings")
+      .select("*, slots(*), venues(*)")
+      .eq("player_id", player.dbId)
+      .order("created_at",{ascending:false})
+      .limit(1)
+      .single();
+    if(data) setMyBooking(data);
+  };
+  fetchBooking();
+  const interval = setInterval(fetchBooking, 10000);
+  return ()=> clearInterval(interval);
+},[player?.dbId]);
   /* ── FETCH VENUES จาก Supabase ── */
   const [userLoc,setUserLoc]=useState(null);
 
