@@ -662,7 +662,10 @@ const [myBooking, setMyBooking] = useState(null);
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
-            setAppLoading(false); setTab("home");
+            const urlParams2 = new URLSearchParams(window.location.search);
+            const deepTab2 = urlParams2.get("tab");
+            setAppLoading(false);
+            setTab(deepTab2 || "home");
           } else {
             setAppLoading(false); setTab("register");
           }
@@ -713,7 +716,10 @@ const [myBooking, setMyBooking] = useState(null);
             form: [],
           });
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
-          setAppLoading(false); setTab("home");
+          const urlParams = new URLSearchParams(window.location.search);
+          const deepTab = urlParams.get("tab");
+          setAppLoading(false);
+          setTab(deepTab || "home");
         } else {
           // ยังไม่มี → register พร้อม LINE profile
           setAppLoading(false);
