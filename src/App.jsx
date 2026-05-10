@@ -1984,7 +1984,7 @@ const handlePhotoUpload = async (e) => {
 
   /* ── LEADERBOARD ── */
   /* ── CAPTAIN SCORE ── */
-  const renderCaptainScore = () => {
+  const CaptainScoreScreen = () => {
     const matchType = captainMatch?.match_type || slot?.type || "7v7_2t";
     const numTeams = parseInt(matchType.match(/_(\d+)t$/)?.[1] || "2");
     const activeTeams = teams.filter(t => t.players.length > 0);
@@ -2303,7 +2303,7 @@ const [submitted, setSubmitted] = useState(false);
         {tab==="checkout"    && renderCheckout()}
         {tab==="success"     && renderSuccess()}
         {tab==="profile"     && renderProfile()}
-        {tab==="score"       && renderCaptainScore()}
+        {tab==="score" && <CaptainScoreScreen/>}
         {tab==="leaderboard" && renderLeaderboard()}
       </main>
 
