@@ -962,6 +962,9 @@ const handlePhotoUpload = async (e) => {
     setMyTeam(teamId);
 setActiveTeam(["A","B","C","D"].indexOf(teamId));
 setShowJoin(false);
+    console.log("DEBUG myBooking:", myBooking);
+console.log("DEBUG player.dbId:", player?.dbId);
+
 
 // บันทึก match_players ลง Supabase
 if(player?.dbId && myBooking?.id) {
