@@ -960,8 +960,38 @@ const handlePhotoUpload = async (e) => {
       return updated;
     });
     setMyTeam(teamId);
-    setActiveTeam(["A","B","C","D"].indexOf(teamId));
-    setShowJoin(false);
+setActiveTeam(["A","B","C","D"].indexOf(teamId));
+setShowJoin(false);
+
+// บันทึก match_players ลง Supabase
+if(player?.dbId && myBooking?.id) {
+  (async()=>{
+    // สร้าง match record ถ้ายังไม่มี
+    let matchId = myBooking?.match_id;
+    if(!matchId) {
+      const {data:m} = await supabase.from("matches").insert({
+        slot_id: myBooking.slot_id,
+        venue_id: myBooking.venue_id,
+        status: "waiting",
+        match_type: myBooking.slots?.match_type || "7v7_2t",
+      }).select().single();
+      matchId = m?.id;
+      // อัพ booking ให้รู้ match_id
+      if(matchId) await supabase.from("bookings")
+        .update({match_id: matchId}).eq("id", myBooking.id);
+    }
+    if(!matchId) return;
+    // INSERT match_players
+    await supabase.from("match_players").upsert({
+      match_id: matchId,
+      player_id: player.dbId,
+      venue_id: myBooking.venue_id,
+      team: teamId,
+      is_captain: false,
+      checked_in: false,
+    }, {onConflict: "match_id,player_id"});
+  })();
+}
     const now = new Date().toLocaleTimeString("th",{hour:"2-digit",minute:"2-digit"});
     setChatMsgs(prev=>[...prev,{id:chatId+1,team:"match",sender:"ระบบ",msg:`🟢 ${player.name} เข้าร่วม ${teams.find(t=>t.id===teamId)?.name}`,time:now,isSystem:true}]);
     setChatId(p=>p+1);
