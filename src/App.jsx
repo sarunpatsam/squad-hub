@@ -718,6 +718,14 @@ const [myBooking, setMyBooking] = useState(null);
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
           const urlParams = new URLSearchParams(window.location.search);
           const deepTab = urlParams.get("tab");
+setAppLoading(false);
+// delay นิดนึงให้ state settle ก่อน
+if(deepTab) {
+  setTab("home");
+  setTimeout(() => setTab(deepTab), 100);
+} else {
+  setTab("home");
+}
           setAppLoading(false);
           setTab(deepTab || "home");
         } else {
