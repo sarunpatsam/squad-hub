@@ -605,6 +605,7 @@ export default function SquadHub() {
   const [searchActive,setSearchActive] = useState(false);
   const fileRef = useRef(null);
 const [myBooking, setMyBooking] = useState(null);
+  const [captainMatch, setCaptainMatch] = useState(null); // match ที่ต้องกรอกผล
 
   /* ── DATE HELPERS ── */
   const today = new Date();
@@ -1968,6 +1969,200 @@ const handlePhotoUpload = async (e) => {
 );
 
   /* ── LEADERBOARD ── */
+  /* ── CAPTAIN SCORE ── */
+  const renderCaptainScore = () => {
+    const matchType = captainMatch?.match_type || slot?.type || "7v7_2t";
+    const numTeams = parseInt(matchType.match(/_(\d+)t$/)?.[1] || "2");
+    const activeTeams = teams.filter(t => t.players.length > 0);
+
+    // Generate round robin pairs for 3-4 teams
+    const getRoundRobinPairs = (ts) => {
+      const pairs = [];
+      for(let i = 0; i < ts.length; i++)
+        for(let j = i+1; j < ts.length; j++)
+          pairs.push([ts[i], ts[j]]);
+      return pairs;
+    };
+
+    const pairs = numTeams <= 2
+      ? [[activeTeams[0]||{id:"A",name:"ทีม A",color:C.green}, activeTeams[1]||{id:"B",name:"ทีม B",color:"#60a5fa"}]]
+      : getRoundRobinPairs(activeTeams.length >= numTeams ? activeTeams.slice(0,numTeams) : teams.slice(0,numTeams));
+
+    const [scores, setScores] = React.useState(() => {
+      const init = {};
+      pairs.forEach((_,i) => { init[`r${i}_a`]=""; init[`r${i}_b`]=""; });
+      return init;
+    });
+    const [mvp, setMvp] = React.useState(null);
+    const [submitting, setSubmitting] = React.useState(false);
+    const [submitted, setSubmitted] = React.useState(false);
+
+    // Standings calculator
+    const calcStandings = () => {
+      const pts = {};
+      const gf = {};
+      const ga = {};
+      pairs.forEach(([ta, tb], i) => {
+        const sa = parseInt(scores[`r${i}_a`]) || 0;
+        const sb = parseInt(scores[`r${i}_b`]) || 0;
+        if(!pts[ta.id]){pts[ta.id]=0;gf[ta.id]=0;ga[ta.id]=0;}
+        if(!pts[tb.id]){pts[tb.id]=0;gf[tb.id]=0;ga[tb.id]=0;}
+        gf[ta.id]+=sa; ga[ta.id]+=sb;
+        gf[tb.id]+=sb; ga[tb.id]+=sa;
+        if(sa>sb) pts[ta.id]+=3;
+        else if(sb>sa) pts[tb.id]+=3;
+        else { pts[ta.id]+=1; pts[tb.id]+=1; }
+      });
+      return teams.filter(t=>pts[t.id]!==undefined)
+        .map(t=>({...t, pts:pts[t.id]||0, gf:gf[t.id]||0, ga:ga[t.id]||0, gd:(gf[t.id]||0)-(ga[t.id]||0)}))
+        .sort((a,b)=>b.pts-a.pts||b.gd-a.gd);
+    };
+
+    const standings = calcStandings();
+    const allPlayers = teams.flatMap(t => t.players.map(p => ({...p, teamName: t.name, teamColor: t.color})));
+
+    const handleSubmit = async() => {
+      if(submitting) return;
+      setSubmitting(true);
+      try {
+        // Save each round to match_rounds
+        const matchId = captainMatch?.id || myBooking?.slot_id;
+        for(let i=0; i<pairs.length; i++){
+          const [ta, tb] = pairs[i];
+          const sa = parseInt(scores[`r${i}_a`])||0;
+          const sb = parseInt(scores[`r${i}_b`])||0;
+          await supabase.from("match_rounds").insert({
+            match_id: matchId,
+            round_number: i+1,
+            team_a_name: ta.name,
+            team_b_name: tb.name,
+            score_a: sa,
+            score_b: sb,
+          });
+        }
+        // Update XP for players
+        const xpUpdates = [];
+        standings.forEach((t,rank) => {
+          t.players?.forEach(p => {
+            if(!p.dbId) return;
+            const xp = 10 + (rank===0?20:rank===1?10:5) + (p.id===mvp?50:0);
+            xpUpdates.push(supabase.from("players").update({
+              xp: (p.xp||0)+xp,
+              matches_played: (p.matches_played||0)+1,
+              wins: rank===0?(p.wins||0)+1:(p.wins||0),
+            }).eq("id", p.dbId));
+          });
+        });
+        await Promise.all(xpUpdates);
+        setSubmitted(true);
+        setCaptainMatch(null);
+      } catch(e){ console.error(e); }
+      setSubmitting(false);
+    };
+
+    if(submitted) return (
+      <div style={{textAlign:"center",padding:"56px 20px 40px"}}>
+        <div style={{fontSize:48,marginBottom:16}}>🏆</div>
+        <div style={{fontSize:22,fontWeight:900,color:C.green,marginBottom:8}}>บันทึกผลแล้ว!</div>
+        <div style={{fontSize:13,color:C.sub,marginBottom:28}}>XP และสถิติอัพเดทแล้ว</div>
+        {standings.length>0&&(
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:16,marginBottom:20,textAlign:"left"}}>
+            <div style={{fontSize:9,fontWeight:800,color:C.green,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>🏅 ผลการแข่งขัน</div>
+            {standings.map((t,i)=>(
+              <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<standings.length-1?`1px solid rgba(255,255,255,0.05)`:"none"}}>
+                <div style={{width:20,height:20,borderRadius:"50%",background:i===0?"rgba(251,191,36,0.2)":"rgba(255,255,255,0.05)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,color:i===0?C.amber:C.sub}}>{i+1}</div>
+                <div style={{width:8,height:8,borderRadius:2,background:t.color}}/>
+                <div style={{flex:1,fontSize:12,fontWeight:700,color:C.text}}>{t.name}</div>
+                <div style={{fontSize:11,fontWeight:900,color:C.green}}>{t.pts} pts</div>
+                <div style={{fontSize:10,color:C.sub}}>{t.gf}-{t.ga}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <Btn ghost onClick={()=>setTab("profile")}>ดู Player Profile</Btn>
+      </div>
+    );
+
+    return (
+      <div style={{paddingTop:16}}>
+        <BackBtn onClick={()=>setTab("profile")}/>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:9,fontWeight:800,color:C.green,letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>🎖️ กัปตัน — กรอกผลแมตช์</div>
+          <div style={{fontSize:20,fontWeight:900,color:C.text}}>{venue?.name||"—"}</div>
+          <div style={{fontSize:11,color:C.sub}}>{slot?.time}–{slot?.end} · {formatMatchType(slot?.type)}</div>
+        </div>
+
+        {/* Score input per round/pair */}
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+          {pairs.map(([ta,tb],i)=>(
+            <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:14}}>
+              {numTeams>2&&<div style={{fontSize:9,fontWeight:800,color:C.sub,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>รอบที่ {i+1}</div>}
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{fontSize:12,fontWeight:800,color:ta?.color||C.green,marginBottom:8}}>{ta?.name||"ทีม A"}</div>
+                  <input
+                    type="number" min="0" max="99"
+                    value={scores[`r${i}_a`]||""}
+                    onChange={e=>setScores(s=>({...s,[`r${i}_a`]:e.target.value}))}
+                    style={{width:"100%",background:C.bg,border:`2px solid ${ta?.color||C.green}40`,borderRadius:10,padding:"12px 0",fontSize:28,fontWeight:900,color:ta?.color||C.green,textAlign:"center",outline:"none",WebkitAppearance:"none"}}
+                  />
+                </div>
+                <div style={{fontSize:18,fontWeight:900,color:C.muted,flexShrink:0}}>vs</div>
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{fontSize:12,fontWeight:800,color:tb?.color||"#60a5fa",marginBottom:8}}>{tb?.name||"ทีม B"}</div>
+                  <input
+                    type="number" min="0" max="99"
+                    value={scores[`r${i}_b`]||""}
+                    onChange={e=>setScores(s=>({...s,[`r${i}_b`]:e.target.value}))}
+                    style={{width:"100%",background:C.bg,border:`2px solid ${tb?.color||"#60a5fa"}40`,borderRadius:10,padding:"12px 0",fontSize:28,fontWeight:900,color:tb?.color||"#60a5fa",textAlign:"center",outline:"none",WebkitAppearance:"none"}}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Standings preview */}
+        {numTeams>2&&standings.some(t=>t.pts>0)&&(
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:16}}>
+            <div style={{fontSize:9,fontWeight:800,color:C.sub,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>📊 Standings (preview)</div>
+            {standings.map((t,i)=>(
+              <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:i<standings.length-1?`1px solid rgba(255,255,255,0.05)`:"none"}}>
+                <div style={{width:18,height:18,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:900,color:i===0?C.amber:C.sub}}>{i+1}</div>
+                <div style={{width:7,height:7,borderRadius:2,background:t.color}}/>
+                <div style={{flex:1,fontSize:12,color:C.text,fontWeight:700}}>{t.name}</div>
+                <div style={{fontSize:11,color:C.green,fontWeight:800}}>{t.pts} pts</div>
+                <div style={{fontSize:10,color:C.sub}}>{t.gf}-{t.ga}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* MVP selector */}
+        {allPlayers.length>0&&(
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:16}}>
+            <div style={{fontSize:9,fontWeight:800,color:C.amber,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>🏅 MVP (optional)</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {allPlayers.map((p,i)=>(
+                <button key={i} onClick={()=>setMvp(mvp===p.name?null:p.name)}
+                  style={{padding:"5px 12px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",
+                    background:mvp===p.name?"rgba(251,191,36,0.15)":"rgba(255,255,255,0.03)",
+                    border:`1px solid ${mvp===p.name?"rgba(251,191,36,0.5)":"rgba(255,255,255,0.08)"}`,
+                    color:mvp===p.name?C.amber:C.sub}}>
+                  {mvp===p.name?"⭐ ":""}{p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Btn onClick={handleSubmit} disabled={submitting}>
+          {submitting?"กำลังบันทึก...":"✓ ยืนยันผลแมตช์"}
+        </Btn>
+      </div>
+    );
+  };
+
   const renderLeaderboard = () => {
     const board=[
       {rank:1,name:"กัปตัน",ovr:92,tier:"Diamond",matches:48,wins:36,change:0,nick:"ปรมาจารย์จ่าย 🎼"},
@@ -2094,6 +2289,7 @@ const handlePhotoUpload = async (e) => {
         {tab==="checkout"    && renderCheckout()}
         {tab==="success"     && renderSuccess()}
         {tab==="profile"     && renderProfile()}
+        {tab==="score"       && renderCaptainScore()}
         {tab==="leaderboard" && renderLeaderboard()}
       </main>
 
@@ -2196,6 +2392,15 @@ const handlePhotoUpload = async (e) => {
                   )}
                 </div>
                 <div style={{textAlign:"center",padding:"6px 0",color:C.muted,fontSize:10}}>{T("Player QR สำหรับ Check-in อยู่ที่ Profile →","Player QR for Check-in is in Profile →")}</div>
+              {/* Captain Score Button - show when match confirmed and user is captain */}
+              {myBooking?.status==="confirmed" && teams.some(t=>t.players.some(p=>p.isMe&&p.isCaptain)) && (
+                <button onClick={()=>{setShowNotif(false);setTab("score");}}
+                  style={{width:"100%",marginTop:10,padding:"10px",borderRadius:10,fontSize:12,fontWeight:800,cursor:"pointer",
+                    background:"rgba(251,191,36,0.1)",border:"1px solid rgba(251,191,36,0.35)",color:"#fbbf24",
+                    display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  🎖️ กรอกผลแมตช์ (Captain)
+                </button>
+              )}
               </>
             ):(
               <div style={{textAlign:"center",padding:"28px 0",color:C.muted,fontSize:13}}>
