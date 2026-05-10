@@ -973,11 +973,10 @@ if(player?.dbId && myBooking?.id) {
     let matchId = myBooking?.match_id;
     if(!matchId) {
       const {data:m} = await supabase.from("matches").insert({
-        slot_id: myBooking.slot_id,
-        venue_id: myBooking.venue_id,
-        status: "waiting",
-        match_type: myBooking.slots?.match_type || "7v7_2t",
-      }).select().single();
+  slot_id: myBooking.slot_id,
+  venue_id: myBooking.venue_id,
+  status: "waiting",
+}).select().single();
       matchId = m?.id;
       // อัพ booking ให้รู้ match_id
       if(matchId) await supabase.from("bookings")
