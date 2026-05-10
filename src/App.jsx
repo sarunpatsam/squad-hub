@@ -2002,14 +2002,14 @@ const handlePhotoUpload = async (e) => {
       ? [[activeTeams[0]||{id:"A",name:"ทีม A",color:C.green}, activeTeams[1]||{id:"B",name:"ทีม B",color:"#60a5fa"}]]
       : getRoundRobinPairs(activeTeams.length >= numTeams ? activeTeams.slice(0,numTeams) : teams.slice(0,numTeams));
 
-    const [scores, setScores] = React.useState(() => {
+    const [scores, setScores] = useState(() => {
       const init = {};
       pairs.forEach((_,i) => { init[`r${i}_a`]=""; init[`r${i}_b`]=""; });
       return init;
     });
-    const [mvp, setMvp] = React.useState(null);
-    const [submitting, setSubmitting] = React.useState(false);
-    const [submitted, setSubmitted] = React.useState(false);
+    const [mvp, setMvp] = useState(null);
+const [submitting, setSubmitting] = useState(false);
+const [submitted, setSubmitted] = useState(false);
 
     // Standings calculator
     const calcStandings = () => {
