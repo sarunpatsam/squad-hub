@@ -3,6 +3,14 @@ import { supabase } from "./supabase";
 
 /* ── LIFF CONFIG ── */
 const LIFF_ID = "2009451264-q3ueO8ay";
+
+/* Force dark mode on all devices */
+if(typeof document !== "undefined") {
+  document.documentElement.style.colorScheme = "dark";
+  const m = document.createElement("meta");
+  m.name = "color-scheme"; m.content = "dark";
+  document.head?.appendChild(m);
+}
 import {
   User, MapPin, Trophy, ShieldCheck, ChevronRight, Zap,
   ArrowLeft, Flame, Clock, CheckCircle2, Medal, Bell,
@@ -2477,7 +2485,7 @@ const [submitted, setSubmitted] = useState(false);
       {/* 🎖️ Captain Toast Notification */}
       {captainToast&&(
         <div style={{position:"fixed",bottom:100,left:"50%",transform:"translateX(-50%)",zIndex:200,width:"calc(100% - 32px)",maxWidth:398,animation:"slideUp .3s ease"}}>
-          <style>{`@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`}</style>
+          <style>{`html,body{background:#050f0a!important;color-scheme:dark!important;}@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`}</style>
           {captainToast.isMe ? (
             <div style={{background:`linear-gradient(135deg,rgba(251,191,36,0.15),rgba(251,191,36,0.08))`,border:`1px solid rgba(251,191,36,0.4)`,borderRadius:18,padding:"14px 18px",backdropFilter:"blur(20px)"}}>
               <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
