@@ -1282,13 +1282,28 @@ const BookingConfirmTab = ({venueId}) => {
 
   const load = async () => {
     setLoading(true);
-    const {data} = await supabase
-      .from("bookings")
-      .select("id,player_id,slot_id,amount,status,created_at,players(display_name,tier,line_user_id),slots(start_time,end_time,date,match_type)")
-      .eq("venue_id",venueId)
-      .eq("status","pending")
-      .order("created_at",{ascending:false});
-    setBookings(data||[]);
+    try {
+      const {data:bks} = await supabase
+        .from("bookings")
+        .select("id,player_id,slot_id,venue_id,amount,status,created_at")
+        .eq("venue_id",venueId)
+        .eq("status","pending")
+        .order("created_at",{ascending:false});
+      if(!bks||bks.length===0){setBookings([]);setLoading(false);return;}
+
+      const playerIds=[...new Set(bks.map(b=>b.player_id).filter(Boolean))];
+      const slotIds=[...new Set(bks.map(b=>b.slot_id).filter(Boolean))];
+
+      const [{data:players},{data:slots}] = await Promise.all([
+        playerIds.length ? supabase.from("players").select("id,display_name,tier").in("id",playerIds) : {data:[]},
+        slotIds.length   ? supabase.from("slots").select("id,start_time,end_time,date,match_type").in("id",slotIds) : {data:[]},
+      ]);
+
+      const pm=Object.fromEntries((players||[]).map(p=>[p.id,p]));
+      const sm=Object.fromEntries((slots||[]).map(s=>[s.id,s]));
+
+      setBookings(bks.map(b=>({...b,playerData:pm[b.player_id]||null,slotData:sm[b.slot_id]||null})));
+    } catch(e){console.error("BookingConfirmTab load error:",e);}
     setLoading(false);
   };
 
@@ -1350,8 +1365,8 @@ const BookingConfirmTab = ({venueId}) => {
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {bookings.map(bk=>{
             const sel=selected.has(bk.id);
-            const pl=bk.players;
-            const sl=bk.slots;
+            const pl=bk.playerData;
+            const sl=bk.slotData;
             const timeStr=sl?`${sl.start_time?.slice(0,5)}–${sl.end_time?.slice(0,5)}`:"—";
             return (
               <div key={bk.id} style={{background:C.bg2,border:`1px solid ${sel?C.borderHi:C.border}`,borderRadius:14,padding:16,display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={()=>toggleSel(bk.id)}>

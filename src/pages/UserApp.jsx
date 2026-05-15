@@ -671,7 +671,13 @@ export default function SquadHub() {
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
-            setAppLoading(false); setTab("home");
+            const {data:pb}=await supabase.from("bookings").select("slot_id,venue_id").eq("player_id",data.id).eq("status","pending").order("created_at",{ascending:false}).limit(1).single();
+            if(pb){
+              const [{data:vd},{data:sd}]=await Promise.all([supabase.from("venues").select("id,name").eq("id",pb.venue_id).single(),supabase.from("slots").select("id,start_time,end_time").eq("id",pb.slot_id).single()]);
+              if(vd)setVenue(vd);
+              if(sd)setSlot({...sd,time:sd.start_time?.slice(0,5),end:sd.end_time?.slice(0,5)});
+              setAppLoading(false);setTab("success");
+            } else {setAppLoading(false);setTab("home");}
           } else {
             setAppLoading(false); setTab("register");
           }
@@ -722,7 +728,13 @@ export default function SquadHub() {
             form: [],
           });
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
-          setAppLoading(false); setTab("home");
+          const {data:pb2}=await supabase.from("bookings").select("slot_id,venue_id").eq("player_id",data.id).eq("status","pending").order("created_at",{ascending:false}).limit(1).single();
+          if(pb2){
+            const [{data:vd},{data:sd}]=await Promise.all([supabase.from("venues").select("id,name").eq("id",pb2.venue_id).single(),supabase.from("slots").select("id,start_time,end_time").eq("id",pb2.slot_id).single()]);
+            if(vd)setVenue(vd);
+            if(sd)setSlot({...sd,time:sd.start_time?.slice(0,5),end:sd.end_time?.slice(0,5)});
+            setAppLoading(false);setTab("success");
+          } else {setAppLoading(false);setTab("home");}
         } else {
           // ยังไม่มี → register พร้อม LINE profile
           setAppLoading(false);
