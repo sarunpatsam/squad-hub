@@ -612,6 +612,7 @@ export default function SquadHub() {
   const [showNotif,setShowNotif] = useState(false);
   const [showFac,setShowFac] = useState(false);
   const [notifTab,setNotifTab] = useState("booking");
+  const [myBooking,setMyBooking] = useState(null);
   const [searchQuery,setSearchQuery] = useState("");
   const [searchActive,setSearchActive] = useState(false);
   const fileRef = useRef(null);
@@ -629,6 +630,26 @@ export default function SquadHub() {
   });
   const dayTH = ["อา","จ","อ","พ","พฤ","ศ","ส"];
   const monthTH = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+
+  /* ── LOAD MY BOOKING ── */
+  const loadMyBooking = useCallback(async (playerId) => {
+    const {data:bk} = await supabase.from("bookings")
+      .select("id,slot_id,venue_id,amount,status")
+      .eq("player_id", playerId)
+      .in("status", ["pending","confirmed"])
+      .order("created_at", {ascending:false})
+      .limit(1).single();
+    if(bk) {
+      setMyBooking(bk);
+      const [{data:vd},{data:sd}] = await Promise.all([
+        supabase.from("venues").select("id,name,area").eq("id",bk.venue_id).single(),
+        supabase.from("slots").select("id,start_time,end_time,match_type").eq("id",bk.slot_id).single()
+      ]);
+      if(vd) setVenue(vd);
+      if(sd) setSlot({...sd, time:sd.start_time?.slice(0,5), end:sd.end_time?.slice(0,5)});
+    }
+    return bk||null;
+  },[]);
 
   /* ── LIFF INIT + AUTO-LOGIN ── */
   useEffect(()=>{
@@ -671,13 +692,9 @@ export default function SquadHub() {
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
-            const {data:pb}=await supabase.from("bookings").select("slot_id,venue_id").eq("player_id",data.id).eq("status","pending").order("created_at",{ascending:false}).limit(1).single();
-            if(pb){
-              const [{data:vd},{data:sd}]=await Promise.all([supabase.from("venues").select("id,name").eq("id",pb.venue_id).single(),supabase.from("slots").select("id,start_time,end_time").eq("id",pb.slot_id).single()]);
-              if(vd)setVenue(vd);
-              if(sd)setSlot({...sd,time:sd.start_time?.slice(0,5),end:sd.end_time?.slice(0,5)});
-              setAppLoading(false);setTab("success");
-            } else {setAppLoading(false);setTab("home");}
+            const bk = await loadMyBooking(data.id);
+            setAppLoading(false);
+            setTab(bk?.status==="pending" ? "success" : "home");
           } else {
             setAppLoading(false); setTab("register");
           }
@@ -728,13 +745,9 @@ export default function SquadHub() {
             form: [],
           });
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
-          const {data:pb2}=await supabase.from("bookings").select("slot_id,venue_id").eq("player_id",data.id).eq("status","pending").order("created_at",{ascending:false}).limit(1).single();
-          if(pb2){
-            const [{data:vd},{data:sd}]=await Promise.all([supabase.from("venues").select("id,name").eq("id",pb2.venue_id).single(),supabase.from("slots").select("id,start_time,end_time").eq("id",pb2.slot_id).single()]);
-            if(vd)setVenue(vd);
-            if(sd)setSlot({...sd,time:sd.start_time?.slice(0,5),end:sd.end_time?.slice(0,5)});
-            setAppLoading(false);setTab("success");
-          } else {setAppLoading(false);setTab("home");}
+          const bk2 = await loadMyBooking(data.id);
+          setAppLoading(false);
+          setTab(bk2?.status==="pending" ? "success" : "home");
         } else {
           // ยังไม่มี → register พร้อม LINE profile
           setAppLoading(false);
@@ -1918,7 +1931,7 @@ const handlePhotoUpload = async (e) => {
         <Btn onClick={async ()=>{
   setPayStep("verifying");
   try {
-    await supabase.from("bookings").insert({
+    const {error:bkErr} = await supabase.from("bookings").insert({
       player_id: player?.dbId,
       slot_id: slot?.id,
       venue_id: venue?.id,
@@ -1926,6 +1939,7 @@ const handlePhotoUpload = async (e) => {
       status: "pending",
       payment_ref: `PAY-${Date.now()}`
     });
+    if(bkErr) { console.error("booking insert error:",bkErr); setPayStep("qr"); return; }
     setPayStep("done");
     setTab("success");
   } catch(e) {
@@ -2064,7 +2078,7 @@ const handlePhotoUpload = async (e) => {
       {tab!=="register"&&(
         <header style={{padding:"10px 18px",background:"rgba(5,10,8,0.97)",backdropFilter:"blur(24px)",borderBottom:`1px solid rgba(16,185,129,0.14)`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50,boxShadow:"0 2px 16px rgba(0,0,0,0.3)"}}>
           {/* Wordmark — style 2: gradient line + SQUAD + HUB box */}
-          <div style={{display:"flex",alignItems:"center",gap:11,flexShrink:0}}>
+          <div onClick={()=>setTab("home")} style={{display:"flex",alignItems:"center",gap:11,flexShrink:0,cursor:"pointer"}}>
             <div style={{width:1.5,height:30,background:"linear-gradient(180deg,#10d484 0%,rgba(16,212,132,0.05) 100%)",borderRadius:2,flexShrink:0}}/>
             <div style={{display:"flex",flexDirection:"column",gap:3}}>
               <div style={{display:"flex",alignItems:"center",gap:5}}>
@@ -2083,9 +2097,9 @@ const handlePhotoUpload = async (e) => {
               {lang==="th"?"EN":"TH"}
             </button>
             {player&&<Tag color={C.green} sm>LV.{player.level}</Tag>}
-            <button onClick={()=>setShowNotif(true)} style={{position:"relative",background:"rgba(0,255,135,0.06)",border:`1px solid rgba(0,255,135,0.2)`,borderRadius:8,cursor:"pointer",padding:"6px 8px",color:C.green}}>
+            <button onClick={async()=>{setShowNotif(true);if(player?.dbId)loadMyBooking(player.dbId);}} style={{position:"relative",background:"rgba(0,255,135,0.06)",border:`1px solid rgba(0,255,135,0.2)`,borderRadius:8,cursor:"pointer",padding:"6px 8px",color:C.green}}>
               <Bell size={16}/>
-              <div style={{position:"absolute",top:4,right:4,width:5,height:5,background:C.green,borderRadius:"50%",border:`1.5px solid ${C.bg}`,boxShadow:`0 0 4px ${C.green}`}}/>
+              {myBooking&&<div style={{position:"absolute",top:4,right:4,width:5,height:5,background:C.green,borderRadius:"50%",border:`1.5px solid ${C.bg}`,boxShadow:`0 0 4px ${C.green}`}}/>}
             </button>
           </div>
         </header>
@@ -2134,41 +2148,49 @@ const handlePhotoUpload = async (e) => {
                 </button>
               ))}
             </div>
-            {notifTab==="booking"&&(player?(
+            {notifTab==="booking"&&(myBooking?(
               <>
                 {/* Journey Steps */}
-                <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:16,padding:"10px 14px",background:"rgba(16,185,129,0.04)",border:"1px solid rgba(16,185,129,0.12)",borderRadius:12}}>
-                  {[
-                    {icon:"✓",label:T("จองแล้ว","Booked"),done:true},
-                    {icon:"📱",label:T("Scan QR","Scan QR"),done:false,active:true},
-                    {icon:"⚽",label:T("แข่ง","Play"),done:false},
-                    {icon:"🏆",label:T("จบ","Done"),done:false},
-                  ].map((s,i,arr)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",flex:i<arr.length-1?1:"none"}}>
-                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                        <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,background:s.done?"rgba(16,185,129,0.15)":s.active?"rgba(251,191,36,0.12)":"rgba(255,255,255,0.04)",border:`1px solid ${s.done?"rgba(16,185,129,0.4)":s.active?"rgba(251,191,36,0.4)":"rgba(255,255,255,0.08)"}`}}>{s.icon}</div>
-                        <div style={{fontSize:8,fontWeight:700,color:s.done?C.green:s.active?C.amber:C.muted,whiteSpace:"nowrap"}}>{s.label}</div>
-                      </div>
-                      {i<arr.length-1&&<div style={{flex:1,height:1,background:s.done?"rgba(16,185,129,0.3)":"rgba(255,255,255,0.07)",margin:"0 4px",marginBottom:14}}/>}
+                {(()=>{
+                  const isConfirmed = myBooking.status==="confirmed";
+                  const steps=[
+                    {icon:"✓",label:T("จองแล้ว","Booked"),done:true,active:false},
+                    {icon:"✅",label:T("ยืนยันแล้ว","Confirmed"),done:isConfirmed,active:!isConfirmed},
+                    {icon:"⚽",label:T("แข่ง","Play"),done:false,active:isConfirmed},
+                    {icon:"🏆",label:T("จบ","Done"),done:false,active:false},
+                  ];
+                  return (
+                    <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:16,padding:"10px 14px",background:"rgba(16,185,129,0.04)",border:"1px solid rgba(16,185,129,0.12)",borderRadius:12}}>
+                      {steps.map((s,i,arr)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",flex:i<arr.length-1?1:"none"}}>
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                            <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,background:s.done?"rgba(16,185,129,0.15)":s.active?"rgba(251,191,36,0.12)":"rgba(255,255,255,0.04)",border:`1px solid ${s.done?"rgba(16,185,129,0.4)":s.active?"rgba(251,191,36,0.4)":"rgba(255,255,255,0.08)"}`}}>{s.icon}</div>
+                            <div style={{fontSize:8,fontWeight:700,color:s.done?C.green:s.active?C.amber:C.muted,whiteSpace:"nowrap"}}>{s.label}</div>
+                          </div>
+                          {i<arr.length-1&&<div style={{flex:1,height:1,background:s.done?"rgba(16,185,129,0.3)":"rgba(255,255,255,0.07)",margin:"0 4px",marginBottom:14}}/>}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
                 {/* Booking card */}
                 <div style={{background:"#050f0a",border:"1px solid rgba(16,185,129,0.22)",borderRadius:14,padding:14,marginBottom:10}}>
                   {/* Venue row */}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",paddingBottom:10,marginBottom:10,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
                     <div>
-                      <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venues[0]?.name||"—"}</div>
-                      <div style={{fontSize:10,color:C.sub,marginTop:2}}>{venues[0]?.slots[0]?.time||"—"}–{venues[0]?.slots[0]?.end||"—"} · {venues[0]?.area||"—"}</div>
+                      <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venue?.name||"—"}</div>
+                      <div style={{fontSize:10,color:C.sub,marginTop:2}}>{slot?.time||"—"}–{slot?.end||"—"}{venue?.area?` · ${venue.area}`:""}</div>
                     </div>
-                    <div style={{fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,background:"rgba(16,185,129,0.1)",color:C.green,border:"1px solid rgba(16,185,129,0.25)",flexShrink:0}}>✓ Confirmed</div>
+                    {myBooking.status==="confirmed"
+                      ? <div style={{fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,background:"rgba(16,185,129,0.1)",color:C.green,border:"1px solid rgba(16,185,129,0.25)",flexShrink:0}}>✓ Confirmed</div>
+                      : <div style={{fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,background:"rgba(251,191,36,0.1)",color:C.amber,border:"1px solid rgba(251,191,36,0.3)",flexShrink:0}}>⏳ Pending</div>
+                    }
                   </div>
                   {/* Info grid */}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
                     {[
-                      {l:T("แมตช์","Match"),v:venues[0]?.slots[0]?.type||"7v7"},
-                      {l:T("ราคา","Price"),v:`฿${venues[0]?.slots[0]?.price||170}`,c:C.green},
-                      {l:T("ผู้เล่น","Players"),v:`${venues[0]?.slots[0]?.filled||0}/${venues[0]?.slots[0]?.total||14}`},
+                      {l:T("แมตช์","Match"),v:slot?.match_type||"—"},
+                      {l:T("ยอดโอน","Amount"),v:`฿${myBooking.amount||"—"}`,c:C.green},
                     ].map((item,i)=>(
                       <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:8,padding:"8px 4px",textAlign:"center"}}>
                         <div style={{fontSize:7,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>{item.l}</div>
@@ -2176,22 +2198,14 @@ const handlePhotoUpload = async (e) => {
                       </div>
                     ))}
                   </div>
-                  {/* Team card */}
-                  {myTeam?(()=>{
-                    const td=teams.find(t=>t.id===myTeam);
-                    return td?(
-                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",borderRadius:10,background:`${td.color}10`,border:`1px solid ${td.color}35`}}>
-                        <div style={{width:12,height:12,borderRadius:3,background:td.color,flexShrink:0}}/>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12,fontWeight:800,color:C.text}}>{T("ทีม","Team")} {td.name}</div>
-                          <div style={{fontSize:9,color:C.sub,marginTop:1}}>{player?.position} · {player?.playstyle} · OVR {player?.ovr||"—"}</div>
-                        </div>
-                        <div style={{fontSize:10,fontWeight:800,color:td.color,background:`${td.color}15`,padding:"2px 8px",borderRadius:99,border:`1px solid ${td.color}30`}}>{td.players?.length||0} {T("คน","p")}</div>
-                      </div>
-                    ):null;
-                  })():(
-                    <div style={{textAlign:"center",fontSize:10,color:C.muted,padding:"6px 0"}}>{T("ยังไม่ได้เลือกทีม","No team selected yet")}</div>
-                  )}
+                  {/* Player info */}
+                  <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",borderRadius:10,background:"rgba(16,185,129,0.04)",border:"1px solid rgba(16,185,129,0.1)"}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:800,color:C.text}}>{player?.name}</div>
+                      <div style={{fontSize:9,color:C.sub,marginTop:1}}>{player?.position} · {player?.playstyle} · OVR {player?.ovr||"—"}</div>
+                    </div>
+                    <div style={{fontSize:10,fontWeight:800,color:C.green,background:"rgba(16,185,129,0.1)",padding:"2px 8px",borderRadius:99,border:"1px solid rgba(16,185,129,0.2)"}}>LV.{player?.level}</div>
+                  </div>
                 </div>
                 <div style={{textAlign:"center",padding:"6px 0",color:C.muted,fontSize:10}}>{T("Player QR สำหรับ Check-in อยู่ที่ Profile →","Player QR for Check-in is in Profile →")}</div>
               </>
