@@ -7,7 +7,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/"        element={<LandingPage />} />
+        <Route path="/"        element={<UserApp />} />
         <Route path="/app"     element={<UserApp />} />
         <Route path="/app/*"   element={<UserApp />} />
         <Route path="/partner" element={<PartnerApp />} />
