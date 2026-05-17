@@ -1272,6 +1272,29 @@ const BookingPanel = ({selected,venueId,calDate,onSave,onRefresh}) => {
 
 /* ═══ BOOKING CONFIRM TAB ═══ */
 const N8N_BOOKING_CONFIRMED = "https://primary-production-e855.up.railway.app/webhook/booking-confirmed";
+const N8N_MATCH_END = "https://primary-production-e855.up.railway.app/webhook/match-end";
+
+/* สร้าง matches row สำหรับ slot นี้ (ถ้ายังไม่มี) แล้วเพิ่ม player เข้า match_players */
+const ensureMatch = async (bk) => {
+  const {data:existing} = await supabase.from("matches").select("id").eq("slot_id",bk.slot_id).maybeSingle();
+  let matchId = existing?.id;
+  if(!matchId){
+    const code = `SQ-${bk.slot_id}-${Date.now().toString(36).toUpperCase().slice(-4)}`;
+    const {data:nm} = await supabase.from("matches").insert({
+      slot_id:bk.slot_id, venue_id:bk.venue_id,
+      match_code:code, status:"confirmed",
+    }).select("id").single();
+    matchId = nm?.id;
+  }
+  if(matchId){
+    await supabase.from("match_players").upsert({
+      match_id:matchId, player_id:bk.player_id, venue_id:bk.venue_id,
+      payment_status:"paid", amount_paid:bk.amount,
+      joined_at:new Date().toISOString(),
+    },{onConflict:"match_id,player_id"});
+  }
+  return matchId;
+};
 
 const BookingConfirmTab = ({venueId}) => {
   const [bookings,setBookings]=useState([]);
@@ -1313,6 +1336,7 @@ const BookingConfirmTab = ({venueId}) => {
     setConfirming(bk.id);
     try {
       await supabase.from("bookings").update({status:"confirmed",confirmed_at:new Date().toISOString(),confirmed_by:"partner"}).eq("id",bk.id);
+      await ensureMatch(bk);
       await fetch(N8N_BOOKING_CONFIRMED,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({record:{id:bk.id,status:"confirmed"}})});
       setBookings(prev=>prev.filter(b=>b.id!==bk.id));
     } catch(e){console.error(e);}
@@ -1325,8 +1349,9 @@ const BookingConfirmTab = ({venueId}) => {
     const ids=[...selected];
     try {
       await supabase.from("bookings").update({status:"confirmed",confirmed_at:new Date().toISOString(),confirmed_by:"partner"}).in("id",ids);
-      for(const id of ids){
-        try { await fetch(N8N_BOOKING_CONFIRMED,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({record:{id,status:"confirmed"}})}); } catch{}
+      for(const bk of bookings.filter(b=>ids.includes(b.id))){
+        try { await ensureMatch(bk); } catch{}
+        try { await fetch(N8N_BOOKING_CONFIRMED,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({record:{id:bk.id,status:"confirmed"}})}); } catch{}
       }
       setBookings(prev=>prev.filter(b=>!ids.includes(b.id)));
       setSelected(new Set());
@@ -1397,19 +1422,48 @@ const BookingConfirmTab = ({venueId}) => {
 const MatchEndTab = ({match,onDone,slots}) => {
   const [sent,setSent]=useState(false);
   const [loading,setLoading]=useState(false);
+  const [captainCount,setCaptainCount]=useState(null);
   const liveSlots = slots?.filter(s=>s.status==="live")||[];
   const endedToday = slots?.filter(s=>s.status==="ended"||s.status==="offline")||[];
   const confirm = async () => {
     setLoading(true);
-    try { await fetch("https://primary-production-e855.up.railway.app/webhook/match-end",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:match?.id||1,venue_id:match?.venue_id||1})}); }
-    catch(e){console.error(e);}
+    try {
+      // 1. Find matches row for this slot
+      const slotId = match?.id;
+      const venueId = match?.venue_id;
+      let matchId = null;
+      if(slotId){
+        const {data:mRow} = await supabase.from("matches").select("id").eq("slot_id",slotId).maybeSingle();
+        matchId = mRow?.id||null;
+      }
+      // 2. Fetch captains from captain_lookup
+      let captainLineIds = [];
+      if(matchId){
+        const {data:caps} = await supabase.from("captain_lookup")
+          .select("line_user_id").eq("match_id",matchId).eq("is_captain",true);
+        captainLineIds = (caps||[]).map(c=>c.line_user_id).filter(Boolean);
+        setCaptainCount(captainLineIds.length);
+        // 3. Mark match as ended in DB
+        await supabase.from("matches").update({status:"ended"}).eq("id",matchId);
+        // 4. Mark slot as ended
+        await supabase.from("slots").update({status:"ended"}).eq("id",slotId);
+      }
+      // 5. Notify captains via n8n (sends LINE message to each captain)
+      await fetch(N8N_MATCH_END,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({match_id:matchId||0,venue_id:venueId||0,captain_line_ids:captainLineIds})
+      });
+    } catch(e){console.error(e);}
     setSent(true);setLoading(false);
   };
   if(sent)return(
     <div style={{background:C.bg2,border:`1px solid ${C.borderHi}`,borderRadius:16,padding:28,textAlign:"center",maxWidth:500}}>
       <div style={{fontSize:36,marginBottom:14}}>✅</div>
       <div style={{fontSize:17,fontWeight:900,color:C.green,marginBottom:8}}>ส่งแจ้งกัปตันแล้ว!</div>
-      <div style={{fontSize:13,color:C.sub,lineHeight:1.9,marginBottom:22}}>LINE Bot ส่งฟอร์มสรุปให้กัปตันแต่ละทีมแล้ว<br/>กัปตันสรุปผล → AI บันทึก Stats + XP</div>
+      <div style={{fontSize:13,color:C.sub,lineHeight:1.9,marginBottom:22}}>
+        LINE Bot ส่งฟอร์มสรุปให้กัปตัน{captainCount!=null?` ${captainCount} คน`:""} แล้ว<br/>กัปตันสรุปผล → AI บันทึก Stats + XP
+      </div>
       <Btn ghost onClick={onDone} style={{width:"100%"}}>กลับหน้าหลัก</Btn>
     </div>
   );

@@ -948,10 +948,11 @@ const handlePhotoUpload = async (e) => {
             ...t,
             players:t.players.map((p,i)=>i===idx?{...p,isCaptain:true}:p)
           }:t);
-          // Show toast after state settles
+          // Show toast after state settles + write captain to DB if it's me
           setTimeout(()=>{
             setCaptainToast({teamId,name:chosenName,isMe});
             setTimeout(()=>setCaptainToast(null),5000);
+            if(isMe) writeCaptainToDB(teamId, player?.lineUserId, player?.name, myBooking?.slot_id);
           },200);
           const now2 = new Date().toLocaleTimeString("th",{hour:"2-digit",minute:"2-digit"});
           setChatMsgs(prev=>[...prev,
@@ -970,6 +971,23 @@ const handlePhotoUpload = async (e) => {
     setChatId(p=>p+1);
   };
 
+  // Write captain assignment to DB (captain_lookup table)
+  const writeCaptainToDB = useCallback(async (teamId, lineUserId, displayName, slotId) => {
+    if (!slotId || !lineUserId) return;
+    try {
+      const { data: match } = await supabase.from("matches")
+        .select("id").eq("slot_id", slotId).maybeSingle();
+      if (!match?.id) return;
+      await supabase.from("captain_lookup").upsert({
+        match_id: match.id,
+        team: teamId,
+        is_captain: true,
+        line_user_id: lineUserId,
+        display_name: displayName,
+      }, { onConflict: "match_id,team" });
+    } catch(e) { console.warn("writeCaptainToDB err:", e); }
+  }, []);
+
   // Player voluntarily claims captain for their own team
   const claimCaptain = useCallback(() => {
     if(!myTeam||!player)return;
@@ -985,7 +1003,9 @@ const handlePhotoUpload = async (e) => {
     ]);
     setCaptainToast({teamId:myTeam,name:player.name,isMe:true});
     setTimeout(()=>setCaptainToast(null),5000);
-  },[myTeam,player]);
+    // Persist to DB
+    writeCaptainToDB(myTeam, player.lineUserId, player.name, myBooking?.slot_id);
+  },[myTeam,player,myBooking,writeCaptainToDB]);
 
   const sendChat = (msg,chatTeam) => {
     if(!player)return;
