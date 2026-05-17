@@ -2024,14 +2024,7 @@ const handlePhotoUpload = async (e) => {
 
                 {/* ── ปุ่มแจ้งสนาม: แสดงหลังเวลาจองเริ่ม + ล็อคเมื่อสนามกด end ── */}
                 {(()=>{
-                  // เช็คว่าเวลาจองเริ่มแล้วหรือยัง
-                  const slotDate = slot?.date || (slot?.time ? fmtDate(today) : null);
-                  const startStr = slot?.start_time || (slot?.time ? `${slot.time}:00` : null);
-                  const hasStarted = slotDate && startStr
-                    ? new Date() >= new Date(`${slotDate}T${startStr}`)
-                    : false;
                   const isEnded = slot?.status === "ended";
-                  if(!hasStarted) return null;
                   return(
                     <button
                       onClick={signalVenueMatchEnd}
@@ -2318,6 +2311,13 @@ const handlePhotoUpload = async (e) => {
           {scoreMatch&&<div style={{fontSize:11,color:C.sub,marginTop:4,letterSpacing:1}}>
             รหัสแมตช์ · {scoreMatch.match_code||`#${scoreMatch.id}`}
           </div>}
+        </div>
+
+        {/* Debug strip — แสดงสถานะ match_id + players */}
+        <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:8,padding:"7px 12px",marginBottom:10,fontSize:10,color:C.muted,display:"flex",gap:12}}>
+          <span>Match ID: <b style={{color:scoreMatchId?C.green:C.red}}>{scoreMatchId||"ไม่มี — เปิดจาก LINE link"}</b></span>
+          <span>Players: <b style={{color:scorePlayers.length>0?C.green:C.amber}}>{scorePlayers.length}</b></span>
+          <span>Rounds: <b style={{color:C.text}}>{scoreRounds.length}</b></span>
         </div>
 
         {/* Instruction card */}
