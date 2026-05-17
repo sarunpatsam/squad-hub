@@ -620,7 +620,7 @@ export default function SquadHub() {
   const [scoreMatch,setScoreMatch]     = useState(null);
   const [scoreRounds,setScoreRounds]   = useState([]);
   const [scorePlayers,setScorePlayers] = useState([]);
-  const [scoreTeams,setScoreTeams]     = useState([]);
+  const [scoreTeams,setScoreTeams]     = useState(["A","B","C","D"]); // default ก่อน load จาก DB
   const [addingRound,setAddingRound]   = useState(false);
   const [newRound,setNewRound]         = useState({teamA:"A",teamB:"B",scoreA:0,scoreB:0});
   const [selectedMvp,setSelectedMvp]   = useState(null);
@@ -691,9 +691,11 @@ export default function SquadHub() {
       }
       const enriched = (mps||[]).map(p=>({...p,...(nameMap[p.player_id]||{})}));
       setScorePlayers(enriched);
-      const teams = [...new Set(enriched.map(p=>p.team))].sort();
-      setScoreTeams(teams);
-      if(teams.length>=2) setNewRound(r=>({...r,teamA:teams[0],teamB:teams[1]}));
+      const dbTeams = [...new Set(enriched.map(p=>p.team))].sort();
+      // ถ้า DB มีทีม → ใช้จาก DB, ถ้าไม่มีก็ใช้ default ABCD (กัปตัน select เองได้)
+      const finalTeams = dbTeams.length >= 2 ? dbTeams : ["A","B","C","D"];
+      setScoreTeams(finalTeams);
+      setNewRound(r=>({...r,teamA:finalTeams[0],teamB:finalTeams[1]}));
     }catch(e){console.error("loadScoreData:",e);}
     setScoreDataLoading(false);
   },[]);
@@ -702,21 +704,31 @@ export default function SquadHub() {
 
   /* ── ADD ROUND ── */
   const addRound = async ()=>{
-    if(!scoreMatchId)return;
     const rn = scoreRounds.length+1;
-    const {data:rd} = await supabase.from("match_rounds").insert({
-      match_id:scoreMatchId, round_number:rn,
+    const roundData = {
+      round_number:rn,
       team_a_name:newRound.teamA, team_b_name:newRound.teamB,
       score_a:parseInt(newRound.scoreA)||0, score_b:parseInt(newRound.scoreB)||0,
-    }).select().single();
-    if(rd) setScoreRounds(prev=>[...prev,rd]);
+    };
+    if(scoreMatchId){
+      // มี match_id → save ลง DB
+      const {data:rd} = await supabase.from("match_rounds").insert({
+        match_id:scoreMatchId, ...roundData,
+      }).select().single();
+      setScoreRounds(prev=>[...prev, rd||{...roundData,id:Date.now()}]);
+    } else {
+      // ไม่มี match_id → save ใน state ก่อน (submit จะ warn)
+      setScoreRounds(prev=>[...prev,{...roundData,id:Date.now()}]);
+    }
     setAddingRound(false);
     setNewRound(r=>({...r,scoreA:0,scoreB:0}));
   };
 
   /* ── SUBMIT FINAL RESULT ── */
   const submitResult = async ()=>{
-    if(!scoreMatchId||!selectedMvp||scoreRounds.length===0)return;
+    if(scoreRounds.length===0)return;
+    if(scorePlayers.length>0&&!selectedMvp)return; // MVP required เฉพาะเมื่อมี players โหลดมา
+    if(!scoreMatchId){ alert("ไม่พบ Match ID — กรุณาเปิดจากลิงก์ใน LINE"); return; }
     setScoreLoading(true);
     try{
       // คำนวณ wins + goals per team
@@ -2346,20 +2358,20 @@ const handlePhotoUpload = async (e) => {
         {/* ── Submit ── */}
         <button
           onClick={submitResult}
-          disabled={scoreRounds.length===0||!selectedMvp||scoreLoading}
+          disabled={scoreRounds.length===0||(scorePlayers.length>0&&!selectedMvp)||scoreLoading}
           style={{width:"100%",padding:"15px",borderRadius:13,border:"none",
-            background:scoreRounds.length>0&&selectedMvp?`linear-gradient(135deg,#00c96b,${C.green})`:"rgba(255,255,255,0.06)",
-            color:scoreRounds.length>0&&selectedMvp?"#001a0d":"#3d6b52",
-            fontSize:15,fontWeight:900,cursor:scoreRounds.length>0&&selectedMvp?"pointer":"not-allowed",
-            letterSpacing:.5,boxShadow:scoreRounds.length>0&&selectedMvp?`0 0 20px rgba(0,255,135,0.3)`:"none",
+            background:(scoreRounds.length>0&&(scorePlayers.length===0||selectedMvp))?`linear-gradient(135deg,#00c96b,${C.green})`:"rgba(255,255,255,0.06)",
+            color:(scoreRounds.length>0&&(scorePlayers.length===0||selectedMvp))?"#001a0d":"#3d6b52",
+            fontSize:15,fontWeight:900,cursor:(scoreRounds.length>0&&(scorePlayers.length===0||selectedMvp))?"pointer":"not-allowed",
+            letterSpacing:.5,boxShadow:(scoreRounds.length>0&&(scorePlayers.length===0||selectedMvp))?`0 0 20px rgba(0,255,135,0.3)`:"none",
             transition:"all .3s"}}>
-          {scoreLoading?"⏳ กำลังบันทึก...":scoreRounds.length===0?"ต้องมีอย่างน้อย 1 รอบ":!selectedMvp?"เลือก MVP ก่อน":"✅ ยืนยันผลสุดท้าย"}
+          {scoreLoading?"⏳ กำลังบันทึก...":scoreRounds.length===0?"ต้องมีอย่างน้อย 1 รอบ":(scorePlayers.length>0&&!selectedMvp)?"เลือก MVP ก่อน":"✅ ยืนยันผลสุดท้าย"}
         </button>
 
-        {(scoreRounds.length===0||!selectedMvp)&&(
+        {(scoreRounds.length===0||(scorePlayers.length>0&&!selectedMvp))&&(
           <div style={{textAlign:"center",marginTop:8,fontSize:10,color:C.muted}}>
             {scoreRounds.length===0&&"• เพิ่มรอบที่เล่นก่อน"}
-            {scoreRounds.length>0&&!selectedMvp&&"• เลือก MVP ก่อนยืนยัน"}
+            {scoreRounds.length>0&&scorePlayers.length>0&&!selectedMvp&&"• เลือก MVP ก่อนยืนยัน"}
           </div>
         )}
       </div>
