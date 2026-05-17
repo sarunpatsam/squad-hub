@@ -1167,24 +1167,61 @@ const handlePhotoUpload = async (e) => {
     const now = new Date().toLocaleTimeString("th",{hour:"2-digit",minute:"2-digit"});
     setChatMsgs(prev=>[...prev,{id:chatId+1,team:"match",sender:"ระบบ",msg:`🟢 ${player.name} เข้าร่วม ${teams.find(t=>t.id===teamId)?.name}`,time:now,isSystem:true}]);
     setChatId(p=>p+1);
+
+    // Write match_players ลง DB
+    if(player?.dbId && myBooking?.slot_id) {
+      (async()=>{
+        try{
+          const match = await findOrCreateMatch(myBooking.slot_id);
+          if(!match?.id) return;
+          const { error } = await supabase.from("match_players").upsert({
+            match_id: match.id,
+            player_id: player.dbId,
+            team: teamId,
+          },{ onConflict:"match_id,player_id" });
+          if(error) console.warn("match_players upsert:", error);
+        }catch(e){ console.warn("doJoin DB:", e); }
+      })();
+    }
   };
+
+  // หา หรือ สร้าง matches row สำหรับ slot นี้
+  const findOrCreateMatch = useCallback(async (slotId) => {
+    if(!slotId) return null;
+    let { data: match } = await supabase.from("matches")
+      .select("id,venue_id").eq("slot_id", slotId).maybeSingle();
+    if(match?.id) return match;
+    // ไม่มี → สร้างใหม่
+    const { data: slotData } = await supabase.from("slots")
+      .select("venue_id").eq("id", slotId).single();
+    const { data: newMatch, error } = await supabase.from("matches").insert({
+      slot_id: slotId,
+      venue_id: slotData?.venue_id || null,
+      status: "active",
+      match_code: `M${Date.now().toString(36).toUpperCase()}`,
+    }).select("id,venue_id").single();
+    if(error) { console.warn("findOrCreateMatch:", error); return null; }
+    return newMatch;
+  }, []);
 
   // Write captain assignment to DB (captain_lookup table)
   const writeCaptainToDB = useCallback(async (teamId, lineUserId, displayName, slotId) => {
     if (!slotId || !lineUserId) return;
     try {
-      const { data: match } = await supabase.from("matches")
-        .select("id").eq("slot_id", slotId).maybeSingle();
+      const match = await findOrCreateMatch(slotId);
       if (!match?.id) return;
-      await supabase.from("captain_lookup").upsert({
+      const { error } = await supabase.from("captain_lookup").upsert({
         match_id: match.id,
+        slot_id: slotId,
+        player_id: player?.dbId || null,
         team: teamId,
         is_captain: true,
         line_user_id: lineUserId,
         display_name: displayName,
       }, { onConflict: "match_id,team" });
+      if(error) console.warn("captain_lookup upsert:", error);
     } catch(e) { console.warn("writeCaptainToDB err:", e); }
-  }, []);
+  }, [findOrCreateMatch, player?.dbId]);
 
   // Player voluntarily claims captain for their own team
   const claimCaptain = useCallback(() => {
