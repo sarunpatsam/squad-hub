@@ -227,14 +227,14 @@ const ImgLoad = ({src, alt="", style={}, ...rest}) => {
   );
 };
 
-/* Key stats grid for profile */
-const StatGrid = ({goals,assists,matches,wins}) => {
-  const wr = matches>0?Math.round((wins/matches)*100):0;
+/* Match result stats grid — Played / WIN / Draw / Loss */
+const StatGrid = ({matches, wins, losses}) => {
+  const draws = Math.max(0, (matches||0) - (wins||0) - (losses||0));
   const items = [
-    {label:"Goals",value:goals,  color:C.red,   icon:"⚽"},
-    {label:"Assist",value:assists,color:C.blue,  icon:"🎯"},
-    {label:"Matches",value:matches,color:C.text, icon:"🏟️"},
-    {label:"Win Rate",value:`${wr}%`,color:C.green,icon:"🏆"},
+    {label:"PLAYED", value:matches||0, color:C.text,  icon:"🏟️"},
+    {label:"WIN",    value:wins||0,    color:C.green, icon:"🏆"},
+    {label:"DRAW",   value:draws,      color:C.amber, icon:"🤝"},
+    {label:"LOSS",   value:losses||0,  color:C.red,   icon:"💀"},
   ];
   return (
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:7}}>
@@ -663,16 +663,7 @@ export default function SquadHub() {
     return bk||null;
   },[]);
 
-  /* ── URL PARAMS — เปิดจาก LINE notification (?tab=score&match_id=XXX) ── */
-  useEffect(()=>{
-    const params = new URLSearchParams(window.location.search);
-    const tabParam   = params.get("tab");
-    const matchParam = params.get("match_id");
-    if(tabParam==="score" && matchParam){
-      setScoreMatchId(parseInt(matchParam));
-      setTab("score");
-    }
-  },[]);
+  /* URL params handled inside LIFF init — ดู resolveTab() */
 
   /* ── LOAD SCORE DATA ── */
   const loadScoreData = useCallback(async (matchId)=>{
@@ -779,6 +770,18 @@ export default function SquadHub() {
   /* ── LIFF INIT + AUTO-LOGIN ── */
   useEffect(()=>{
     (async()=>{
+      // อ่าน URL params ก่อน LIFF init — ถ้ามี ?tab=score&match_id=X ให้ preserve ไว้
+      const _params = new URLSearchParams(window.location.search);
+      const _tabParam   = _params.get("tab");
+      const _matchParam = _params.get("match_id");
+      const _isScoreDeeplink = _tabParam==="score" && !!_matchParam;
+      if(_isScoreDeeplink){ setScoreMatchId(parseInt(_matchParam)); }
+
+      const resolveTab = (defaultTab) => {
+        if(_isScoreDeeplink) return "score";
+        return defaultTab;
+      };
+
       try {
         // โหลด LIFF SDK
         await new Promise((resolve, reject) => {
@@ -819,7 +822,7 @@ export default function SquadHub() {
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
             const bk = await loadMyBooking(data.id);
             setAppLoading(false);
-            setTab(bk?.status==="pending" ? "success" : "home");
+            setTab(resolveTab(bk?.status==="pending" ? "success" : "home"));
           } else {
             setAppLoading(false); setTab("register");
           }
@@ -872,7 +875,7 @@ export default function SquadHub() {
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
           const bk2 = await loadMyBooking(data.id);
           setAppLoading(false);
-          setTab(bk2?.status==="pending" ? "success" : "home");
+          setTab(resolveTab(bk2?.status==="pending" ? "success" : "home"));
         } else {
           // ยังไม่มี → register พร้อม LINE profile
           setAppLoading(false);
@@ -887,7 +890,7 @@ export default function SquadHub() {
   const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
   if(data) {
     if(data.avatar_url) setProfilePhoto(data.avatar_url);
-    setAppLoading(false); setTab("home");
+    setAppLoading(false); setTab(resolveTab("home"));
   } else { setAppLoading(false); setTab("register"); }
 }
     })();
@@ -1307,19 +1310,29 @@ const handlePhotoUpload = async (e) => {
           </div>
         </div>
         <div style={{padding:"0 16px"}}>
-          <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>Match Stats</div>
-          <div style={{marginBottom:12}}><StatGrid goals={ms.goals||0} assists={ms.assists||0} matches={ms.matches||0} wins={ms.wins||0}/></div>
+          <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>Match Status</div>
+          <div style={{marginBottom:10}}><StatGrid matches={ms.matches||0} wins={ms.wins||0} losses={ms.losses||0}/></div>
           {ms.matches>0&&(
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:"12px 16px",marginBottom:12}}>
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:"12px 16px",marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                 <span style={{fontSize:10,fontWeight:800,color:C.green}}>ชนะ {ms.wins}</span>
+                <span style={{fontSize:10,fontWeight:800,color:C.amber}}>เสมอ {Math.max(0,(ms.matches||0)-(ms.wins||0)-(ms.losses||0))}</span>
                 <span style={{fontSize:10,fontWeight:800,color:C.red}}>แพ้ {ms.losses}</span>
               </div>
               <div style={{height:6,background:"rgba(255,255,255,0.06)",borderRadius:99,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${(ms.wins/ms.matches)*100}%`,background:`linear-gradient(90deg,#059669,${C.green})`,borderRadius:99}}/>
+                <div style={{height:"100%",width:`${ms.matches>0?(ms.wins/ms.matches)*100:0}%`,background:`linear-gradient(90deg,#059669,${C.green})`,borderRadius:99}}/>
               </div>
             </div>
           )}
+          {/* Goals & Assists — Coming Soon */}
+          <div style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)",marginBottom:12,opacity:0.55}}>
+            <div style={{fontSize:20}}>🔒</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,fontWeight:800,color:C.sub}}>⚽ Goals & Assists</div>
+              <div style={{fontSize:9,color:C.muted,marginTop:1}}>Individual stats · Next Update</div>
+            </div>
+            <div style={{padding:"3px 8px",borderRadius:6,background:"rgba(255,255,255,0.06)",fontSize:9,fontWeight:800,color:C.muted,letterSpacing:1,textTransform:"uppercase"}}>Soon</div>
+          </div>
           <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>Key Info</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
             <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"14px"}}>
