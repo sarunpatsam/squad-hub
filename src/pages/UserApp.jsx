@@ -2061,6 +2061,13 @@ const handlePhotoUpload = async (e) => {
 
                 {/* ── ปุ่มแจ้งสนาม: แสดงหลังเวลาจองเริ่ม + ล็อคเมื่อสนามกด end ── */}
                 {(()=>{
+                  // เช็คเวลาจองเริ่มแล้วหรือยัง
+                  const slotDate  = slot?.date;
+                  const startTime = slot?.start_time || (slot?.time ? `${slot.time}:00` : null);
+                  const hasStarted = slotDate && startTime
+                    ? new Date() >= new Date(`${slotDate}T${startTime}`)
+                    : false;
+                  if(!hasStarted) return null; // ยังไม่ถึงเวลา → ซ่อน
                   const isEnded = slot?.status === "ended";
                   return(
                     <button
