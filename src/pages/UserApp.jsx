@@ -2297,7 +2297,7 @@ const handlePhotoUpload = async (e) => {
           <div style={{fontSize:22}}>🔒</div>
           <div style={{flex:1}}>
             <div style={{fontSize:12,fontWeight:800,color:C.sub}}>⚽ บันทึกประตูรายบุคคล</div>
-            <div style={{fontSize:10,color:C.muted,marginTop:2}}>Goals & Assists per player · Coming Next Update</div>
+            <div style={{fontSize:10,color:C.muted,marginTop:2}}>Goals per player · Coming Next Update</div>
           </div>
           <div style={{padding:"3px 8px",borderRadius:6,background:"rgba(255,255,255,0.06)",fontSize:9,fontWeight:800,color:C.muted,letterSpacing:1,textTransform:"uppercase"}}>Soon</div>
         </div>
