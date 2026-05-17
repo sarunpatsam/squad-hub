@@ -629,6 +629,7 @@ export default function SquadHub() {
   const [scoreDataLoading,setScoreDataLoading] = useState(false);
   const [venueNotified,setVenueNotified]   = useState(false);
   const [captainSignaled,setCaptainSignaled] = useState(false);
+  const [isUserCaptain,setIsUserCaptain]     = useState(false);
   const fileRef = useRef(null);
 
   /* ── DATE HELPERS ── */
@@ -657,13 +658,26 @@ export default function SquadHub() {
       setMyBooking(bk);
       const [{data:vd},{data:sd}] = await Promise.all([
         supabase.from("venues").select("id,name,area").eq("id",bk.venue_id).single(),
-        supabase.from("slots").select("id,start_time,end_time,match_type").eq("id",bk.slot_id).single()
+        supabase.from("slots").select("id,start_time,end_time,match_type,date").eq("id",bk.slot_id).single()
       ]);
       if(vd) setVenue(vd);
       if(sd) setSlot({...sd, time:sd.start_time?.slice(0,5), end:sd.end_time?.slice(0,5)});
     }
     return bk||null;
   },[]);
+
+  /* ── CHECK IF USER IS CAPTAIN (on load / booking change) ── */
+  useEffect(()=>{
+    if(!myBooking?.slot_id || !player?.dbId) return;
+    (async()=>{
+      const {data:m} = await supabase.from("matches")
+        .select("id").eq("slot_id",myBooking.slot_id).maybeSingle();
+      if(!m?.id) return;
+      const {data:cap} = await supabase.from("captain_lookup")
+        .select("id").eq("match_id",m.id).eq("player_id",player.dbId).maybeSingle();
+      if(cap) setIsUserCaptain(true);
+    })();
+  },[myBooking?.slot_id, player?.dbId]);
 
   /* URL params handled inside LIFF init — ดู resolveTab() */
 
@@ -1149,8 +1163,8 @@ const handlePhotoUpload = async (e) => {
           // Show toast after state settles + write captain to DB if it's me
           setTimeout(()=>{
             setCaptainToast({teamId,name:chosenName,isMe});
+            if(isMe) { setIsUserCaptain(true); writeCaptainToDB(teamId, player?.lineUserId, player?.name, myBooking?.slot_id); }
             setTimeout(()=>setCaptainToast(null),5000);
-            if(isMe) writeCaptainToDB(teamId, player?.lineUserId, player?.name, myBooking?.slot_id);
           },200);
           const now2 = new Date().toLocaleTimeString("th",{hour:"2-digit",minute:"2-digit"});
           setChatMsgs(prev=>[...prev,
@@ -1237,6 +1251,7 @@ const handlePhotoUpload = async (e) => {
       {id:Date.now(),team:"match",sender:"ระบบ",msg:`🎖️ ${player.name} ขอเป็นกัปตัน${myTeam ? ` ทีม ${myTeam}`:""} · +30 XP รอหลังแมตช์จบ!`,time:now,isSystem:true}
     ]);
     setCaptainToast({teamId:myTeam,name:player.name,isMe:true});
+    setIsUserCaptain(true);
     setTimeout(()=>setCaptainToast(null),5000);
     // Persist to DB
     writeCaptainToDB(myTeam, player.lineUserId, player.name, myBooking?.slot_id);
@@ -1650,6 +1665,58 @@ const handlePhotoUpload = async (e) => {
           </div>
         )}
       </div>
+
+      {/* ── ACTIVE MATCH BANNER (captain only, after start_time) ── */}
+      {(()=>{
+        if(!isUserCaptain) return null;
+        if(!myBooking?.slot_id) return null;
+        const slotDate  = slot?.date;
+        const startTime = slot?.start_time || (slot?.time ? `${slot.time}:00` : null);
+        if(!slotDate || !startTime) return null;
+        const hasStarted = new Date() >= new Date(`${slotDate}T${startTime}`);
+        if(!hasStarted) return null;
+        const isEnded    = slot?.status === "ended";
+        const isPending  = captainSignaled && !isEnded;
+        return (
+          <div style={{
+            background: isEnded?"rgba(255,255,255,0.02)":isPending?"rgba(251,191,36,0.06)":"rgba(239,68,68,0.07)",
+            border:`1.5px solid ${isEnded?"rgba(255,255,255,0.07)":isPending?"rgba(251,191,36,0.35)":"rgba(239,68,68,0.4)"}`,
+            borderRadius:16, padding:"14px 16px", marginBottom:16,
+            boxShadow: isEnded?"none":isPending?"0 0 18px rgba(251,191,36,0.1)":"0 0 18px rgba(239,68,68,0.12)",
+          }}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:22,flexShrink:0}}>
+                {isEnded?"🔒":isPending?"⏳":"🏁"}
+              </span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:900,color:isEnded?C.muted:isPending?C.amber:C.red,marginBottom:2}}>
+                  {isEnded?"สนาม Confirm แล้ว — รอ LINE notification"
+                   :isPending?"แจ้งสนามแล้ว — รอสนาม Confirm"
+                   :"แมตช์กำลัง Live — กัปตัน แจ้งสนามเมื่อจบ"}
+                </div>
+                <div style={{fontSize:11,color:C.muted}}>
+                  {isEnded?"บอทจะส่งลิงก์กรอกผลให้ทาง LINE ไม่นาน"
+                   :isPending?"สนามจะกด End Match แล้ว LINE จะส่งลิงก์มาให้"
+                   :"กดปุ่มด้านล่างเมื่อทุกทีมเล่นจบแล้ว"}
+                </div>
+              </div>
+            </div>
+            {!isEnded&&!isPending&&(
+              <button
+                onClick={signalVenueMatchEnd}
+                style={{
+                  marginTop:12, width:"100%", padding:"11px 16px", borderRadius:10,
+                  border:"1.5px solid rgba(239,68,68,0.45)",
+                  background:"rgba(239,68,68,0.12)",
+                  color:C.red, fontSize:13, fontWeight:900, cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+                }}>
+                🏁 แจ้งสนามว่าเล่นจบแล้ว
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Hot/Today banner */}
       {hotSlot&&(()=>{

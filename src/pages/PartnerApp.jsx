@@ -1419,57 +1419,46 @@ const BookingConfirmTab = ({venueId}) => {
 };
 
 /* ═══ MATCH END ═══ */
-const MatchEndTab = ({match,onDone,slots}) => {
-  const [sent,setSent]=useState(false);
-  const [loading,setLoading]=useState(false);
-  const [captainCount,setCaptainCount]=useState(null);
-  const liveSlots = slots?.filter(s=>s.status==="live")||[];
-  const endedToday = slots?.filter(s=>s.status==="ended"||s.status==="offline")||[];
-  const confirm = async () => {
-    setLoading(true);
+const MatchEndTab = ({onDone,slots}) => {
+  // per-slot state maps: {slotId: bool}
+  const [sent,setSent]       = useState({});
+  const [loading,setLoading] = useState({});
+  const [capCount,setCapCount]= useState({});
+
+  const liveSlots  = (slots||[]).filter(s=>s.status==="live"||s.status==="captain_signaled");
+  const endedToday = (slots||[]).filter(s=>s.status==="ended");
+
+  const confirmSlot = async(s) => {
+    const sid = s.id;
+    setLoading(p=>({...p,[sid]:true}));
     try {
-      // 1. Find matches row for this slot
-      const slotId = match?.id;
-      const venueId = match?.venue_id;
-      let matchId = null;
-      if(slotId){
-        const {data:mRow} = await supabase.from("matches").select("id").eq("slot_id",slotId).maybeSingle();
-        matchId = mRow?.id||null;
-      }
-      // 2. Fetch captains from captain_lookup
+      // 1. Find matches row
+      const {data:mRow} = await supabase.from("matches").select("id").eq("slot_id",sid).maybeSingle();
+      const matchId = mRow?.id||null;
       let captainLineIds = [];
       if(matchId){
+        // 2. Fetch captains
         const {data:caps} = await supabase.from("captain_lookup")
           .select("line_user_id").eq("match_id",matchId).eq("is_captain",true);
         captainLineIds = (caps||[]).map(c=>c.line_user_id).filter(Boolean);
-        setCaptainCount(captainLineIds.length);
-        // 3. Mark match as ended in DB
+        setCapCount(p=>({...p,[sid]:captainLineIds.length}));
+        // 3. Mark ended in DB
         await supabase.from("matches").update({status:"ended"}).eq("id",matchId);
-        // 4. Mark slot as ended
-        await supabase.from("slots").update({status:"ended"}).eq("id",slotId);
       }
-      // 5. Notify captains via n8n (sends LINE message to each captain)
+      await supabase.from("slots").update({status:"ended"}).eq("id",sid);
+      // 4. Notify via n8n
       await fetch(N8N_MATCH_END,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({match_id:matchId||0,venue_id:venueId||0,captain_line_ids:captainLineIds})
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({match_id:matchId||0,venue_id:s.venue_id||0,captain_line_ids:captainLineIds})
       });
-    } catch(e){console.error(e);}
-    setSent(true);setLoading(false);
+      setSent(p=>({...p,[sid]:true}));
+    } catch(e){console.error("confirmSlot:",e);}
+    setLoading(p=>({...p,[sid]:false}));
   };
-  if(sent)return(
-    <div style={{background:C.bg2,border:`1px solid ${C.borderHi}`,borderRadius:16,padding:28,textAlign:"center",maxWidth:500}}>
-      <div style={{fontSize:36,marginBottom:14}}>✅</div>
-      <div style={{fontSize:17,fontWeight:900,color:C.green,marginBottom:8}}>ส่งแจ้งกัปตันแล้ว!</div>
-      <div style={{fontSize:13,color:C.sub,lineHeight:1.9,marginBottom:22}}>
-        LINE Bot ส่งฟอร์มสรุปให้กัปตัน{captainCount!=null?` ${captainCount} คน`:""} แล้ว<br/>กัปตันสรุปผล → AI บันทึก Stats + XP
-      </div>
-      <Btn ghost onClick={onDone} style={{width:"100%"}}>กลับหน้าหลัก</Btn>
-    </div>
-  );
+
   return(
     <div style={{maxWidth:600}}>
-      {/* Match dashboard */}
+      {/* Stats row */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:22}}>
         <div style={{background:"rgba(16,185,129,0.08)",border:`1px solid ${C.borderHi}`,borderRadius:14,padding:"14px 16px"}}>
           <div style={{fontSize:20,marginBottom:6}}>⏱️</div>
@@ -1491,42 +1480,66 @@ const MatchEndTab = ({match,onDone,slots}) => {
         </div>
       </div>
 
-      {/* Live matches list */}
-      {liveSlots.length>0&&(
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:800,color:C.sub,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>แมตช์ที่กำลัง Live</div>
-          {liveSlots.map((s,i)=>(
-            <div key={i} style={{background:C.bg2,border:`1px solid ${C.borderHi}`,borderRadius:12,padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
-              <div style={{width:8,height:8,borderRadius:"50%",background:C.green,flexShrink:0}}/>
-              <div style={{flex:1}}>
-                <div style={{fontSize:14,fontWeight:800,color:C.green}}>{s.name||`MATCH ${i+1}`}</div>
-                <div style={{fontSize:11,color:C.sub,marginTop:2}}>{s.time} · {s.players||0}/{s.total||14} คน · สนาม {s.field||1}</div>
-              </div>
-              <Tag color={C.green}>LIVE</Tag>
-            </div>
-          ))}
-        </div>
-      )}
-      {liveSlots.length===0&&(
-        <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:12,padding:20,textAlign:"center",marginBottom:16}}>
-          <div style={{fontSize:24,marginBottom:8}}>🏁</div>
-          <div style={{fontSize:14,color:C.sub}}>ไม่มีแมตช์ที่กำลัง Live ตอนนี้</div>
-        </div>
-      )}
-
-      {/* Confirm panel */}
-      <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:16,padding:24}}>
-        <div style={{fontSize:11,fontWeight:800,color:C.green,letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>ยืนยันแมตช์จบ</div>
-        <div style={{fontSize:19,fontWeight:900,color:C.text,marginBottom:6}}>{match?.name||"เลือก Match จาก calendar"}</div>
-        <div style={{fontSize:13,color:C.sub,marginBottom:20}}>{match?.time||"—"} · {match?.players||0} ผู้เล่น</div>
-        <div style={{background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:12,padding:"14px 16px",marginBottom:22,fontSize:12,color:C.greenBr,lineHeight:1.9,fontWeight:700}}>
-          หลังกดยืนยัน:<br/><span style={{color:C.sub,fontWeight:400}}>LINE Bot → แจ้งกัปตัน → กัปตันส่งสรุป → AI บันทึก Stats + XP</span>
-        </div>
-        <Btn onClick={confirm} disabled={loading||!match} style={{width:"100%",padding:14,fontSize:15}}>
-          {loading?"กำลังส่ง...":"⏱ ยืนยันแมตช์จบ →"}
-        </Btn>
-        {!match&&<div style={{fontSize:12,color:C.muted,textAlign:"center",marginTop:10}}>กด slot LIVE ใน calendar เพื่อเลือก match</div>}
+      {/* Flow reminder */}
+      <div style={{background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:12,padding:"12px 16px",marginBottom:18,fontSize:12,color:C.greenBr,lineHeight:1.8}}>
+        <span style={{fontWeight:900}}>Flow:</span>{" "}
+        <span style={{color:C.sub}}>กัปตันกด "แจ้งสนาม" → เห็น badge 🏁 → กด "ยืนยันจบ" → LINE ส่งลิงก์กรอกผลให้กัปตัน → XP + Stats อัพเดต</span>
       </div>
+
+      {/* Live / captain_signaled slots list — each with its own End button */}
+      {liveSlots.length===0 ? (
+        <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:14,padding:"32px 24px",textAlign:"center",marginBottom:16}}>
+          <div style={{fontSize:32,marginBottom:12}}>🏁</div>
+          <div style={{fontSize:14,fontWeight:700,color:C.sub}}>ไม่มีแมตช์ที่กำลัง Live</div>
+          <div style={{fontSize:12,color:C.muted,marginTop:6}}>เมื่อกัปตันกด "แจ้งสนาม" จะแสดง badge 🏁 ที่นี่</div>
+        </div>
+      ) : (
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11,fontWeight:800,color:C.sub,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>แมตช์ที่รอยืนยัน</div>
+          {liveSlots.map((s,i)=>{
+            const isCaptainReady = s.status==="captain_signaled";
+            const isDone   = !!sent[s.id];
+            const isLoading= !!loading[s.id];
+            const nCap     = capCount[s.id];
+            return(
+              <div key={s.id||i} style={{
+                background:C.bg2,
+                border:`1px solid ${isCaptainReady?C.amber:C.borderHi}`,
+                borderRadius:14,padding:"16px",marginBottom:10,
+                boxShadow: isCaptainReady?"0 0 14px rgba(251,191,36,0.12)":"none",
+              }}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:isCaptainReady?C.amber:C.green,flexShrink:0,boxShadow:`0 0 6px ${isCaptainReady?C.amber:C.green}`}}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:900,color:isCaptainReady?C.amber:C.green}}>
+                      {s.name||`สนาม ${s.field||1} — ${s.time}`}
+                    </div>
+                    <div style={{fontSize:11,color:C.sub,marginTop:2}}>{s.time} · สนาม {s.field||1} · {s.players||0}/{s.total||14} คน</div>
+                  </div>
+                  {isCaptainReady
+                    ? <span style={{fontSize:11,fontWeight:900,padding:"3px 10px",borderRadius:99,background:"rgba(251,191,36,0.12)",color:C.amber,border:`1px solid rgba(251,191,36,0.3)`}}>🏁 กัปตันพร้อม</span>
+                    : <span style={{fontSize:11,fontWeight:900,padding:"3px 10px",borderRadius:99,background:"rgba(16,185,129,0.1)",color:C.green,border:`1px solid rgba(16,185,129,0.3)`}}>● LIVE</span>
+                  }
+                </div>
+                {isDone ? (
+                  <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:10,background:"rgba(16,185,129,0.08)",border:`1px solid ${C.borderHi}`}}>
+                    <span style={{fontSize:16}}>✅</span>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:800,color:C.green}}>ส่งแจ้งกัปตันแล้ว!</div>
+                      <div style={{fontSize:11,color:C.sub}}>{nCap!=null?`แจ้ง ${nCap} กัปตัน · `:""}LINE กำลังส่งลิงก์กรอกผล</div>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={()=>confirmSlot(s)} disabled={isLoading}
+                    style={{width:"100%",padding:"12px 16px",borderRadius:10,border:`1px solid ${isCaptainReady?"rgba(251,191,36,0.5)":"rgba(16,185,129,0.4)"}`,background:isCaptainReady?"rgba(251,191,36,0.1)":"rgba(16,185,129,0.08)",color:isCaptainReady?C.amber:C.green,fontSize:14,fontWeight:900,cursor:isLoading?"not-allowed":"pointer",opacity:isLoading?.6:1}}>
+                    {isLoading?"กำลังส่ง...":"⏱ ยืนยันแมตช์จบ →"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -1736,7 +1749,7 @@ const MobileApp = ({venue,slots,ownerUnlocked,onLogout}) => {
   const [activeMatch,setActiveMatch]=useState(null);
   const [showOwnerPin,setShowOwnerPin]=useState(false);
   const [mOwner,setMOwner]=useState(ownerUnlocked||false);
-  const liveSlots=slots.filter(s=>s.status==="live");
+  const liveSlots=slots.filter(s=>s.status==="live"||s.status==="captain_signaled");
 
   const mNavItems=[
   {id:"scan",icon:"🔲",label:"Scan"},
@@ -1779,12 +1792,12 @@ const MobileApp = ({venue,slots,ownerUnlocked,onLogout}) => {
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                       <div>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <div style={{width:6,height:6,borderRadius:"50%",background:C.green}}/>
-                          <span style={{fontSize:14,fontWeight:900,color:C.green}}>{s.name}</span>
+                          <div style={{width:6,height:6,borderRadius:"50%",background:s.status==="captain_signaled"?C.amber:C.green}}/>
+                          <span style={{fontSize:14,fontWeight:900,color:s.status==="captain_signaled"?C.amber:C.green}}>{s.name}</span>
                         </div>
-                        <div style={{fontSize:11,color:C.sub,marginTop:3}}>{s.time} · {s.players}/{s.total||14} คน</div>
+                        <div style={{fontSize:11,color:C.sub,marginTop:3}}>{s.time} · {s.players||0}/{s.total||14} คน</div>
                       </div>
-                      <Tag color={C.green}>LIVE</Tag>
+                      <Tag color={s.status==="captain_signaled"?C.amber:C.green}>{s.status==="captain_signaled"?"🏁 กัปตันพร้อม":"LIVE"}</Tag>
                     </div>
                     <button onClick={()=>{setActiveMatch(s);setMTab("matchend");}}
                       style={{width:"100%",padding:11,borderRadius:9,border:`1px solid rgba(251,191,36,0.4)`,background:`rgba(251,191,36,0.08)`,color:C.amber,fontSize:13,fontWeight:800,cursor:"pointer"}}>
@@ -1895,7 +1908,7 @@ const MobileApp = ({venue,slots,ownerUnlocked,onLogout}) => {
 
         {/* ── MATCH END ── */}
         {mTab==="matchend"&&(
-          <MatchEndTab match={activeMatch} onDone={()=>setMTab("scan")} slots={displaySlots}/>
+          <MatchEndTab onDone={()=>setMTab("scan")} slots={displaySlots}/>
         )}
 
         {/* ── FINANCE (owner only) ── */}
@@ -2013,7 +2026,7 @@ export default function SquadPartner() {
       name:s.notes||(s.match_id?`MATCH #SQ-${s.match_id}`:""),
       players:0,total:s.max_players||14,
       source:s.status==="offline"?"offline":s.match_id?"platform":"platform",
-      status:s.status==="open"?"available":s.status==="full"?"full":s.status==="live"?"live":s.status==="blocked"?"blocked":s.status==="cancelled"?"cancelled":"available",
+      status:s.status==="open"?"available":s.status==="full"?"full":s.status==="live"?"live":s.status==="captain_signaled"?"captain_signaled":s.status==="ended"?"ended":s.status==="blocked"?"blocked":s.status==="cancelled"?"cancelled":"available",
       venue_id:venueId,amount:0,
     })));
   };
@@ -2023,12 +2036,24 @@ export default function SquadPartner() {
     fetchSlots(venue.id);
   },[venue]);
 
+  /* ── REALTIME: refresh slots when any slot for this venue changes ── */
+  useEffect(()=>{
+    if(!venue?.id) return;
+    const ch = supabase
+      .channel(`partner-slots-${venue.id}`)
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"slots",filter:`venue_id=eq.${venue.id}`},()=>{
+        fetchSlots(venue.id);
+      })
+      .subscribe();
+    return ()=>{ supabase.removeChannel(ch); };
+  },[venue?.id]);
+
   const handleLogout=async()=>{await supabase.auth.signOut();setUnlocked(false);setVenue(null);setSlots([]);setOwnerUnlocked(false);};
   const calDateStr=calDate.toISOString().split("T")[0];
   const todaySlots=slots.filter(s=>s.date===calDateStr);
   const todayStr=new Date().toISOString().split("T")[0];
   const todaySlotsReal=slots.filter(s=>s.date===todayStr);
-  const liveCount=todaySlotsReal.filter(s=>s.status==="live").length;
+  const liveCount=todaySlotsReal.filter(s=>s.status==="live"||s.status==="captain_signaled").length;
 
   // คำนวณ field_count จาก slots จริง ถ้าไม่มีใช้ venue.field_count
   const maxFieldFromSlots=slots.length>0?Math.max(...slots.map(s=>s.field||1)):0;
@@ -2149,7 +2174,7 @@ export default function SquadPartner() {
               </div>
             </div>
           )}
-          {tab==="matchend"&&<MatchEndTab match={activeMatch} onDone={()=>setTab("calendar")} slots={todaySlots}/>}
+          {tab==="matchend"&&<MatchEndTab onDone={()=>setTab("calendar")} slots={todaySlotsReal}/>}
           {tab==="shop"&&<ShopTab venueId={venue?.id} ownerUnlocked={ownerUnlocked}/>}
           {tab==="finance"&&<FinanceTab venue={venue} todaySlots={todaySlots}/>}
           {tab==="booking"&&venue?.id&&<BookingConfirmTab venueId={venue.id}/>}
