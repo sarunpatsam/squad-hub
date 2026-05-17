@@ -615,6 +615,18 @@ export default function SquadHub() {
   const [myBooking,setMyBooking] = useState(null);
   const [searchQuery,setSearchQuery] = useState("");
   const [searchActive,setSearchActive] = useState(false);
+  /* ── SCORE TAB ── */
+  const [scoreMatchId,setScoreMatchId] = useState(null);
+  const [scoreMatch,setScoreMatch]     = useState(null);
+  const [scoreRounds,setScoreRounds]   = useState([]);
+  const [scorePlayers,setScorePlayers] = useState([]);
+  const [scoreTeams,setScoreTeams]     = useState([]);
+  const [addingRound,setAddingRound]   = useState(false);
+  const [newRound,setNewRound]         = useState({teamA:"A",teamB:"B",scoreA:0,scoreB:0});
+  const [selectedMvp,setSelectedMvp]   = useState(null);
+  const [scoreSubmitted,setScoreSubmitted] = useState(false);
+  const [scoreLoading,setScoreLoading]     = useState(false);
+  const [scoreDataLoading,setScoreDataLoading] = useState(false);
   const fileRef = useRef(null);
 
   /* ── DATE HELPERS ── */
@@ -650,6 +662,119 @@ export default function SquadHub() {
     }
     return bk||null;
   },[]);
+
+  /* ── URL PARAMS — เปิดจาก LINE notification (?tab=score&match_id=XXX) ── */
+  useEffect(()=>{
+    const params = new URLSearchParams(window.location.search);
+    const tabParam   = params.get("tab");
+    const matchParam = params.get("match_id");
+    if(tabParam==="score" && matchParam){
+      setScoreMatchId(parseInt(matchParam));
+      setTab("score");
+    }
+  },[]);
+
+  /* ── LOAD SCORE DATA ── */
+  const loadScoreData = useCallback(async (matchId)=>{
+    if(!matchId)return;
+    setScoreDataLoading(true);
+    try{
+      const {data:match} = await supabase.from("matches")
+        .select("id,status,match_code,slot_id,venue_id").eq("id",matchId).maybeSingle();
+      setScoreMatch(match);
+      if(match?.status==="completed") { setScoreSubmitted(true); }
+
+      const {data:rounds} = await supabase.from("match_rounds")
+        .select("*").eq("match_id",matchId).order("round_number");
+      setScoreRounds(rounds||[]);
+
+      const {data:mps} = await supabase.from("match_players")
+        .select("player_id,team").eq("match_id",matchId);
+      // ดึง display_name แยก
+      const playerIds = (mps||[]).map(p=>p.player_id);
+      let nameMap = {};
+      if(playerIds.length){
+        const {data:pData} = await supabase.from("players")
+          .select("id,display_name,position").in("id",playerIds);
+        (pData||[]).forEach(p=>{ nameMap[p.id]={name:p.display_name,pos:p.position}; });
+      }
+      const enriched = (mps||[]).map(p=>({...p,...(nameMap[p.player_id]||{})}));
+      setScorePlayers(enriched);
+      const teams = [...new Set(enriched.map(p=>p.team))].sort();
+      setScoreTeams(teams);
+      if(teams.length>=2) setNewRound(r=>({...r,teamA:teams[0],teamB:teams[1]}));
+    }catch(e){console.error("loadScoreData:",e);}
+    setScoreDataLoading(false);
+  },[]);
+
+  useEffect(()=>{ if(tab==="score"&&scoreMatchId) loadScoreData(scoreMatchId); },[tab,scoreMatchId]);
+
+  /* ── ADD ROUND ── */
+  const addRound = async ()=>{
+    if(!scoreMatchId)return;
+    const rn = scoreRounds.length+1;
+    const {data:rd} = await supabase.from("match_rounds").insert({
+      match_id:scoreMatchId, round_number:rn,
+      team_a_name:newRound.teamA, team_b_name:newRound.teamB,
+      score_a:parseInt(newRound.scoreA)||0, score_b:parseInt(newRound.scoreB)||0,
+    }).select().single();
+    if(rd) setScoreRounds(prev=>[...prev,rd]);
+    setAddingRound(false);
+    setNewRound(r=>({...r,scoreA:0,scoreB:0}));
+  };
+
+  /* ── SUBMIT FINAL RESULT ── */
+  const submitResult = async ()=>{
+    if(!scoreMatchId||!selectedMvp||scoreRounds.length===0)return;
+    setScoreLoading(true);
+    try{
+      // คำนวณ wins + goals per team
+      const teamWins={}, teamGoals={};
+      scoreTeams.forEach(t=>{teamWins[t]=0;teamGoals[t]=0;});
+      scoreRounds.forEach(r=>{
+        const a=r.team_a_name, b=r.team_b_name;
+        teamGoals[a]=(teamGoals[a]||0)+r.score_a;
+        teamGoals[b]=(teamGoals[b]||0)+r.score_b;
+        if(r.score_a>r.score_b) teamWins[a]=(teamWins[a]||0)+1;
+        else if(r.score_b>r.score_a) teamWins[b]=(teamWins[b]||0)+1;
+      });
+      const maxW = Math.max(...Object.values(teamWins));
+      const winTeams = Object.keys(teamWins).filter(t=>teamWins[t]===maxW&&maxW>0);
+
+      for(const mp of scorePlayers){
+        const isWin   = winTeams.includes(mp.team);
+        const isMvp   = mp.player_id===selectedMvp;
+        const goals   = teamGoals[mp.team]||0;
+        const xpEarned= (isWin?30:10)+(isMvp?30:0);
+        // อัพ match_players
+        await supabase.from("match_players")
+          .update({is_win:isWin,is_mvp:isMvp,xp_earned:xpEarned})
+          .eq("match_id",scoreMatchId).eq("player_id",mp.player_id);
+        // อัพ players aggregate
+        const {data:p} = await supabase.from("players")
+          .select("matches_played,wins,losses,goals,mvp_count,xp")
+          .eq("id",mp.player_id).single();
+        if(p){
+          await supabase.from("players").update({
+            matches_played:(p.matches_played||0)+1,
+            wins:   (p.wins||0)+(isWin?1:0),
+            losses: (p.losses||0)+(!isWin&&winTeams.length>0?1:0),
+            goals:  (p.goals||0)+goals,
+            mvp_count:(p.mvp_count||0)+(isMvp?1:0),
+            xp:    (p.xp||0)+xpEarned,
+          }).eq("id",mp.player_id);
+        }
+      }
+      // Mark match completed
+      await supabase.from("matches").update({
+        status:"completed",
+        result_submitted_at:new Date().toISOString(),
+        confirmed_end_at:new Date().toISOString(),
+      }).eq("id",scoreMatchId);
+      setScoreSubmitted(true);
+    }catch(e){console.error("submitResult:",e);}
+    setScoreLoading(false);
+  };
 
   /* ── LIFF INIT + AUTO-LOGIN ── */
   useEffect(()=>{
@@ -2046,6 +2171,188 @@ const handlePhotoUpload = async (e) => {
     );
   };
 
+  /* ═══ SCORE TAB ═══ */
+  const renderScore = ()=>{
+    const teamColor = t=>({A:C.red,B:C.blue,C:"#10b981",D:C.amber}[t]||C.green);
+
+    if(scoreDataLoading) return(
+      <div style={{padding:32,textAlign:"center",color:C.sub,fontSize:13}}>⏳ กำลังโหลดข้อมูลแมตช์...</div>
+    );
+
+    if(scoreSubmitted) return(
+      <div style={{padding:"32px 4px",textAlign:"center"}}>
+        <div style={{fontSize:52,marginBottom:12}}>✅</div>
+        <div style={{fontSize:20,fontWeight:900,color:C.green,marginBottom:8}}>บันทึกผลเรียบร้อย!</div>
+        <div style={{fontSize:13,color:C.sub,lineHeight:1.8,marginBottom:24}}>
+          XP และสถิติอัพเดตให้ผู้เล่นทุกคนแล้ว<br/>
+          ดูผลได้ที่หน้า Profile
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:8,maxWidth:320,margin:"0 auto"}}>
+          {scoreRounds.map((r,i)=>(
+            <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:12,fontWeight:800,color:teamColor(r.team_a_name)}}>ทีม {r.team_a_name}</span>
+              <span style={{fontSize:16,fontWeight:900,color:C.text,letterSpacing:2}}>{r.score_a} — {r.score_b}</span>
+              <span style={{fontSize:12,fontWeight:800,color:teamColor(r.team_b_name)}}>ทีม {r.team_b_name}</span>
+            </div>
+          ))}
+        </div>
+        <button onClick={()=>setTab("home")} style={{marginTop:24,padding:"12px 32px",borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,color:C.text,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+          กลับหน้าหลัก
+        </button>
+      </div>
+    );
+
+    return(
+      <div style={{paddingBottom:32}}>
+        {/* Header */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:20,fontWeight:900,color:C.text}}>📊 กรอกผลแมตช์</div>
+          {scoreMatch&&<div style={{fontSize:11,color:C.sub,marginTop:4,letterSpacing:1}}>
+            รหัสแมตช์ · {scoreMatch.match_code||`#${scoreMatch.id}`}
+          </div>}
+        </div>
+
+        {/* ── รายการรอบ ── */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:800,color:C.sub,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>รอบที่เล่น</div>
+
+          {scoreRounds.length===0&&!addingRound&&(
+            <div style={{padding:"16px",borderRadius:12,border:`1px dashed ${C.border}`,textAlign:"center",color:C.muted,fontSize:12,marginBottom:10}}>
+              ยังไม่มีรอบ — กด เพิ่มรอบ เพื่อเริ่ม
+            </div>
+          )}
+
+          {scoreRounds.map((r,i)=>(
+            <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <div style={{textAlign:"center",minWidth:60}}>
+                <div style={{fontSize:11,fontWeight:700,color:teamColor(r.team_a_name),marginBottom:2}}>ทีม {r.team_a_name}</div>
+                <div style={{fontSize:20,fontWeight:900,color:C.text}}>{r.score_a}</div>
+              </div>
+              <div style={{fontSize:10,color:C.muted,fontWeight:700,letterSpacing:1}}>VS</div>
+              <div style={{textAlign:"center",minWidth:60}}>
+                <div style={{fontSize:11,fontWeight:700,color:teamColor(r.team_b_name),marginBottom:2}}>ทีม {r.team_b_name}</div>
+                <div style={{fontSize:20,fontWeight:900,color:C.text}}>{r.score_b}</div>
+              </div>
+              <div style={{fontSize:10,color:C.sub}}>รอบ {i+1}</div>
+            </div>
+          ))}
+
+          {/* Add Round Form */}
+          {addingRound?(
+            <div style={{background:"rgba(16,185,129,0.04)",border:`1px solid ${C.borderHi}`,borderRadius:14,padding:16,marginBottom:8}}>
+              <div style={{fontSize:11,fontWeight:800,color:C.green,letterSpacing:1.5,textTransform:"uppercase",marginBottom:12}}>
+                รอบที่ {scoreRounds.length+1}
+              </div>
+              <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:12}}>
+                {/* Team A select */}
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{fontSize:10,color:C.sub,marginBottom:4}}>ทีม A</div>
+                  <select value={newRound.teamA} onChange={e=>setNewRound(r=>({...r,teamA:e.target.value}))}
+                    style={{width:"100%",padding:"8px 6px",borderRadius:8,border:`1px solid ${C.border}`,background:C.bg2,color:teamColor(newRound.teamA),fontWeight:800,fontSize:14,textAlign:"center"}}>
+                    {scoreTeams.map(t=><option key={t} value={t}>ทีม {t}</option>)}
+                  </select>
+                </div>
+                {/* Scores */}
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <input type="number" min={0} value={newRound.scoreA}
+                      onChange={e=>setNewRound(r=>({...r,scoreA:e.target.value}))}
+                      style={{width:48,padding:"8px 4px",borderRadius:8,border:`1px solid ${C.border}`,background:C.bg2,color:C.text,fontWeight:900,fontSize:18,textAlign:"center"}}/>
+                    <span style={{color:C.muted,fontWeight:800}}>:</span>
+                    <input type="number" min={0} value={newRound.scoreB}
+                      onChange={e=>setNewRound(r=>({...r,scoreB:e.target.value}))}
+                      style={{width:48,padding:"8px 4px",borderRadius:8,border:`1px solid ${C.border}`,background:C.bg2,color:C.text,fontWeight:900,fontSize:18,textAlign:"center"}}/>
+                  </div>
+                </div>
+                {/* Team B select */}
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{fontSize:10,color:C.sub,marginBottom:4}}>ทีม B</div>
+                  <select value={newRound.teamB} onChange={e=>setNewRound(r=>({...r,teamB:e.target.value}))}
+                    style={{width:"100%",padding:"8px 6px",borderRadius:8,border:`1px solid ${C.border}`,background:C.bg2,color:teamColor(newRound.teamB),fontWeight:800,fontSize:14,textAlign:"center"}}>
+                    {scoreTeams.map(t=><option key={t} value={t}>ทีม {t}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>setAddingRound(false)}
+                  style={{flex:1,padding:10,borderRadius:9,border:`1px solid ${C.border}`,background:"transparent",color:C.sub,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                  ยกเลิก
+                </button>
+                <button onClick={addRound}
+                  style={{flex:2,padding:10,borderRadius:9,border:"none",background:C.green,color:"#001a0d",fontSize:13,fontWeight:900,cursor:"pointer"}}>
+                  ✅ บันทึกรอบนี้
+                </button>
+              </div>
+            </div>
+          ):(
+            <button onClick={()=>setAddingRound(true)}
+              style={{width:"100%",padding:"11px",borderRadius:12,border:`1.5px dashed ${C.border}`,background:"transparent",color:C.sub,fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:4}}>
+              ➕ เพิ่มรอบ
+            </button>
+          )}
+        </div>
+
+        {/* ── Coming Soon: Individual Stats ── */}
+        <div style={{marginBottom:20,padding:"12px 16px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid rgba(255,255,255,0.06)`,display:"flex",alignItems:"center",gap:12,opacity:0.55}}>
+          <div style={{fontSize:22}}>🔒</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:800,color:C.sub}}>Individual Stats — ใครยิงกี่ลูก?</div>
+            <div style={{fontSize:10,color:C.muted,marginTop:2}}>⚡ Coming Soon · Next Update</div>
+          </div>
+          <div style={{padding:"3px 8px",borderRadius:6,background:"rgba(255,255,255,0.06)",fontSize:9,fontWeight:800,color:C.muted,letterSpacing:1,textTransform:"uppercase"}}>Soon</div>
+        </div>
+
+        {/* ── MVP Selection ── */}
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:12,fontWeight:800,color:C.sub,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>
+            🏅 เลือก MVP ประจำแมตช์
+          </div>
+          {scorePlayers.length===0&&<div style={{fontSize:12,color:C.muted,textAlign:"center",padding:12}}>กำลังโหลดผู้เล่น...</div>}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {scorePlayers.map((p,i)=>{
+              const selected = selectedMvp===p.player_id;
+              return(
+                <button key={i} onClick={()=>setSelectedMvp(p.player_id)}
+                  style={{padding:"12px 10px",borderRadius:12,border:`1.5px solid ${selected?C.amber:"rgba(255,255,255,0.08)"}`,background:selected?"rgba(251,191,36,0.1)":"rgba(255,255,255,0.02)",cursor:"pointer",textAlign:"left",transition:"all .2s"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <div style={{width:28,height:28,borderRadius:"50%",background:`${teamColor(p.team)}22`,border:`1.5px solid ${teamColor(p.team)}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,color:teamColor(p.team)}}>
+                      {p.team}
+                    </div>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:800,color:selected?C.amber:C.text,lineHeight:1.2}}>{p.name||`Player ${p.player_id}`}</div>
+                      <div style={{fontSize:9,color:C.muted}}>{p.pos||"—"}</div>
+                    </div>
+                    {selected&&<span style={{marginLeft:"auto",fontSize:14}}>⭐</span>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Submit ── */}
+        <button
+          onClick={submitResult}
+          disabled={scoreRounds.length===0||!selectedMvp||scoreLoading}
+          style={{width:"100%",padding:"15px",borderRadius:13,border:"none",
+            background:scoreRounds.length>0&&selectedMvp?`linear-gradient(135deg,#00c96b,${C.green})`:"rgba(255,255,255,0.06)",
+            color:scoreRounds.length>0&&selectedMvp?"#001a0d":"#3d6b52",
+            fontSize:15,fontWeight:900,cursor:scoreRounds.length>0&&selectedMvp?"pointer":"not-allowed",
+            letterSpacing:.5,boxShadow:scoreRounds.length>0&&selectedMvp?`0 0 20px rgba(0,255,135,0.3)`:"none",
+            transition:"all .3s"}}>
+          {scoreLoading?"⏳ กำลังบันทึก...":scoreRounds.length===0?"ต้องมีอย่างน้อย 1 รอบ":!selectedMvp?"เลือก MVP ก่อน":"✅ ยืนยันผลสุดท้าย"}
+        </button>
+
+        {(scoreRounds.length===0||!selectedMvp)&&(
+          <div style={{textAlign:"center",marginTop:8,fontSize:10,color:C.muted}}>
+            {scoreRounds.length===0&&"• เพิ่มรอบที่เล่นก่อน"}
+            {scoreRounds.length>0&&!selectedMvp&&"• เลือก MVP ก่อนยืนยัน"}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   /* ═══ LAYOUT ═══ */
   const mainTabs=["home","profile","leaderboard"];
 
@@ -2134,6 +2441,7 @@ const handlePhotoUpload = async (e) => {
         {tab==="success"     && renderSuccess()}
         {tab==="profile"     && renderProfile()}
         {tab==="leaderboard" && renderLeaderboard()}
+        {tab==="score"       && renderScore()}
       </main>
 
       {mainTabs.includes(tab)&&(
