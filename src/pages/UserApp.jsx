@@ -227,14 +227,14 @@ const ImgLoad = ({src, alt="", style={}, ...rest}) => {
   );
 };
 
-/* Match result stats grid — Played / WIN / Draw / Loss */
-const StatGrid = ({matches, wins, losses}) => {
+/* Match result stats grid — Matches / WIN / Draw / MVP */
+const StatGrid = ({matches, wins, losses, mvp}) => {
   const draws = Math.max(0, (matches||0) - (wins||0) - (losses||0));
   const items = [
-    {label:"PLAYED", value:matches||0, color:C.text,  icon:"🏟️"},
-    {label:"WIN",    value:wins||0,    color:C.green, icon:"🏆"},
-    {label:"DRAW",   value:draws,      color:C.amber, icon:"🤝"},
-    {label:"LOSS",   value:losses||0,  color:C.red,   icon:"💀"},
+    {label:"MATCHES", value:matches||0, color:C.text,  icon:"🏟️"},
+    {label:"WIN",     value:wins||0,    color:C.green, icon:"🏆"},
+    {label:"DRAW",    value:draws,      color:C.amber, icon:"🤝"},
+    {label:"MVP",     value:mvp||0,     color:C.amber, icon:"🏅"},
   ];
   return (
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:7}}>
@@ -627,6 +627,7 @@ export default function SquadHub() {
   const [scoreSubmitted,setScoreSubmitted] = useState(false);
   const [scoreLoading,setScoreLoading]     = useState(false);
   const [scoreDataLoading,setScoreDataLoading] = useState(false);
+  const [venueNotified,setVenueNotified]   = useState(false);
   const fileRef = useRef(null);
 
   /* ── DATE HELPERS ── */
@@ -768,12 +769,39 @@ export default function SquadHub() {
           }).eq("id",mp.player_id);
         }
       }
-      // Mark match completed
+      // Mark match + slot completed
       await supabase.from("matches").update({
         status:"completed",
         result_submitted_at:new Date().toISOString(),
         confirmed_end_at:new Date().toISOString(),
       }).eq("id",scoreMatchId);
+      // อัพ slot ด้วยถ้ามี
+      if(scoreMatch?.slot_id){
+        await supabase.from("slots").update({status:"ended"}).eq("id",scoreMatch.slot_id);
+      }
+
+      // Re-fetch player stats แล้วอัพ state ทันที — ไม่ต้อง reload
+      if(player?.dbId){
+        const {data:fresh} = await supabase.from("players")
+          .select("matches_played,wins,losses,goals,mvp_count,xp,tier,level,reliability_score")
+          .eq("id",player.dbId).single();
+        if(fresh){
+          setPlayer(prev=>({
+            ...prev,
+            tier: fresh.tier||prev.tier,
+            level: fresh.level||prev.level,
+            xp: fresh.xp||0,
+            matchStats:{
+              matches: fresh.matches_played||0,
+              wins:    fresh.wins||0,
+              losses:  fresh.losses||0,
+              mvp:     fresh.mvp_count||0,
+              goals:   fresh.goals||0,
+              assists: prev.matchStats?.assists||0,
+            },
+          }));
+        }
+      }
       setScoreSubmitted(true);
     }catch(e){console.error("submitResult:",e);}
     setScoreLoading(false);
@@ -1323,19 +1351,7 @@ const handlePhotoUpload = async (e) => {
         </div>
         <div style={{padding:"0 16px"}}>
           <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>Match Status</div>
-          <div style={{marginBottom:10}}><StatGrid matches={ms.matches||0} wins={ms.wins||0} losses={ms.losses||0}/></div>
-          {ms.matches>0&&(
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:"12px 16px",marginBottom:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                <span style={{fontSize:10,fontWeight:800,color:C.green}}>ชนะ {ms.wins}</span>
-                <span style={{fontSize:10,fontWeight:800,color:C.amber}}>เสมอ {Math.max(0,(ms.matches||0)-(ms.wins||0)-(ms.losses||0))}</span>
-                <span style={{fontSize:10,fontWeight:800,color:C.red}}>แพ้ {ms.losses}</span>
-              </div>
-              <div style={{height:6,background:"rgba(255,255,255,0.06)",borderRadius:99,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${ms.matches>0?(ms.wins/ms.matches)*100:0}%`,background:`linear-gradient(90deg,#059669,${C.green})`,borderRadius:99}}/>
-              </div>
-            </div>
-          )}
+          <div style={{marginBottom:12}}><StatGrid matches={ms.matches||0} wins={ms.wins||0} losses={ms.losses||0} mvp={ms.mvp||0}/></div>
           {/* Goals & Assists — Coming Soon */}
           <div style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)",marginBottom:12,opacity:0.55}}>
             <div style={{fontSize:20}}>🔒</div>
@@ -2221,7 +2237,24 @@ const handlePhotoUpload = async (e) => {
             </div>
           ))}
         </div>
-        <button onClick={()=>setTab("home")} style={{marginTop:24,padding:"12px 32px",borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,color:C.text,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+        {/* แจ้งสนามว่าจบแล้ว */}
+        {!venueNotified?(
+          <button onClick={async()=>{
+            if(scoreMatch?.slot_id){
+              await supabase.from("slots").update({status:"ended"}).eq("id",scoreMatch.slot_id);
+            }
+            setVenueNotified(true);
+          }} style={{marginTop:20,width:"100%",maxWidth:320,padding:"13px 24px",borderRadius:12,border:"none",
+            background:"linear-gradient(135deg,#00c96b,#10d484)",color:"#001a0d",fontSize:14,fontWeight:900,cursor:"pointer",
+            boxShadow:"0 0 18px rgba(0,255,135,0.25)"}}>
+            ✅ แจ้งสนามว่าจบแล้ว
+          </button>
+        ):(
+          <div style={{marginTop:20,padding:"10px 20px",borderRadius:10,background:"rgba(16,185,129,0.1)",border:`1px solid ${C.border}`,fontSize:12,color:C.green,fontWeight:700}}>
+            🏟️ สนามรับทราบแล้ว — ขอบคุณกัปตัน!
+          </div>
+        )}
+        <button onClick={()=>setTab("home")} style={{marginTop:12,padding:"12px 32px",borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,color:C.text,fontSize:14,fontWeight:700,cursor:"pointer"}}>
           กลับหน้าหลัก
         </button>
       </div>
@@ -2230,11 +2263,23 @@ const handlePhotoUpload = async (e) => {
     return(
       <div style={{paddingBottom:32}}>
         {/* Header */}
-        <div style={{marginBottom:20}}>
+        <div style={{marginBottom:14}}>
           <div style={{fontSize:20,fontWeight:900,color:C.text}}>📊 กรอกผลแมตช์</div>
           {scoreMatch&&<div style={{fontSize:11,color:C.sub,marginTop:4,letterSpacing:1}}>
             รหัสแมตช์ · {scoreMatch.match_code||`#${scoreMatch.id}`}
           </div>}
+        </div>
+
+        {/* Instruction card */}
+        <div style={{background:"rgba(16,185,129,0.06)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:12,padding:"11px 14px",marginBottom:20,display:"flex",gap:10,alignItems:"flex-start"}}>
+          <div style={{fontSize:18,lineHeight:1}}>📋</div>
+          <div>
+            <div style={{fontSize:12,fontWeight:800,color:C.green,marginBottom:3}}>กัปตัน — กรอกหลังจบทุกรอบแล้ว</div>
+            <div style={{fontSize:10,color:C.sub,lineHeight:1.6}}>
+              บันทึกทุกรอบที่เล่นในวันนี้ · เลือก MVP · กดยืนยัน<br/>
+              ผู้เล่นทุกคนได้ XP ทันที 🎮
+            </div>
+          </div>
         </div>
 
         {/* ── รายการรอบ ── */}
@@ -2312,7 +2357,7 @@ const handlePhotoUpload = async (e) => {
           ):(
             <button onClick={()=>setAddingRound(true)}
               style={{width:"100%",padding:"11px",borderRadius:12,border:`1.5px dashed ${C.border}`,background:"transparent",color:C.sub,fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:4}}>
-              ➕ เพิ่มรอบ
+              ➕ บันทึกรอบ
             </button>
           )}
         </div>
@@ -2390,11 +2435,11 @@ const handlePhotoUpload = async (e) => {
         @keyframes sq-fadein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
       `}}/>
 
-      {/* Logo */}
+      {/* Logo — served from Vercel edge, preloaded in index.html */}
       <div style={{marginBottom:20}}>
         <div style={{width:140,borderRadius:14,overflow:"hidden",background:"#091510"}}>
-          <ImgLoad src="https://i.postimg.cc/jSkNCWxY/squadhub003.png" alt="SQUAD HUB"
-            fetchpriority="high" loading="eager"
+          <img src="/logo.png" alt="SQUAD HUB"
+            fetchpriority="high" decoding="async"
             style={{width:140,display:"block",objectFit:"contain"}}/>
         </div>
       </div>
