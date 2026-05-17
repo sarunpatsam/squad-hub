@@ -2292,12 +2292,12 @@ const handlePhotoUpload = async (e) => {
           )}
         </div>
 
-        {/* ── Coming Soon: Individual Stats ── */}
+        {/* ── Coming Soon: Individual Goals only ── */}
         <div style={{marginBottom:20,padding:"12px 16px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid rgba(255,255,255,0.06)`,display:"flex",alignItems:"center",gap:12,opacity:0.55}}>
           <div style={{fontSize:22}}>🔒</div>
           <div style={{flex:1}}>
-            <div style={{fontSize:12,fontWeight:800,color:C.sub}}>Individual Stats — ใครยิงกี่ลูก?</div>
-            <div style={{fontSize:10,color:C.muted,marginTop:2}}>⚡ Coming Soon · Next Update</div>
+            <div style={{fontSize:12,fontWeight:800,color:C.sub}}>⚽ บันทึกประตูรายบุคคล</div>
+            <div style={{fontSize:10,color:C.muted,marginTop:2}}>Goals & Assists per player · Coming Next Update</div>
           </div>
           <div style={{padding:"3px 8px",borderRadius:6,background:"rgba(255,255,255,0.06)",fontSize:9,fontWeight:800,color:C.muted,letterSpacing:1,textTransform:"uppercase"}}>Soon</div>
         </div>
