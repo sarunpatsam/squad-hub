@@ -628,6 +628,7 @@ export default function SquadHub() {
   const [scoreLoading,setScoreLoading]     = useState(false);
   const [scoreDataLoading,setScoreDataLoading] = useState(false);
   const [venueNotified,setVenueNotified]   = useState(false);
+  const [captainSignaled,setCaptainSignaled] = useState(false);
   const fileRef = useRef(null);
 
   /* ── DATE HELPERS ── */
@@ -724,6 +725,35 @@ export default function SquadHub() {
     setAddingRound(false);
     setNewRound(r=>({...r,scoreA:0,scoreB:0}));
   };
+
+  /* ── CAPTAIN SIGNAL VENUE ── */
+  // กัปตันกดแจ้งสนามว่าจบแล้ว → ก่อน partner กด End Match
+  const signalVenueMatchEnd = async () => {
+    if(captainSignaled) return;
+    try {
+      const slotId = myBooking?.slot_id || slot?.id;
+      if(slotId) {
+        // อัพ slot status → captain_signaled (PartnerApp จะเห็น)
+        await supabase.from("slots").update({status:"captain_signaled"}).eq("id",slotId);
+        // อัพ match ด้วยถ้ามี
+        const {data:m} = await supabase.from("matches").select("id").eq("slot_id",slotId).maybeSingle();
+        if(m?.id) await supabase.from("matches").update({status:"captain_signaled"}).eq("id",m.id);
+      }
+      setCaptainSignaled(true);
+      setSlot(prev=>prev?{...prev,status:"captain_signaled"}:prev);
+    } catch(e){ console.error("signalVenue:",e); }
+  };
+
+  /* ── SLOT REALTIME — lock ปุ่มเมื่อสนามกด End Match ── */
+  useEffect(()=>{
+    const slotId = myBooking?.slot_id || slot?.id;
+    if(!slotId) return;
+    const ch = supabase.channel(`slot-status-${slotId}`)
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"slots",filter:`id=eq.${slotId}`},
+        (payload)=>{ if(payload.new?.status==="ended") setSlot(prev=>prev?{...prev,status:"ended"}:prev); }
+      ).subscribe();
+    return ()=>{ supabase.removeChannel(ch); };
+  },[myBooking?.slot_id, slot?.id]);
 
   /* ── SUBMIT FINAL RESULT ── */
   const submitResult = async ()=>{
@@ -1983,6 +2013,7 @@ const handlePhotoUpload = async (e) => {
             {/* 🎖️ Captain claim button */}
             {myTeam===curTeam?.id&&(
               curTeam?.players.find(p=>p.isMe)?.isCaptain ? (
+                <>
                 <div style={{marginTop:8,background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:12,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
                   <span style={{fontSize:16}}>🎖️</span>
                   <div>
@@ -1990,6 +2021,42 @@ const handlePhotoUpload = async (e) => {
                     <div style={{fontSize:10,color:C.sub}}>หลังแมตช์จบ บอทจะส่งฟอร์มสรุปให้ทาง LINE · +30 XP รอคุณ</div>
                   </div>
                 </div>
+
+                {/* ── ปุ่มแจ้งสนาม: แสดงหลังเวลาจองเริ่ม + ล็อคเมื่อสนามกด end ── */}
+                {(()=>{
+                  // เช็คว่าเวลาจองเริ่มแล้วหรือยัง
+                  const slotDate = slot?.date || (slot?.time ? fmtDate(today) : null);
+                  const startStr = slot?.start_time || (slot?.time ? `${slot.time}:00` : null);
+                  const hasStarted = slotDate && startStr
+                    ? new Date() >= new Date(`${slotDate}T${startStr}`)
+                    : false;
+                  const isEnded = slot?.status === "ended";
+                  if(!hasStarted) return null;
+                  return(
+                    <button
+                      onClick={signalVenueMatchEnd}
+                      disabled={captainSignaled || isEnded}
+                      style={{
+                        marginTop:8, width:"100%", padding:"12px 16px", borderRadius:13,
+                        border:`1.5px solid ${captainSignaled||isEnded?"rgba(255,255,255,0.08)":"rgba(239,68,68,0.4)"}`,
+                        background: captainSignaled||isEnded ? "rgba(255,255,255,0.03)" : "rgba(239,68,68,0.08)",
+                        cursor: captainSignaled||isEnded ? "not-allowed" : "pointer",
+                        display:"flex", alignItems:"center", gap:10, transition:"all .2s",
+                      }}>
+                      <span style={{fontSize:18}}>{isEnded?"🔒":captainSignaled?"⏳":"🏁"}</span>
+                      <div style={{textAlign:"left",flex:1}}>
+                        <div style={{fontSize:13,fontWeight:800,color:isEnded?C.muted:captainSignaled?C.amber:C.red}}>
+                          {isEnded?"สนาม Confirm แล้ว — รอ LINE notification":captainSignaled?"แจ้งสนามแล้ว — รอสนาม Confirm":"แจ้งสนามว่าเล่นจบแล้ว"}
+                        </div>
+                        <div style={{fontSize:10,color:C.muted}}>
+                          {isEnded?"บอทจะส่งลิงก์กรอกผลให้ทาง LINE":captainSignaled?"สนามจะกด End Match แล้ว LINE จะส่งลิงก์มาให้":"กดเมื่อทุกทีมเล่นจบแล้ว"}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })()}
+                </>
+
               ) : !curTeam?.players.some(p=>p.isCaptain) ? (
                 <button onClick={claimCaptain}
                   style={{marginTop:8,width:"100%",padding:"11px 16px",borderRadius:13,border:`1.5px dashed ${C.amber}55`,background:`rgba(251,191,36,0.06)`,cursor:"pointer",display:"flex",alignItems:"center",gap:10,transition:"all .2s"}}>
@@ -2237,24 +2304,7 @@ const handlePhotoUpload = async (e) => {
             </div>
           ))}
         </div>
-        {/* แจ้งสนามว่าจบแล้ว */}
-        {!venueNotified?(
-          <button onClick={async()=>{
-            if(scoreMatch?.slot_id){
-              await supabase.from("slots").update({status:"ended"}).eq("id",scoreMatch.slot_id);
-            }
-            setVenueNotified(true);
-          }} style={{marginTop:20,width:"100%",maxWidth:320,padding:"13px 24px",borderRadius:12,border:"none",
-            background:"linear-gradient(135deg,#00c96b,#10d484)",color:"#001a0d",fontSize:14,fontWeight:900,cursor:"pointer",
-            boxShadow:"0 0 18px rgba(0,255,135,0.25)"}}>
-            ✅ แจ้งสนามว่าจบแล้ว
-          </button>
-        ):(
-          <div style={{marginTop:20,padding:"10px 20px",borderRadius:10,background:"rgba(16,185,129,0.1)",border:`1px solid ${C.border}`,fontSize:12,color:C.green,fontWeight:700}}>
-            🏟️ สนามรับทราบแล้ว — ขอบคุณกัปตัน!
-          </div>
-        )}
-        <button onClick={()=>setTab("home")} style={{marginTop:12,padding:"12px 32px",borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,color:C.text,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+        <button onClick={()=>setTab("home")} style={{marginTop:24,padding:"12px 32px",borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,color:C.text,fontSize:14,fontWeight:700,cursor:"pointer"}}>
           กลับหน้าหลัก
         </button>
       </div>
