@@ -2009,7 +2009,7 @@ const handlePhotoUpload = async (e) => {
       <div style={{width:14,height:14,borderRadius:"50%",background:"rgba(251,191,36,0.15)",border:"1px solid rgba(251,191,36,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:C.amber,flexShrink:0}}>!</div>
       <span style={{fontSize:10,color:C.sub}}>กดยืนยันเพื่อล็อคที่นั่งและชำระเงิน · ยังไม่หักเงินจนกว่าจะยืนยัน</span>
     </div>
-    <Btn onClick={()=>setPayStep("summary"); setTab("checkout")}>ยืนยันและชำระเงิน <ChevronRight size={15}/></Btn>
+    <Btn onClick={()=>{setPayStep("summary"); setTab("checkout");}}>ยืนยันและชำระเงิน <ChevronRight size={15}/></Btn>
   </div>
 )}
             {pitchPopup&&(
@@ -2112,7 +2112,7 @@ const handlePhotoUpload = async (e) => {
                 </div>
               }
             </div>
-            {myTeam&&<Btn onClick={()=>setPayStep("summary"); setTab("checkout")}>ยืนยัน {myTeamData?.name} <ChevronRight size={15}/></Btn>}
+            {myTeam&&<Btn onClick={()=>{setPayStep("summary"); setTab("checkout");}}>ยืนยัน {myTeamData?.name} <ChevronRight size={15}/></Btn>}
 
             {/* 🎖️ Captain claim button */}
             {myTeam===curTeam?.id&&(
