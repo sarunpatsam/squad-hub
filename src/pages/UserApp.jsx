@@ -2306,21 +2306,28 @@ const handlePhotoUpload = async (e) => {
           setPayStep("verifying");
           const payRef = `PAY-${Date.now()}`;
           try {
-            const {data:bkData, error:bkErr} = await supabase.from("bookings").insert({
+            // ใช้แค่ insert ไม่ต้องการ SELECT policy
+            const {error:bkErr} = await supabase.from("bookings").insert({
               player_id: player.dbId,
               slot_id: slot.id,
               venue_id: venue.id,
               amount: total,
               status: "pending",
               payment_ref: payRef,
-            }).select("id,player_id,slot_id,venue_id,amount,status").single();
+            });
             if(bkErr) {
-              console.error("booking insert error:",bkErr);
+              console.error("booking insert error:",bkErr.message, bkErr.details, bkErr.hint);
               setPayStep("qr_error");
               return;
             }
-            // อัพ myBooking state ทันที → renderSuccess + Home banner ถูกต้อง
-            setMyBooking(bkData || {player_id:player.dbId,slot_id:slot.id,venue_id:venue.id,amount:total,status:"pending"});
+            // อัพ myBooking state ทันที (ไม่ต้อง select — ใช้ data ที่รู้อยู่แล้ว)
+            setMyBooking({
+              player_id: player.dbId,
+              slot_id: slot.id,
+              venue_id: venue.id,
+              amount: total,
+              status: "pending",
+            });
             setPayStep("done");
             setTab("success");
           } catch(e) {
