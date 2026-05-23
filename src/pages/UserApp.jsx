@@ -1007,6 +1007,14 @@ export default function SquadHub() {
       .from("venues").select(`*, slots(*)`)
       .eq("is_active",true).order("id");
     if(!error&&data&&data.length>0){
+      // ดึง booking counts จริงทุก slot ในวันนี้
+      const allSlotIds = data.flatMap(v=>(v.slots||[]).filter(s=>s.date===dateStr).map(s=>s.id));
+      const countMap = {};
+      if(allSlotIds.length){
+        const {data:bks} = await supabase.from("bookings")
+          .select("slot_id").in("slot_id",allSlotIds).in("status",["pending","confirmed"]);
+        (bks||[]).forEach(b=>{ countMap[b.slot_id]=(countMap[b.slot_id]||0)+1; });
+      }
       const mapped=data.map(v=>({
         id:v.id, name:v.name, area:v.area||"",
         lat:v.lat||null, lng:v.lng||null, address:v.address||"",
@@ -1019,7 +1027,7 @@ export default function SquadHub() {
             end:s.end_time?.slice(0,5)||"—", type:s.match_type||"7v7",
             price:s.price_per_player||150, fee:0,
             status:s.status==="open"?"Open":s.status==="full"?"Full":"Hot",
-            filled:0, total:s.max_players||14,
+            filled:countMap[s.id]||0, total:s.max_players||14,
           })),
       }));
       setVenues(mapped);
@@ -1701,18 +1709,43 @@ const handlePhotoUpload = async (e) => {
                 </div>
               </div>
             </div>
-            {!isEnded&&!isPending&&(
-              <button
-                onClick={signalVenueMatchEnd}
-                style={{
-                  marginTop:12, width:"100%", padding:"11px 16px", borderRadius:10,
-                  border:"1.5px solid rgba(239,68,68,0.45)",
-                  background:"rgba(239,68,68,0.12)",
-                  color:C.red, fontSize:13, fontWeight:900, cursor:"pointer",
-                  display:"flex", alignItems:"center", justifyContent:"center", gap:7,
-                }}>
-                🏁 แจ้งสนามว่าเล่นจบแล้ว
-              </button>
+            {!isEnded&&(
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:12}}>
+                {/* ปุ่มบันทึกคะแนน — กดได้ตลอดระหว่างแมตช์ */}
+                <button
+                  onClick={async()=>{
+                    let matchId = myBooking?.match_id;
+                    if(!matchId && myBooking?.slot_id){
+                      const {data:m} = await supabase.from("matches")
+                        .select("id").eq("slot_id",myBooking.slot_id).maybeSingle();
+                      matchId = m?.id;
+                    }
+                    if(matchId) setScoreMatchId(matchId);
+                    setTab("score");
+                  }}
+                  style={{
+                    width:"100%", padding:"11px 16px", borderRadius:10,
+                    border:`1.5px solid rgba(16,185,129,0.5)`,
+                    background:"rgba(16,185,129,0.12)",
+                    color:C.green, fontSize:13, fontWeight:900, cursor:"pointer",
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+                  }}>
+                  📝 บันทึกคะแนนรอบนี้
+                </button>
+                {!isPending&&(
+                  <button
+                    onClick={signalVenueMatchEnd}
+                    style={{
+                      width:"100%", padding:"11px 16px", borderRadius:10,
+                      border:"1.5px solid rgba(239,68,68,0.45)",
+                      background:"rgba(239,68,68,0.12)",
+                      color:C.red, fontSize:13, fontWeight:900, cursor:"pointer",
+                      display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+                    }}>
+                    🏁 แจ้งสนามว่าเล่นจบแล้ว
+                  </button>
+                )}
+              </div>
             )}
           </div>
         );
@@ -2378,6 +2411,9 @@ const handlePhotoUpload = async (e) => {
         </div>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:10,maxWidth:320,margin:"0 auto"}}>
+        <Btn onClick={()=>setTab("room")} style={{background:C.green,color:"#000",fontWeight:900}}>
+          ⚽ ดูห้องแมตช์
+        </Btn>
         <Btn ghost onClick={()=>setTab("profile")}>ดู Player Profile</Btn>
         <Btn ghost onClick={()=>setTab("home")} style={{color:C.muted,borderColor:"rgba(255,255,255,0.08)"}}>กลับหน้าหลัก</Btn>
       </div>
@@ -2464,13 +2500,6 @@ const handlePhotoUpload = async (e) => {
           {scoreMatch&&<div style={{fontSize:11,color:C.sub,marginTop:4,letterSpacing:1}}>
             รหัสแมตช์ · {scoreMatch.match_code||`#${scoreMatch.id}`}
           </div>}
-        </div>
-
-        {/* Debug strip — แสดงสถานะ match_id + players */}
-        <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:8,padding:"7px 12px",marginBottom:10,fontSize:10,color:C.muted,display:"flex",gap:12}}>
-          <span>Match ID: <b style={{color:scoreMatchId?C.green:C.red}}>{scoreMatchId||"ไม่มี — เปิดจาก LINE link"}</b></span>
-          <span>Players: <b style={{color:scorePlayers.length>0?C.green:C.amber}}>{scorePlayers.length}</b></span>
-          <span>Rounds: <b style={{color:C.text}}>{scoreRounds.length}</b></span>
         </div>
 
         {/* Instruction card */}
