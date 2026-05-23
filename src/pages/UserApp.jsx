@@ -2009,7 +2009,7 @@ const handlePhotoUpload = async (e) => {
       <div style={{width:14,height:14,borderRadius:"50%",background:"rgba(251,191,36,0.15)",border:"1px solid rgba(251,191,36,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:C.amber,flexShrink:0}}>!</div>
       <span style={{fontSize:10,color:C.sub}}>กดยืนยันเพื่อล็อคที่นั่งและชำระเงิน · ยังไม่หักเงินจนกว่าจะยืนยัน</span>
     </div>
-    <Btn onClick={()=>setTab("checkout")}>ยืนยันและชำระเงิน <ChevronRight size={15}/></Btn>
+    <Btn onClick={()=>setPayStep("summary"); setTab("checkout")}>ยืนยันและชำระเงิน <ChevronRight size={15}/></Btn>
   </div>
 )}
             {pitchPopup&&(
@@ -2112,7 +2112,7 @@ const handlePhotoUpload = async (e) => {
                 </div>
               }
             </div>
-            {myTeam&&<Btn onClick={()=>setTab("checkout")}>ยืนยัน {myTeamData?.name} <ChevronRight size={15}/></Btn>}
+            {myTeam&&<Btn onClick={()=>setPayStep("summary"); setTab("checkout")}>ยืนยัน {myTeamData?.name} <ChevronRight size={15}/></Btn>}
 
             {/* 🎖️ Captain claim button */}
             {myTeam===curTeam?.id&&(
@@ -2257,13 +2257,24 @@ const handlePhotoUpload = async (e) => {
     );
 
     /* ── Step 2: QR Code ── */
-    if(payStep==="qr") return (
+    if(payStep==="qr"||payStep==="qr_error") return (
       <div style={{paddingTop:16}}>
         <button onClick={()=>setPayStep("summary")} style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:700,color:C.sub,background:"none",border:"none",cursor:"pointer",padding:"0 0 16px",letterSpacing:.2}}>
           <ArrowLeft size={14}/>กลับ
         </button>
         <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:4,color:C.text}}>PromptPay QR</div>
         <div style={{fontSize:12,color:C.sub,marginBottom:20}}>โอนตรงให้สนาม · {venueName}</div>
+
+        {/* Error banner */}
+        {payStep==="qr_error"&&(
+          <div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.35)",borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:16}}>⚠️</span>
+            <div>
+              <div style={{fontSize:12,fontWeight:800,color:C.red}}>บันทึกไม่สำเร็จ</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:1}}>กรุณาลองใหม่ หรือติดต่อสนาม</div>
+            </div>
+          </div>
+        )}
 
         {/* QR Card */}
         <div style={{position:"relative",borderRadius:24,overflow:"hidden",marginBottom:16,background:"linear-gradient(160deg,#0d1f14,#091824)",border:`1.5px solid ${C.borderHi}`,boxShadow:`0 0 40px rgba(16,185,129,0.12)`}}>
@@ -2286,35 +2297,49 @@ const handlePhotoUpload = async (e) => {
         </div>
 
         <Btn onClick={async ()=>{
-  setPayStep("verifying");
-  try {
-    const {error:bkErr} = await supabase.from("bookings").insert({
-      player_id: player?.dbId,
-      slot_id: slot?.id,
-      venue_id: venue?.id,
-      amount: total,
-      status: "pending",
-      payment_ref: `PAY-${Date.now()}`
-    });
-    if(bkErr) { console.error("booking insert error:",bkErr); setPayStep("qr"); return; }
-    setPayStep("done");
-    setTab("success");
-  } catch(e) {
-    console.error(e);
-    setPayStep("qr");
-  }
-}}>
-  โอนแล้ว · ยืนยันการชำระ ✓
-</Btn>
+          // Guard: ต้องมี player + slot ก่อน
+          if(!player?.dbId || !slot?.id || !venue?.id) {
+            console.error("booking guard failed:",{pid:player?.dbId,sid:slot?.id,vid:venue?.id});
+            setPayStep("qr_error");
+            return;
+          }
+          setPayStep("verifying");
+          const payRef = `PAY-${Date.now()}`;
+          try {
+            const {data:bkData, error:bkErr} = await supabase.from("bookings").insert({
+              player_id: player.dbId,
+              slot_id: slot.id,
+              venue_id: venue.id,
+              amount: total,
+              status: "pending",
+              payment_ref: payRef,
+            }).select("id,player_id,slot_id,venue_id,amount,status").single();
+            if(bkErr) {
+              console.error("booking insert error:",bkErr);
+              setPayStep("qr_error");
+              return;
+            }
+            // อัพ myBooking state ทันที → renderSuccess + Home banner ถูกต้อง
+            setMyBooking(bkData || {player_id:player.dbId,slot_id:slot.id,venue_id:venue.id,amount:total,status:"pending"});
+            setPayStep("done");
+            setTab("success");
+          } catch(e) {
+            console.error("booking exception:",e);
+            setPayStep("qr_error");
+          }
+        }}>
+          โอนแล้ว · ยืนยันการชำระ ✓
+        </Btn>
       </div>
     );
 
     /* ── Step 3: Verifying ── */
     if(payStep==="verifying") return (
       <div style={{paddingTop:80,textAlign:"center"}}>
-        <div style={{fontSize:40,marginBottom:16}}>⏳</div>
-        <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:8}}>กำลังตรวจสอบ...</div>
-        <div style={{fontSize:12,color:C.sub}}>รอสักครู่ ระบบกำลังยืนยันการชำระเงิน</div>
+        <div style={{fontSize:40,marginBottom:16,animation:"spin 1s linear infinite"}}>⏳</div>
+        <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:8}}>กำลังบันทึก...</div>
+        <div style={{fontSize:12,color:C.sub}}>รอสักครู่ ระบบกำลังบันทึกการจอง</div>
+        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
       </div>
     );
 
@@ -2322,26 +2347,36 @@ const handlePhotoUpload = async (e) => {
   };
 
   /* ── SUCCESS ── */
-  const renderSuccess = () => (
-  <div style={{textAlign:"center",padding:"56px 20px 40px"}}>
-    <div style={{width:68,height:68,background:"rgba(234,179,8,0.1)",border:`2px solid #ca8a04`,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px"}}>
-      <Clock size={30} color="#eab308"/>
-    </div>
-    <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:6,color:C.text}}>{T("รอการยืนยัน","Pending Confirmation")}</div>
-    <div style={{fontSize:13,color:C.sub,marginBottom:3}}>{myTeamData?.name} · {venue?.name}</div>
-    <div style={{fontSize:12,color:"#eab308",fontWeight:700,marginBottom:28}}>{slot?.time}–{slot?.end}</div>
-    <div style={{background:"rgba(234,179,8,0.08)",border:`1px solid rgba(202,138,4,0.4)`,borderRadius:14,padding:"14px 18px",marginBottom:20,textAlign:"left"}}>
-      <div style={{fontSize:9,fontWeight:800,color:"#eab308",letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>สถานะ</div>
-      <div style={{fontSize:12,color:C.sub,lineHeight:1.8}}>
-        📍 {venue?.name}<br/>
-        ⏰ {slot?.time}–{slot?.end}<br/>
-        💳 {T("รอ Partner ยืนยันการชำระเงิน","Awaiting payment confirmation")}<br/>
-        📲 {T("ระบบจะแจ้งผลทาง LINE","You'll be notified via LINE")}
+  const renderSuccess = () => {
+    const slotTime = slot?.time || slot?.start_time?.slice(0,5) || "—";
+    const slotEnd  = slot?.end  || slot?.end_time?.slice(0,5)   || "—";
+    const venueName = venue?.name || "สนาม";
+    return (
+    <div style={{textAlign:"center",padding:"56px 20px 40px"}}>
+      <div style={{width:68,height:68,background:"rgba(234,179,8,0.1)",border:`2px solid #ca8a04`,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px"}}>
+        <Clock size={30} color="#eab308"/>
+      </div>
+      <div style={{fontSize:22,fontWeight:900,fontStyle:"italic",textTransform:"uppercase",marginBottom:6,color:C.text}}>รอการยืนยัน</div>
+      <div style={{fontSize:13,color:C.sub,marginBottom:3}}>
+        {myTeamData?.name ? `${myTeamData.name} · ` : ""}{venueName}
+      </div>
+      <div style={{fontSize:12,color:"#eab308",fontWeight:700,marginBottom:28}}>{slotTime}–{slotEnd}</div>
+      <div style={{background:"rgba(234,179,8,0.08)",border:`1px solid rgba(202,138,4,0.4)`,borderRadius:14,padding:"14px 18px",marginBottom:20,textAlign:"left"}}>
+        <div style={{fontSize:9,fontWeight:800,color:"#eab308",letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>สถานะ</div>
+        <div style={{fontSize:12,color:C.sub,lineHeight:1.8}}>
+          📍 {venueName}<br/>
+          ⏰ {slotTime}–{slotEnd}<br/>
+          💳 รอ Partner ยืนยันการชำระเงิน<br/>
+          📲 ระบบจะแจ้งผลทาง LINE
+        </div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:10,maxWidth:320,margin:"0 auto"}}>
+        <Btn ghost onClick={()=>setTab("profile")}>ดู Player Profile</Btn>
+        <Btn ghost onClick={()=>setTab("home")} style={{color:C.muted,borderColor:"rgba(255,255,255,0.08)"}}>กลับหน้าหลัก</Btn>
       </div>
     </div>
-    <Btn ghost onClick={()=>setTab("profile")}>{T("ดู Player Profile","View Player Profile")}</Btn>
-  </div>
-);
+  );
+  };
 
   /* ── LEADERBOARD ── */
   const renderLeaderboard = () => {
