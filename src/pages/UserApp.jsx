@@ -418,7 +418,7 @@ const ChatPanel = ({messages,myName,onSend,teams}) => {
   const [msg,setMsg]=useState("");
   const [chatTab,setChatTab]=useState("match");
   const endRef=useRef(null);
-  const tabs=[{id:"match",label:"⚽ Match",color:C.green},...teams.map(t=>({id:t.id,label:t.name,color:t.color}))];
+  const tabs=[{id:"match",label:"⚽ Match",color:C.green},...(teams||[]).map(t=>({id:t.id,label:t.name,color:t.color}))];
   const filtered=messages.filter(m=>m.team===chatTab);
   const send=()=>{if(!msg.trim())return;onSend(msg.trim(),chatTab);setMsg("");};
   return (
