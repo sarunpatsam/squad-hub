@@ -2492,7 +2492,11 @@ const handlePhotoUpload = async (e) => {
       {id:0,display_name:"โจ้",nick:"ม้าใช้ทีม 🐎",tier:"Gold",level:4,xp:600,matches_played:32,wins:16},
     ];
     const source = lbData.length ? lbData : MOCK;
-    const board = source.map((p,i)=>({...p,rank:i+1,isMe:p.id===player?.dbId}));
+    const alreadyInList = source.some(p=>p.id===player?.dbId);
+    const withMe = (player && !alreadyInList)
+      ? [...source, {id:player.dbId,display_name:player.name,nick:player.nick,tier:player.tier,level:player.level||1,xp:player.xp||0,matches_played:player.matchStats?.matches||0,wins:player.matchStats?.wins||0}]
+      : source;
+    const board = withMe.map((p,i)=>({...p,rank:i+1,isMe:p.id===player?.dbId}));
     return (
       <div style={{paddingTop:16}}>
         <div style={{textAlign:"center",marginBottom:20}}>
