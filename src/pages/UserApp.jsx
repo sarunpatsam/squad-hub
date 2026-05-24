@@ -710,7 +710,10 @@ export default function SquadHub() {
         const da = a.slotData?.date||"";
         const db = b.slotData?.date||"";
         if(da !== db) return da.localeCompare(db); // ต่างวัน: วันใกล้ก่อน
-        return (b.created_at||"").localeCompare(a.created_at||""); // วันเดียวกัน: ล่าสุดก่อน
+        const ta = a.slotData?.start_time||"";
+        const tb = b.slotData?.start_time||"";
+        if(ta !== tb) return ta.localeCompare(tb); // วันเดียวกัน: เวลาเร็วกว่าก่อน (ใกล้เล่นก่อน)
+        return (b.created_at||"").localeCompare(a.created_at||""); // เวลาเดียวกัน: booking ล่าสุดก่อน
       });
 
     if(!enriched.length) console.warn("[loadMyBooking] enriched empty — bookings found but no matching slots. bks:", bks.length, "slots:", slots?.length);
