@@ -649,21 +649,31 @@ export default function SquadHub() {
   /* ── LOAD MY BOOKING ── */
   const loadMyBooking = useCallback(async (playerId) => {
     const {data:bk} = await supabase.from("bookings")
-      .select("id,slot_id,venue_id,amount,status")
+      .select("id,slot_id,venue_id,amount,status,match_id")
       .eq("player_id", playerId)
       .in("status", ["pending","confirmed"])
       .order("created_at", {ascending:false})
       .limit(1).single();
     if(bk) {
-      setMyBooking(bk);
+      // ถ้า booking ไม่มี match_id → query matches จาก slot_id
+      let matchId = bk.match_id || null;
+      if(!matchId && bk.slot_id) {
+        const {data:m} = await supabase.from("matches")
+          .select("id").eq("slot_id", bk.slot_id).maybeSingle();
+        matchId = m?.id || null;
+      }
+      const bookingWithMatch = {...bk, match_id: matchId};
+      setMyBooking(bookingWithMatch);
+      if(matchId) setScoreMatchId(matchId);
       const [{data:vd},{data:sd}] = await Promise.all([
-        supabase.from("venues").select("id,name,area").eq("id",bk.venue_id).single(),
-        supabase.from("slots").select("id,start_time,end_time,match_type,date").eq("id",bk.slot_id).single()
+        supabase.from("venues").select("id,name,area,promptpay_id,promptpay_name").eq("id",bk.venue_id).single(),
+        supabase.from("slots").select("id,start_time,end_time,match_type,date,price,fee,max_players,status").eq("id",bk.slot_id).single()
       ]);
       if(vd) setVenue(vd);
       if(sd) setSlot({...sd, time:sd.start_time?.slice(0,5), end:sd.end_time?.slice(0,5)});
+      return bookingWithMatch;
     }
-    return bk||null;
+    return null;
   },[]);
 
   /* ── CHECK IF USER IS CAPTAIN (on load / booking change) ── */
@@ -1208,17 +1218,21 @@ const handlePhotoUpload = async (e) => {
   };
 
   // หา หรือ สร้าง matches row สำหรับ slot นี้
-  const findOrCreateMatch = useCallback(async (slotId) => {
+  const findOrCreateMatch = useCallback(async (slotId, fallbackVenueId) => {
     if(!slotId) return null;
     let { data: match } = await supabase.from("matches")
       .select("id,venue_id").eq("slot_id", slotId).maybeSingle();
     if(match?.id) return match;
-    // ไม่มี → สร้างใหม่
-    const { data: slotData } = await supabase.from("slots")
-      .select("venue_id").eq("id", slotId).single();
+    // ไม่มี → สร้างใหม่ — ใช้ fallbackVenueId ก่อน ถ้าไม่มีค่อย query slot
+    let venueId = fallbackVenueId || null;
+    if(!venueId) {
+      const { data: slotData } = await supabase.from("slots")
+        .select("venue_id").eq("id", slotId).single();
+      venueId = slotData?.venue_id || null;
+    }
     const { data: newMatch, error } = await supabase.from("matches").insert({
       slot_id: slotId,
-      venue_id: slotData?.venue_id || null,
+      venue_id: venueId,
       status: "active",
       match_code: `M${Date.now().toString(36).toUpperCase()}`,
     }).select("id,venue_id").single();
@@ -1227,10 +1241,10 @@ const handlePhotoUpload = async (e) => {
   }, []);
 
   // Write captain assignment to DB (captain_lookup table)
-  const writeCaptainToDB = useCallback(async (teamId, lineUserId, displayName, slotId) => {
+  const writeCaptainToDB = useCallback(async (teamId, lineUserId, displayName, slotId, venueId) => {
     if (!slotId || !lineUserId) return;
     try {
-      const match = await findOrCreateMatch(slotId);
+      const match = await findOrCreateMatch(slotId, venueId);
       if (!match?.id) return;
       const { error } = await supabase.from("captain_lookup").upsert({
         match_id: match.id,
@@ -1262,7 +1276,7 @@ const handlePhotoUpload = async (e) => {
     setIsUserCaptain(true);
     setTimeout(()=>setCaptainToast(null),5000);
     // Persist to DB
-    writeCaptainToDB(myTeam, player.lineUserId, player.name, myBooking?.slot_id);
+    writeCaptainToDB(myTeam, player.lineUserId, player.name, myBooking?.slot_id, myBooking?.venue_id);
   },[myTeam,player,myBooking,writeCaptainToDB]);
 
   const sendChat = (msg,chatTeam) => {
@@ -1674,15 +1688,10 @@ const handlePhotoUpload = async (e) => {
         )}
       </div>
 
-      {/* ── ACTIVE MATCH BANNER (captain only, after start_time) ── */}
+      {/* ── ACTIVE MATCH BANNER (captain only, after booking confirmed) ── */}
       {(()=>{
         if(!isUserCaptain) return null;
         if(!myBooking?.slot_id) return null;
-        const slotDate  = slot?.date;
-        const startTime = slot?.start_time || (slot?.time ? `${slot.time}:00` : null);
-        if(!slotDate || !startTime) return null;
-        const hasStarted = new Date() >= new Date(`${slotDate}T${startTime}`);
-        if(!hasStarted) return null;
         const isEnded    = slot?.status === "ended";
         const isPending  = captainSignaled && !isEnded;
         return (
@@ -2159,15 +2168,8 @@ const handlePhotoUpload = async (e) => {
                   </div>
                 </div>
 
-                {/* ── ปุ่มแจ้งสนาม: แสดงหลังเวลาจองเริ่ม + ล็อคเมื่อสนามกด end ── */}
+                {/* ── ปุ่มแจ้งสนาม: แสดงเมื่อ booking confirmed + ล็อคเมื่อสนามกด end ── */}
                 {(()=>{
-                  // เช็คเวลาจองเริ่มแล้วหรือยัง
-                  const slotDate  = slot?.date;
-                  const startTime = slot?.start_time || (slot?.time ? `${slot.time}:00` : null);
-                  const hasStarted = slotDate && startTime
-                    ? new Date() >= new Date(`${slotDate}T${startTime}`)
-                    : false;
-                  if(!hasStarted) return null; // ยังไม่ถึงเวลา → ซ่อน
                   const isEnded = slot?.status === "ended";
                   return(
                     <button
@@ -2353,7 +2355,7 @@ const handlePhotoUpload = async (e) => {
               setPayStep("qr_error");
               return;
             }
-            // อัพ myBooking state ทันที (ไม่ต้อง select — ใช้ data ที่รู้อยู่แล้ว)
+            // Set optimistic state ก่อน แล้ว re-fetch เพื่อดึง match_id (ถ้ามี)
             setMyBooking({
               player_id: player.dbId,
               slot_id: slot.id,
@@ -2361,6 +2363,8 @@ const handlePhotoUpload = async (e) => {
               amount: total,
               status: "pending",
             });
+            // Re-fetch เพื่อดึง match_id จาก DB (async — ไม่ต้อง await)
+            if(player?.dbId) loadMyBooking(player.dbId);
             setPayStep("done");
             setTab("success");
           } catch(e) {
@@ -2414,7 +2418,6 @@ const handlePhotoUpload = async (e) => {
         <Btn onClick={()=>setTab("room")} style={{background:C.green,color:"#000",fontWeight:900}}>
           ⚽ ดูห้องแมตช์
         </Btn>
-        <Btn ghost onClick={()=>setTab("profile")}>ดู Player Profile</Btn>
         <Btn ghost onClick={()=>setTab("home")} style={{color:C.muted,borderColor:"rgba(255,255,255,0.08)"}}>กลับหน้าหลัก</Btn>
       </div>
     </div>
