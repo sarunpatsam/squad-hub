@@ -662,6 +662,8 @@ export default function SquadHub() {
   const [slipUrl,setSlipUrl]             = useState(null);
   const [slipUploading,setSlipUploading] = useState(false);
   const [slipError,setSlipError]         = useState(false);
+  const [confirmedCount,setConfirmedCount] = useState(0);
+  const [showConfirmBanner,setShowConfirmBanner] = useState(false);
   const [captainSignaled,setCaptainSignaled] = useState(false);
   const [isUserCaptain,setIsUserCaptain]     = useState(false);
   const fileRef = useRef(null);
@@ -848,10 +850,14 @@ export default function SquadHub() {
       })));
       const myMp = mps.find(m=>m.player_id===player?.dbId);
       if(myMp?.team) setMyTeam(myMp.team);
+      // นับจำนวน confirmed bookings เพื่อแสดง capacity
+      const {count} = await supabase.from("bookings")
+        .select("id",{count:"exact",head:true}).eq("slot_id",myBooking.slot_id).eq("status","confirmed");
+      setConfirmedCount(count||0);
     }catch(e){ console.error("loadRoomData:", e); }
   },[myBooking, slot, player, profilePhoto]);
 
-  useEffect(()=>{ if(tab==="room") loadRoomData(); },[tab]);
+  useEffect(()=>{ if(tab==="room" && slot?.id) loadRoomData(); },[tab, slot?.id]);
 
   // Fetch leaderboard from real players table
   useEffect(()=>{
@@ -914,6 +920,22 @@ export default function SquadHub() {
       ).subscribe();
     return ()=>{ supabase.removeChannel(ch); };
   },[myBooking?.slot_id, slot?.id]);
+
+  /* ── BOOKING REALTIME — sync status เมื่อสนาม confirm ── */
+  useEffect(()=>{
+    if(!myBooking?.id) return;
+    const ch = supabase.channel(`booking-status-${myBooking.id}`)
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"bookings",filter:`id=eq.${myBooking.id}`},
+        (payload)=>{
+          const newStatus = payload.new?.status;
+          if(newStatus) {
+            setMyBooking(prev=>prev?{...prev,status:newStatus}:prev);
+            if(newStatus==="confirmed") setShowConfirmBanner(true);
+          }
+        }
+      ).subscribe();
+    return ()=>{ supabase.removeChannel(ch); };
+  },[myBooking?.id]);
 
   /* ── SUBMIT FINAL RESULT ── */
   const submitResult = async ()=>{
@@ -2170,7 +2192,7 @@ const handlePhotoUpload = async (e) => {
             Match Lobby · Live
           </div>
           <div style={{fontSize:20,fontWeight:900,color:C.text,letterSpacing:.5}}>{venue?.name}</div>
-          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {parseMatchType(slot?.match_type).label} · {slot?.max_players||0} คน</div>
+          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {parseMatchType(slot?.match_type).label} · {confirmedCount||0}/{slot?.max_players||0} คน</div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:14}}>
           {[{id:"pitch",label:"🏟️ Stadium"},{id:"team",label:"👥 Team"},{id:"chat",label:"💬 Chat"}].map(lt=>(
@@ -2519,7 +2541,7 @@ const handlePhotoUpload = async (e) => {
 
         {/* Slip upload */}
         <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:700,color:C.sub,marginBottom:8}}>แนบสลิปการโอน <span style={{color:C.muted}}>(ไม่บังคับ)</span></div>
+          <div style={{fontSize:11,fontWeight:700,color:C.sub,marginBottom:8}}>แนบสลิปการโอน <span style={{color:C.red}}>*</span></div>
           {slipUrl ? (
             <div style={{position:"relative"}}>
               <img src={slipUrl} alt="slip" style={{width:"100%",borderRadius:12,maxHeight:240,objectFit:"cover"}}/>
@@ -2555,12 +2577,13 @@ const handlePhotoUpload = async (e) => {
         </div>
 
         <Btn onClick={async ()=>{
-          // Guard: ต้องมี player + slot ก่อน
+          // Guard: ต้องมี player + slot + slip ก่อน
           if(!player?.dbId || !slot?.id || !venue?.id) {
             console.error("booking guard failed:",{pid:player?.dbId,sid:slot?.id,vid:venue?.id});
             setPayStep("qr_error");
             return;
           }
+          if(!slipUrl) { setSlipError(true); return; }
           setPayStep("verifying");
           const payRef = `PAY-${Date.now()}`;
           try {
@@ -2999,6 +3022,20 @@ const handlePhotoUpload = async (e) => {
       )}
 
       {showJoin&&<JoinModal teams={teams} onJoin={doJoin} onClose={()=>setShowJoin(false)}/>}
+
+      {/* Confirm Banner — แสดงเมื่อสนาม confirm booking */}
+      {showConfirmBanner&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,zIndex:300,background:"linear-gradient(135deg,#0d3d24,#0a2e1b)",borderBottom:"2px solid #10d484",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",maxWidth:430,margin:"0 auto"}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:800,color:C.green}}>✅ สนามยืนยันแล้ว!</div>
+            <div style={{fontSize:11,color:C.sub,marginTop:2}}>กดเข้าห้องเพื่อเลือกทีมได้เลย</div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <div onClick={()=>{setTab("room");setShowConfirmBanner(false);}} style={{background:C.green,color:"#000",fontWeight:800,fontSize:12,padding:"6px 14px",borderRadius:8,cursor:"pointer"}}>เข้าห้อง →</div>
+            <div onClick={()=>setShowConfirmBanner(false)} style={{color:C.sub,fontSize:18,cursor:"pointer",padding:"0 4px"}}>×</div>
+          </div>
+        </div>
+      )}
 
       {/* Booking Pass Panel */}
       {showNotif&&(

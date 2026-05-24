@@ -1296,12 +1296,20 @@ const ensureMatch = async (bk) => {
   return matchId;
 };
 
-const BookingConfirmTab = ({venueId}) => {
+const BookingConfirmTab = ({venueId, slots=[]}) => {
   const [bookings,setBookings]=useState([]);
   const [loading,setLoading]=useState(true);
   const [confirming,setConfirming]=useState(null);
   const [selected,setSelected]=useState(new Set());
   const [bulkLoading,setBulkLoading]=useState(false);
+  const [slipPreview,setSlipPreview]=useState(null);
+  // Add Player form
+  const [showAddPlayer,setShowAddPlayer]=useState(false);
+  const [addLineId,setAddLineId]=useState("");
+  const [addName,setAddName]=useState("");
+  const [addAmount,setAddAmount]=useState("");
+  const [addSlotId,setAddSlotId]=useState("");
+  const [addSaving,setAddSaving]=useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -1361,6 +1369,37 @@ const BookingConfirmTab = ({venueId}) => {
 
   const toggleSel = (id) => setSelected(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});
 
+  const addPlayerBooking = async () => {
+    if(!addSlotId||!addLineId.trim()||!addName.trim()) return;
+    setAddSaving(true);
+    try {
+      // ค้นหา player_id จาก LINE ID
+      const {data:pl} = await supabase.from("players").select("id").eq("line_user_id",addLineId.trim()).maybeSingle();
+      const {data:bk,error:bkErr} = await supabase.from("bookings").insert({
+        player_id: pl?.id||null,
+        slot_id: addSlotId,
+        venue_id: venueId,
+        amount: parseFloat(addAmount)||0,
+        status: "confirmed",
+        confirmed_at: new Date().toISOString(),
+        confirmed_by: "partner",
+        booked_for_line_id: addLineId.trim(),
+        booked_for_name: addName.trim(),
+      }).select().single();
+      if(bkErr){console.error("addPlayer booking error:",bkErr);setAddSaving(false);return;}
+      // สร้าง match_players row ถ้า player_id มี
+      if(pl?.id && bk?.id){
+        const fakeBooking={...bk,player_id:pl.id,venue_id:venueId,slot_id:addSlotId};
+        try{ await ensureMatch(fakeBooking); }catch{}
+      }
+      // แจ้ง LINE ผ่าน n8n
+      try{ await fetch(N8N_BOOKING_CONFIRMED,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({record:{id:bk.id,status:"confirmed",booked_for_line_id:addLineId.trim(),booked_for_name:addName.trim()}})}); }catch{}
+      setAddLineId(""); setAddName(""); setAddAmount(""); setAddSlotId(""); setShowAddPlayer(false);
+      alert(`✅ จองให้ ${addName} เรียบร้อย — LINE แจ้งเตือนส่งแล้ว`);
+    } catch(e){console.error(e);}
+    setAddSaving(false);
+  };
+
   if(loading) return <div style={{padding:40,textAlign:"center",color:C.sub,fontSize:13}}>กำลังโหลด...</div>;
 
   return (
@@ -1400,7 +1439,13 @@ const BookingConfirmTab = ({venueId}) => {
                     {sel&&<span style={{fontSize:11,color:"#001a0d",fontWeight:900}}>✓</span>}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:14,fontWeight:900,color:C.text}}>{pl?.display_name||"ผู้เล่น"}{bk.booked_for_name&&<span style={{fontSize:10,color:C.sub}}> → {bk.booked_for_name}</span>}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                      <span style={{fontSize:14,fontWeight:900,color:C.text}}>{pl?.display_name||"ผู้เล่น"}{bk.booked_for_name&&<span style={{fontSize:10,color:C.sub}}> → {bk.booked_for_name}</span>}</span>
+                      {bk.slip_url&&(
+                        <span onClick={e=>{e.stopPropagation();setSlipPreview(bk.slip_url);}}
+                          style={{fontSize:10,fontWeight:800,background:"rgba(251,191,36,0.12)",color:"#fbbf24",border:"1px solid rgba(251,191,36,0.3)",borderRadius:6,padding:"1px 7px",cursor:"pointer"}}>📎 ดูสลิป</span>
+                      )}
+                    </div>
                     <div style={{fontSize:11,color:C.sub,marginTop:2}}>{timeStr} · {sl?.match_type||"—"}</div>
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
@@ -1411,16 +1456,66 @@ const BookingConfirmTab = ({venueId}) => {
                     {confirming===bk.id?"...":"✅ ยืนยัน"}
                   </Btn>
                 </div>
-                {bk.slip_url&&(
-                  <div style={{marginTop:10}} onClick={e=>e.stopPropagation()}>
-                    <div style={{fontSize:10,color:C.sub,marginBottom:4}}>สลิปการโอน</div>
-                    <img src={bk.slip_url} alt="slip" style={{width:"100%",borderRadius:10,maxHeight:220,objectFit:"cover",cursor:"zoom-in"}}
-                      onClick={()=>window.open(bk.slip_url,"_blank")}/>
-                  </div>
-                )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Add Player (Book on behalf) ── */}
+      <div style={{marginTop:24,background:C.bg2,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden"}}>
+        <div onClick={()=>setShowAddPlayer(p=>!p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",cursor:"pointer"}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:800,color:C.green}}>➕ จองให้ผู้เล่น (Walk-in)</div>
+            <div style={{fontSize:10,color:C.sub,marginTop:1}}>สำหรับลูกค้า offline — ส่ง LINE แจ้งเตือนอัตโนมัติ</div>
+          </div>
+          <div style={{color:C.sub,fontSize:16}}>{showAddPlayer?"▲":"▼"}</div>
+        </div>
+        {showAddPlayer&&(
+          <div style={{padding:"0 16px 16px",display:"flex",flexDirection:"column",gap:8,borderTop:`1px solid ${C.border}`}}>
+            <div style={{marginTop:12}}>
+              <div style={{fontSize:10,color:C.sub,marginBottom:4}}>เลือกสล็อต</div>
+              <select value={addSlotId} onChange={e=>setAddSlotId(e.target.value)}
+                style={{width:"100%",background:"#0d1a0f",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13}}>
+                <option value="">-- เลือกสล็อตวันนี้ --</option>
+                {slots.map(s=>(
+                  <option key={s.id} value={s.id}>{s.start_time?.slice(0,5)}–{s.end_time?.slice(0,5)} · {s.match_type||""}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:C.sub,marginBottom:4}}>LINE User ID ของผู้เล่น</div>
+              <input value={addLineId} onChange={e=>setAddLineId(e.target.value)} placeholder="Uid1234abc..."
+                style={{width:"100%",background:"#0d1a0f",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13,boxSizing:"border-box"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:C.sub,marginBottom:4}}>ชื่อผู้เล่น (แสดงใน LINE)</div>
+              <input value={addName} onChange={e=>setAddName(e.target.value)} placeholder="ชื่อ-นามสกุล"
+                style={{width:"100%",background:"#0d1a0f",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13,boxSizing:"border-box"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:C.sub,marginBottom:4}}>ยอดชำระ (฿)</div>
+              <input value={addAmount} onChange={e=>setAddAmount(e.target.value)} placeholder="0" type="number"
+                style={{width:"100%",background:"#0d1a0f",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13,boxSizing:"border-box"}}/>
+            </div>
+            <Btn onClick={addPlayerBooking} disabled={addSaving||!addSlotId||!addLineId.trim()||!addName.trim()} style={{marginTop:4}}>
+              {addSaving?"กำลังบันทึก...":"✅ สร้างการจอง + แจ้ง LINE"}
+            </Btn>
+          </div>
+        )}
+      </div>
+
+      {/* ── Slip Preview Modal ── */}
+      {slipPreview&&(
+        <div onClick={()=>setSlipPreview(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:500,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:500,position:"relative"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#fbbf24"}}>📎 สลิปการโอน</div>
+              <div onClick={()=>setSlipPreview(null)} style={{color:C.sub,fontSize:24,cursor:"pointer",lineHeight:1}}>×</div>
+            </div>
+            <img src={slipPreview} alt="slip" style={{width:"100%",borderRadius:12,maxHeight:"75vh",objectFit:"contain"}}/>
+            <div onClick={()=>window.open(slipPreview,"_blank")} style={{marginTop:10,textAlign:"center",fontSize:11,color:C.sub,cursor:"pointer",textDecoration:"underline"}}>เปิดรูปขนาดเต็ม ↗</div>
+          </div>
         </div>
       )}
     </div>
@@ -2186,7 +2281,7 @@ export default function SquadPartner() {
           {tab==="matchend"&&<MatchEndTab onDone={()=>setTab("calendar")} slots={todaySlotsReal}/>}
           {tab==="shop"&&<ShopTab venueId={venue?.id} ownerUnlocked={ownerUnlocked}/>}
           {tab==="finance"&&<FinanceTab venue={venue} todaySlots={todaySlots}/>}
-          {tab==="booking"&&venue?.id&&<BookingConfirmTab venueId={venue.id}/>}
+          {tab==="booking"&&venue?.id&&<BookingConfirmTab venueId={venue.id} slots={todaySlotsReal}/>}
         </main>
       </div>
 
