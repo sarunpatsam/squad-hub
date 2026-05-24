@@ -3142,9 +3142,9 @@ const handlePhotoUpload = async (e) => {
             <div style={{width:36,height:3,borderRadius:99,background:"rgba(255,255,255,0.15)",margin:"0 auto 16px"}}/>
             <div style={{fontSize:16,fontWeight:900,color:C.text,marginBottom:12}}>🔔 {T("แจ้งเตือน","Notifications")}</div>
             <div style={{display:"flex",gap:6,marginBottom:14}}>
-              {[{id:"booking",l:T("📅 Booking","📅 Booking")},{id:"news",l:T("📢 ข่าวสาร","📢 News")}].map(t=>(
+              {[{id:"booking",l:T("📅 ปัจจุบัน","📅 Current")},{id:"upcoming",l:T(`📋 จองล่วงหน้า${allBookings.length>1?` (${allBookings.length-1})`:""}`,`📋 Upcoming${allBookings.length>1?` (${allBookings.length-1})`:""}`)},{id:"news",l:T("📢 ข่าวสาร","📢 News")}].map(t=>(
                 <button key={t.id} onClick={()=>setNotifTab(t.id)}
-                  style={{padding:"6px 16px",borderRadius:8,fontSize:12,fontWeight:800,cursor:"pointer",border:`1px solid ${notifTab===t.id?C.borderHi:C.border}`,background:notifTab===t.id?C.greenDim:"transparent",color:notifTab===t.id?C.green:C.sub}}>
+                  style={{padding:"6px 12px",borderRadius:8,fontSize:11,fontWeight:800,cursor:"pointer",border:`1px solid ${notifTab===t.id?C.borderHi:C.border}`,background:notifTab===t.id?C.greenDim:"transparent",color:notifTab===t.id?C.green:C.sub}}>
                   {t.l}
                 </button>
               ))}
@@ -3211,38 +3211,6 @@ const handlePhotoUpload = async (e) => {
                   </div>
                 </div>
                 <div style={{textAlign:"center",padding:"6px 0",color:C.muted,fontSize:10}}>{T("Player QR สำหรับ Check-in อยู่ที่ Profile →","Player QR for Check-in is in Profile →")}</div>
-                {allBookings.length>1&&(
-                  <div style={{marginTop:16}}>
-                    <div style={{fontSize:9,fontWeight:800,letterSpacing:2,color:C.sub,textTransform:"uppercase",marginBottom:8}}>{T("Booking ถัดไป","Upcoming Bookings")} · {allBookings.length-1}</div>
-                    {allBookings.slice(1).map(b=>{
-                      const mt = parseMatchType(b.slotData?.match_type);
-                      const dateObj = b.slotData?.date ? new Date(b.slotData.date) : null;
-                      const dateLabel = dateObj ? `${dateObj.getDate()} ${monthTH[dateObj.getMonth()]||""}` : "—";
-                      return (
-                        <div key={b.id} onClick={async()=>{
-                          setMyBooking(b);
-                          if(b.slotData) setSlot({...b.slotData,time:b.slotData.start_time?.slice(0,5),end:b.slotData.end_time?.slice(0,5)});
-                          const {data:vd} = await supabase.from("venues").select("id,name,area,promptpay_id,promptpay_name").eq("id",b.venue_id).single();
-                          if(vd) setVenue(vd);
-                          setShowNotif(false);
-                          setTab("room");
-                        }} style={{background:C.surface,border:`1px solid ${b.status==="confirmed"?"rgba(16,212,132,0.25)":C.border}`,borderRadius:12,padding:"12px 14px",marginBottom:8,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
-                              <span style={{fontSize:13,fontWeight:900,color:C.text}}>{dateLabel}</span>
-                              <span style={{fontSize:11,color:C.muted}}>·</span>
-                              <span style={{fontSize:11,fontWeight:700,color:C.green}}>{b.slotData?.start_time?.slice(0,5)}–{b.slotData?.end_time?.slice(0,5)}</span>
-                            </div>
-                            <div style={{fontSize:10,color:C.sub}}>{mt.label} · ฿{b.amount||"—"}</div>
-                          </div>
-                          <div style={{padding:"4px 10px",borderRadius:99,fontSize:9,fontWeight:800,background:b.status==="confirmed"?"rgba(16,212,132,0.15)":"rgba(251,191,36,0.15)",color:b.status==="confirmed"?C.green:C.amber,border:`1px solid ${b.status==="confirmed"?"rgba(16,212,132,0.3)":"rgba(251,191,36,0.3)"}`}}>
-                            {b.status==="confirmed"?T("ยืนยันแล้ว","Confirmed"):T("รอยืนยัน","Pending")}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </>
             ):(
               <div style={{textAlign:"center",padding:"28px 0",color:C.muted,fontSize:13}}>
@@ -3251,6 +3219,43 @@ const handlePhotoUpload = async (e) => {
                 <div style={{fontSize:11}}>{T("จองแมตช์แล้วจะเห็นข้อมูลที่นี่","Book a match to see details here")}</div>
               </div>
             ))}
+            {notifTab==="upcoming"&&(
+              <div>
+                {allBookings.length>1 ? allBookings.slice(1).map(b=>{
+                  const mt = parseMatchType(b.slotData?.match_type);
+                  const dateObj = b.slotData?.date ? new Date(b.slotData.date) : null;
+                  const dateLabel = dateObj ? `${dateObj.getDate()} ${monthTH[dateObj.getMonth()]||""}` : "—";
+                  return (
+                    <div key={b.id} onClick={async()=>{
+                      setMyBooking(b);
+                      if(b.slotData) setSlot({...b.slotData,time:b.slotData.start_time?.slice(0,5),end:b.slotData.end_time?.slice(0,5)});
+                      const {data:vd} = await supabase.from("venues").select("id,name,area,promptpay_id,promptpay_name").eq("id",b.venue_id).single();
+                      if(vd) setVenue(vd);
+                      setShowNotif(false);
+                      setTab("room");
+                    }} style={{background:C.surface,border:`1px solid ${b.status==="confirmed"?"rgba(16,212,132,0.25)":C.border}`,borderRadius:12,padding:"12px 14px",marginBottom:8,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                          <span style={{fontSize:13,fontWeight:900,color:C.text}}>{dateLabel}</span>
+                          <span style={{fontSize:11,color:C.muted}}>·</span>
+                          <span style={{fontSize:11,fontWeight:700,color:C.green}}>{b.slotData?.start_time?.slice(0,5)}–{b.slotData?.end_time?.slice(0,5)}</span>
+                        </div>
+                        <div style={{fontSize:10,color:C.sub}}>{mt.label} · ฿{b.amount||"—"}</div>
+                      </div>
+                      <div style={{padding:"4px 10px",borderRadius:99,fontSize:9,fontWeight:800,background:b.status==="confirmed"?"rgba(16,212,132,0.15)":"rgba(251,191,36,0.15)",color:b.status==="confirmed"?C.green:C.amber,border:`1px solid ${b.status==="confirmed"?"rgba(16,212,132,0.3)":"rgba(251,191,36,0.3)"}`}}>
+                        {b.status==="confirmed"?T("ยืนยันแล้ว","Confirmed"):T("รอยืนยัน","Pending")}
+                      </div>
+                    </div>
+                  );
+                }) : (
+                  <div style={{textAlign:"center",padding:"28px 0",color:C.muted,fontSize:13}}>
+                    <div style={{fontSize:36,marginBottom:8}}>📋</div>
+                    <div style={{fontWeight:700,marginBottom:4}}>{T("ยังไม่มี Booking ล่วงหน้า","No upcoming bookings")}</div>
+                    <div style={{fontSize:11}}>{T("จองแมตช์เพิ่มเพื่อดูที่นี่","Book more matches to see them here")}</div>
+                  </div>
+                )}
+              </div>
+            )}
             {notifTab==="news"&&(
               <div>
                 {[
