@@ -661,6 +661,7 @@ export default function SquadHub() {
   const [friendName,setFriendName]       = useState("");
   const [slipUrl,setSlipUrl]             = useState(null);
   const [slipUploading,setSlipUploading] = useState(false);
+  const [slipError,setSlipError]         = useState(false);
   const [captainSignaled,setCaptainSignaled] = useState(false);
   const [isUserCaptain,setIsUserCaptain]     = useState(false);
   const fileRef = useRef(null);
@@ -682,8 +683,7 @@ export default function SquadHub() {
 
   /* ── LOAD MY BOOKING (plural support) ── */
   const loadMyBooking = useCallback(async (playerId) => {
-    const today = new Date().toISOString().slice(0,10);
-    // ดึง bookings ทั้งหมดที่ active
+    // ดึง bookings ทั้งหมดที่ active (ไม่กรอง date ใน query — กรองใน JS แทน)
     const {data:bks} = await supabase.from("bookings")
       .select("id,slot_id,venue_id,amount,status")
       .eq("player_id", playerId)
@@ -691,31 +691,41 @@ export default function SquadHub() {
       .order("created_at",{ascending:false});
     if(!bks?.length) return null;
 
-    // ดึง slot ทั้งหมด กรองเฉพาะวันนี้ขึ้นไป
+    // ดึง slot ทั้งหมดด้วย IDs (ไม่ filter date ใน Supabase — ปลอดภัยกว่า)
     const slotIds = [...new Set(bks.map(b=>b.slot_id))];
     const {data:slots} = await supabase.from("slots")
       .select("id,date,start_time,end_time,match_type,max_players,status,price,fee")
-      .in("id",slotIds).gte("date",today).order("date");
+      .in("id",slotIds);
 
-    // รวม + กรองเฉพาะ future slots
+    // รวมข้อมูล — เอาทุก booking ที่มี slot (ไม่กรอง date เพราะ pending ควรโชว์เสมอ)
     const enriched = bks
       .map(b=>({...b, slotData: slots?.find(s=>s.id===b.slot_id)}))
-      .filter(b=>b.slotData);
+      .filter(b=>b.slotData)
+      .sort((a,b)=>{
+        // sort: วันใกล้ที่สุดก่อน
+        const da = a.slotData?.date||"";
+        const db = b.slotData?.date||"";
+        return da.localeCompare(db);
+      });
 
     setAllBookings(enriched);
     if(!enriched.length) return null;
 
-    // active = nearest upcoming
+    // active = nearest (first after sort)
     const active = enriched[0];
     setMyBooking(active);
 
-    // โหลด venue + slot + match ของ active booking
+    // โหลด venue + match ของ active booking
     const [{data:vd},{data:m}] = await Promise.all([
       supabase.from("venues").select("id,name,area,promptpay_id,promptpay_name").eq("id",active.venue_id).single(),
       supabase.from("matches").select("id").eq("slot_id",active.slot_id).maybeSingle(),
     ]);
     if(vd) setVenue(vd);
-    if(active.slotData) setSlot({...active.slotData, time:active.slotData.start_time?.slice(0,5), end:active.slotData.end_time?.slice(0,5)});
+    if(active.slotData) setSlot({
+      ...active.slotData,
+      time: active.slotData.start_time?.slice(0,5),
+      end:  active.slotData.end_time?.slice(0,5),
+    });
     if(m?.id) setScoreMatchId(m.id);
     return active;
   },[]);
@@ -2518,8 +2528,10 @@ const handlePhotoUpload = async (e) => {
           ) : (
             <div onClick={()=>slipInputRef.current?.click()}
               style={{border:`2px dashed ${C.border}`,borderRadius:12,padding:"20px",textAlign:"center",cursor:"pointer",background:"rgba(255,255,255,0.02)"}}>
-              <div style={{fontSize:22}}>📎</div>
-              <div style={{fontSize:12,color:C.sub,marginTop:4}}>{slipUploading?"กำลังอัพโหลด...":"กดเพื่อแนบสลิป"}</div>
+              <div style={{fontSize:22}}>{slipError?"⚠️":"📎"}</div>
+              <div style={{fontSize:12,color:slipError?C.red:C.sub,marginTop:4}}>
+                {slipUploading?"กำลังอัพโหลด...":slipError?"อัพโหลดไม่สำเร็จ (ตรวจสอบ Storage bucket)":"กดเพื่อแนบสลิป"}
+              </div>
             </div>
           )}
           <input ref={slipInputRef} type="file" accept="image/*" style={{display:"none"}}
@@ -2529,11 +2541,15 @@ const handlePhotoUpload = async (e) => {
               setSlipUploading(true);
               const ext=file.name.split(".").pop()||"jpg";
               const path=`slips/${player.dbId}_${Date.now()}.${ext}`;
+              setSlipError(false);
               const {error:upErr}=await supabase.storage.from("bookings").upload(path,file,{upsert:true});
               if(!upErr){
                 const {data:urlData}=supabase.storage.from("bookings").getPublicUrl(path);
                 setSlipUrl(urlData.publicUrl);
-              }else{ console.error("slip upload:",upErr); }
+              }else{
+                console.error("slip upload:",upErr);
+                setSlipError(true);
+              }
               setSlipUploading(false);
             }}/>
         </div>
