@@ -806,6 +806,7 @@ export default function SquadHub() {
       const {teams:tc} = parseMatchType(slot.match_type);
       const maxPerTeam = Math.floor((slot.max_players||tc*7)/tc);
       setTeams(SEED_TEAMS(tc).map(t=>({...t, max:maxPerTeam})));
+      setActiveTeam(0); // reset index เมื่อ team count เปลี่ยน
     }
   },[slot?.match_type, slot?.max_players]);
 
@@ -2148,7 +2149,7 @@ const handlePhotoUpload = async (e) => {
   };
 
   const renderRoom = () => {
-    const curTeam=teams[activeTeam];
+    const curTeam=teams[activeTeam]||teams[0]||{players:[],id:"A",name:"ทีม A",color:"#10d484",max:7,code:""};
     return (
       <div style={{paddingTop:16}}>
         <BackBtn onClick={()=>{setMyTeam(null);setTeams(SEED_TEAMS(parseMatchType(slot?.match_type).teams));setTab("venue");}}/>
