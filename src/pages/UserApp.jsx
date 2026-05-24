@@ -649,29 +649,23 @@ export default function SquadHub() {
   /* ── LOAD MY BOOKING ── */
   const loadMyBooking = useCallback(async (playerId) => {
     const {data:bk} = await supabase.from("bookings")
-      .select("id,slot_id,venue_id,amount,status,match_id")
+      .select("id,slot_id,venue_id,amount,status")
       .eq("player_id", playerId)
       .in("status", ["pending","confirmed"])
       .order("created_at", {ascending:false})
       .limit(1).single();
     if(bk) {
-      // ถ้า booking ไม่มี match_id → query matches จาก slot_id
-      let matchId = bk.match_id || null;
-      if(!matchId && bk.slot_id) {
-        const {data:m} = await supabase.from("matches")
-          .select("id").eq("slot_id", bk.slot_id).maybeSingle();
-        matchId = m?.id || null;
-      }
-      const bookingWithMatch = {...bk, match_id: matchId};
-      setMyBooking(bookingWithMatch);
-      if(matchId) setScoreMatchId(matchId);
-      const [{data:vd},{data:sd}] = await Promise.all([
+      setMyBooking(bk);
+      // query match_id จาก slot แยก (bookings ไม่มี column match_id)
+      const [{data:vd},{data:sd},{data:m}] = await Promise.all([
         supabase.from("venues").select("id,name,area,promptpay_id,promptpay_name").eq("id",bk.venue_id).single(),
-        supabase.from("slots").select("id,start_time,end_time,match_type,date,price,fee,max_players,status").eq("id",bk.slot_id).single()
+        supabase.from("slots").select("id,start_time,end_time,match_type,date,price,fee,max_players,status").eq("id",bk.slot_id).single(),
+        supabase.from("matches").select("id").eq("slot_id", bk.slot_id).maybeSingle(),
       ]);
       if(vd) setVenue(vd);
       if(sd) setSlot({...sd, time:sd.start_time?.slice(0,5), end:sd.end_time?.slice(0,5)});
-      return bookingWithMatch;
+      if(m?.id) setScoreMatchId(m.id);
+      return bk;
     }
     return null;
   },[]);
@@ -1649,7 +1643,7 @@ const handlePhotoUpload = async (e) => {
     else{setVenue(item._venue);setSlot(item);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}
   };
 
-  const hotSlot = venues.flatMap(v=>v.slots.map(s=>({...s,_venue:v})))
+  const hotSlot = venues.flatMap(v=>(v.slots||[]).map(s=>({...s,_venue:v})))
     .filter(s=>s.status!=="Full"&&s.status!=="blocked"&&s.status!=="cancelled")
     .sort((a,b)=>(b.filled||0)-(a.filled||0))[0];
   const openSlotsCount = hotSlot?hotSlot._venue.slots.filter(s=>s.status!=="Full"&&s.status!=="blocked").length:0;
@@ -1823,7 +1817,7 @@ const handlePhotoUpload = async (e) => {
         const viewYear=calViewDate.getFullYear();
         const firstDay=new Date(viewYear,viewMonth,1).getDay();
         const daysInMonth=new Date(viewYear,viewMonth+1,0).getDate();
-        const slotDates=new Set(venues.flatMap(v=>v.slots.map(s=>s.date||fmtDate(selectedDate))));
+        const slotDates=new Set(venues.flatMap(v=>(v.slots||[]).map(s=>s.date||fmtDate(selectedDate))));
         return(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowCal(false)}>
             <div onClick={e=>e.stopPropagation()} style={{background:C.bg2,borderRadius:"20px 20px 0 0",padding:"20px 16px 36px",width:"100%",maxWidth:430,border:"1px solid rgba(16,185,129,0.2)"}}>
@@ -1962,7 +1956,7 @@ const handlePhotoUpload = async (e) => {
           </div>
         )}
         <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>{T("ตารางแมทช์วันนี้","Today's Matches")}</div>
-        {venue?.slots.map(s=>{
+        {(venue?.slots||[]).map(s=>{
           const sc=s.status==="Full"?C.sub:s.status==="Hot"?C.red:C.green;
           const pct=Math.round((s.filled/s.total)*100)||0;
           return (
