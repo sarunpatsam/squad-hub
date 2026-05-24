@@ -837,11 +837,14 @@ export default function SquadHub() {
       if(!mps?.length) return;
       const {data:pData} = await supabase.from("players")
         .select("id,display_name,position").in("id", mps.map(m=>m.player_id));
-      const tc = parseMatchType(slot?.match_type).teams;
-      const maxPerTeam = Math.floor((slot?.max_players||tc*7)/tc);
-      setTeams(SEED_TEAMS(tc).map(t=>({
-        ...t, max:maxPerTeam,
-        players: mps.filter(m=>m.team===t.id).map(m=>{
+      // นับทีมจากข้อมูลจริงใน match_players (ไม่ใช้ match_type เพราะอาจไม่มีจำนวนทีม)
+      const actualTeams = [...new Set(mps.map(m=>m.team).filter(Boolean))].sort();
+      const tc = Math.max(actualTeams.length, parseMatchType(slot?.match_type).teams);
+      const teamIds = actualTeams.length >= 2 ? actualTeams : TEAM_IDS.slice(0,tc);
+      const maxPerTeam = slot?.max_players && tc ? Math.floor(slot.max_players/tc) : 7;
+      setTeams(teamIds.map((id,i)=>({
+        id, name:`ทีม ${id}`, color:TEAM_COLORS[i%TEAM_COLORS.length], max:maxPerTeam,
+        code:"", players: mps.filter(m=>m.team===id).map(m=>{
           const p = pData?.find(pd=>pd.id===m.player_id);
           return {
             name: p?.display_name||"?",
@@ -2196,7 +2199,7 @@ const handlePhotoUpload = async (e) => {
             Match Lobby · Live
           </div>
           <div style={{fontSize:20,fontWeight:900,color:C.text,letterSpacing:.5}}>{venue?.name}</div>
-          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {parseMatchType(slot?.match_type).label} · {confirmedCount||0}/{slot?.max_players||0} คน</div>
+          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {parseMatchType(slot?.match_type).format||"7v7"} · {teams.length||2} ทีม · {confirmedCount||0}/{slot?.max_players||0} คน</div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:14}}>
           {[{id:"pitch",label:"🏟️ Stadium"},{id:"team",label:"👥 Team"},{id:"chat",label:"💬 Chat"}].map(lt=>(
