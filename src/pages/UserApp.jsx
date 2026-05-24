@@ -654,6 +654,7 @@ export default function SquadHub() {
   const [scoreDataLoading,setScoreDataLoading] = useState(false);
   const [venueNotified,setVenueNotified]   = useState(false);
   const [lbData,setLbData] = useState([]);
+  const [isCheckedIn,setIsCheckedIn] = useState(false);
   const [captainSignaled,setCaptainSignaled] = useState(false);
   const [isUserCaptain,setIsUserCaptain]     = useState(false);
   const fileRef = useRef(null);
@@ -727,18 +728,46 @@ export default function SquadHub() {
 
       const {data:mps} = await supabase.from("match_players")
         .select("player_id,team").eq("match_id",matchId);
-      // ดึง display_name แยก
-      const playerIds = (mps||[]).map(p=>p.player_id);
+
+      let finalPlayers = mps||[];
+
+      // ถ้า match_players ว่าง → fallback ดึงจาก bookings ของ slot นี้
+      if(finalPlayers.length===0 && match?.slot_id){
+        const {data:bks} = await supabase.from("bookings")
+          .select("player_id").eq("slot_id",match.slot_id).in("status",["pending","confirmed"]);
+        if(bks?.length){
+          finalPlayers = bks.map((b,i)=>({player_id:b.player_id, team:["A","B","C","D"][i%4]}));
+        }
+      }
+
+      // ถ้า team เป็น null (rows จาก PartnerApp ที่ไม่ได้ set team) → assign round-robin
+      finalPlayers = finalPlayers.map((p,i)=>({
+        ...p,
+        team: p.team || ["A","B","C","D"][i%4],
+      }));
+
+      // ดึง checked_in status ของ player คนนี้
+      if(match?.id){
+        // player state อาจยังไม่ได้ set ตอน callback นี้ run → ดึง dbId จาก localStorage เป็น fallback
+        const myPlayerId = localStorage.getItem("squad_player_db_id");
+        if(myPlayerId){
+          const {data:myMp} = await supabase.from("match_players")
+            .select("checked_in").eq("match_id",match.id).eq("player_id",myPlayerId).maybeSingle();
+          if(myMp?.checked_in) setIsCheckedIn(true);
+        }
+      }
+
+      // ดึง display_name
+      const playerIds = finalPlayers.map(p=>p.player_id);
       let nameMap = {};
       if(playerIds.length){
         const {data:pData} = await supabase.from("players")
           .select("id,display_name,position").in("id",playerIds);
         (pData||[]).forEach(p=>{ nameMap[p.id]={name:p.display_name,pos:p.position}; });
       }
-      const enriched = (mps||[]).map(p=>({...p,...(nameMap[p.player_id]||{})}));
+      const enriched = finalPlayers.map(p=>({...p,...(nameMap[p.player_id]||{})}));
       setScorePlayers(enriched);
       const dbTeams = [...new Set(enriched.map(p=>p.team))].sort();
-      // ถ้า DB มีทีม → ใช้จาก DB, ถ้าไม่มีก็ใช้ default ABCD (กัปตัน select เองได้)
       const finalTeams = dbTeams.length >= 2 ? dbTeams : ["A","B","C","D"];
       setScoreTeams(finalTeams);
       setNewRound(r=>({...r,teamA:finalTeams[0],teamB:finalTeams[1]}));
@@ -836,15 +865,17 @@ export default function SquadHub() {
         const goals   = teamGoals[mp.team]||0;
         const xpEarned= (isWin?30:10)+(isMvp?30:0);
         // upsert match_players (สร้าง row ถ้าไม่มี หรืออัพถ้ามีแล้ว)
-        await supabase.from("match_players").upsert({
+        const {error:mpErr} = await supabase.from("match_players").upsert({
           match_id:scoreMatchId, player_id:mp.player_id, team:mp.team,
           is_win:isWin, is_mvp:isMvp, xp_earned:xpEarned,
         },{ onConflict:"match_id,player_id" });
+        if(mpErr) console.error("match_players upsert error:", mpErr);
         // xp_logs — บันทึก event ทุกครั้ง
-        await supabase.from("xp_logs").insert({
+        const {error:xlErr} = await supabase.from("xp_logs").insert({
           player_id:mp.player_id, match_id:scoreMatchId, xp_earned:xpEarned,
           reason: isMvp?"match_mvp":isWin?"match_win":"match_played",
         });
+        if(xlErr) console.error("xp_logs insert error:", xlErr);
         // อัพ players aggregate + auto level-up
         const {data:p} = await supabase.from("players")
           .select("matches_played,wins,losses,goals,mvp_count,xp,level")
@@ -852,7 +883,7 @@ export default function SquadHub() {
         if(p){
           const newXp = (p.xp||0)+xpEarned;
           const newLevel = getLevel(newXp);
-          await supabase.from("players").update({
+          const {error:puErr} = await supabase.from("players").update({
             matches_played:(p.matches_played||0)+1,
             wins:   (p.wins||0)+(isWin?1:0),
             losses: (p.losses||0)+(!isWin&&winTeams.length>0?1:0),
@@ -861,6 +892,7 @@ export default function SquadHub() {
             xp:    newXp,
             level: newLevel,
           }).eq("id",mp.player_id);
+          if(puErr) console.error("players update error:", puErr);
         }
       }
       // Mark match + slot completed
@@ -942,6 +974,7 @@ export default function SquadHub() {
           const savedId = localStorage.getItem("squad_player_id") || DEMO_ID;
           const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
           if(data) {
+            localStorage.setItem("squad_player_db_id", data.id);
             const stats = SM[data.position]?.[data.playstyle]||{pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
             const ni = NICKS[data.position]?.[data.playstyle];
             setPlayer({
@@ -982,6 +1015,7 @@ export default function SquadHub() {
         if(data) {
           // มีแล้ว → auto-login ไม่ต้อง register ซ้ำ
           localStorage.setItem("squad_player_id", data.id);
+          localStorage.setItem("squad_player_db_id", data.id);
           localStorage.setItem("squad_line_uid", lineUserId);
           const stats = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
           const ni = NICKS[data.position]?.[data.playstyle];
@@ -1293,17 +1327,19 @@ const handlePhotoUpload = async (e) => {
 
   // Write captain assignment to DB (captain_lookup table)
   const writeCaptainToDB = useCallback(async (teamId, lineUserId, displayName, slotId, venueId) => {
-    if (!slotId || !lineUserId) return;
+    const resolvedLineId = lineUserId || localStorage.getItem("squad_line_uid");
+    if (!slotId || !resolvedLineId) return;
     try {
       const match = await findOrCreateMatch(slotId, venueId);
       if (!match?.id) return;
+      const resolvedPlayerId = player?.dbId || localStorage.getItem("squad_player_db_id") || null;
       const { error } = await supabase.from("captain_lookup").upsert({
         match_id: match.id,
         slot_id: slotId,
-        player_id: player?.dbId || null,
+        player_id: resolvedPlayerId,
         team: teamId,
         is_captain: true,
-        line_user_id: lineUserId,
+        line_user_id: resolvedLineId,
         display_name: displayName,
       }, { onConflict: "match_id,team" });
       if(error) console.warn("captain_lookup upsert:", error);
@@ -2850,13 +2886,12 @@ const handlePhotoUpload = async (e) => {
                 {/* Journey Steps */}
                 {(()=>{
                   const isConfirmed = myBooking.status==="confirmed";
-                  const isLive = slot?.status==="live"||slot?.status==="captain_signaled";
                   const isEnded2 = slot?.status==="ended";
                   const steps=[
                     {icon:"📋",label:T("จองแล้ว","Booked"),done:true,active:false},
                     {icon:"✅",label:T("ยืนยันแล้ว","Confirmed"),done:isConfirmed,active:!isConfirmed},
-                    {icon:"🎫",label:T("Check In","Check In"),done:isLive||isEnded2,active:isConfirmed&&!isLive&&!isEnded2},
-                    {icon:"⚽",label:T("กำลังเล่น","Playing"),done:isEnded2,active:isLive&&!isEnded2},
+                    {icon:"🎫",label:T("Check In","Check In"),done:isCheckedIn||isEnded2,active:isConfirmed&&!isCheckedIn&&!isEnded2},
+                    {icon:"⚽",label:T("กำลังเล่น","Playing"),done:isEnded2,active:isCheckedIn&&!isEnded2},
                     {icon:"🏆",label:T("จบ","Done"),done:isEnded2,active:false},
                   ];
                   return (
