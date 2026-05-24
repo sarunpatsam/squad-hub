@@ -1308,7 +1308,7 @@ const BookingConfirmTab = ({venueId}) => {
     try {
       const {data:bks} = await supabase
         .from("bookings")
-        .select("id,player_id,slot_id,venue_id,amount,status,created_at")
+        .select("id,player_id,slot_id,venue_id,amount,status,created_at,slip_url,booked_for_name")
         .eq("venue_id",venueId)
         .eq("status","pending")
         .order("created_at",{ascending:false});
@@ -1394,21 +1394,30 @@ const BookingConfirmTab = ({venueId}) => {
             const sl=bk.slotData;
             const timeStr=sl?`${sl.start_time?.slice(0,5)}–${sl.end_time?.slice(0,5)}`:"—";
             return (
-              <div key={bk.id} style={{background:C.bg2,border:`1px solid ${sel?C.borderHi:C.border}`,borderRadius:14,padding:16,display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={()=>toggleSel(bk.id)}>
-                <div style={{width:20,height:20,borderRadius:4,border:`2px solid ${sel?C.green:C.muted}`,background:sel?C.green:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  {sel&&<span style={{fontSize:11,color:"#001a0d",fontWeight:900}}>✓</span>}
+              <div key={bk.id} style={{background:C.bg2,border:`1px solid ${sel?C.borderHi:C.border}`,borderRadius:14,padding:16,cursor:"pointer"}} onClick={()=>toggleSel(bk.id)}>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{width:20,height:20,borderRadius:4,border:`2px solid ${sel?C.green:C.muted}`,background:sel?C.green:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {sel&&<span style={{fontSize:11,color:"#001a0d",fontWeight:900}}>✓</span>}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:14,fontWeight:900,color:C.text}}>{pl?.display_name||"ผู้เล่น"}{bk.booked_for_name&&<span style={{fontSize:10,color:C.sub}}> → {bk.booked_for_name}</span>}</div>
+                    <div style={{fontSize:11,color:C.sub,marginTop:2}}>{timeStr} · {sl?.match_type||"—"}</div>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{fontSize:15,fontWeight:900,color:C.green}}>฿{bk.amount}</div>
+                    <div style={{fontSize:10,color:C.muted,marginTop:2}}>{pl?.tier||""}</div>
+                  </div>
+                  <Btn onClick={e=>{e.stopPropagation();confirmOne(bk);}} disabled={confirming===bk.id} style={{padding:"8px 12px",fontSize:11,width:"auto",flexShrink:0}}>
+                    {confirming===bk.id?"...":"✅ ยืนยัน"}
+                  </Btn>
                 </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:900,color:C.text}}>{pl?.display_name||"ผู้เล่น"}</div>
-                  <div style={{fontSize:11,color:C.sub,marginTop:2}}>{timeStr} · {sl?.match_type||"—"}</div>
-                </div>
-                <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontSize:15,fontWeight:900,color:C.green}}>฿{bk.amount}</div>
-                  <div style={{fontSize:10,color:C.muted,marginTop:2}}>{pl?.tier||""}</div>
-                </div>
-                <Btn onClick={e=>{e.stopPropagation();confirmOne(bk);}} disabled={confirming===bk.id} style={{padding:"8px 12px",fontSize:11,width:"auto",flexShrink:0}}>
-                  {confirming===bk.id?"...":"✅ ยืนยัน"}
-                </Btn>
+                {bk.slip_url&&(
+                  <div style={{marginTop:10}} onClick={e=>e.stopPropagation()}>
+                    <div style={{fontSize:10,color:C.sub,marginBottom:4}}>สลิปการโอน</div>
+                    <img src={bk.slip_url} alt="slip" style={{width:"100%",borderRadius:10,maxHeight:220,objectFit:"cover",cursor:"zoom-in"}}
+                      onClick={()=>window.open(bk.slip_url,"_blank")}/>
+                  </div>
+                )}
               </div>
             );
           })}
