@@ -686,18 +686,21 @@ export default function SquadHub() {
   /* ── LOAD MY BOOKING (plural support) ── */
   const loadMyBooking = useCallback(async (playerId) => {
     // ดึง bookings ทั้งหมดที่ active (ไม่กรอง date ใน query — กรองใน JS แทน)
-    const {data:bks} = await supabase.from("bookings")
+    const {data:bks, error:bksErr} = await supabase.from("bookings")
       .select("id,slot_id,venue_id,amount,status")
       .eq("player_id", playerId)
       .in("status",["pending","confirmed"])
       .order("created_at",{ascending:false});
-    if(!bks?.length) return null;
+    if(bksErr) console.error("[loadMyBooking] bookings query error:", bksErr.message, bksErr.code);
+    if(!bks?.length) { console.warn("[loadMyBooking] no bookings found for player:", playerId); return null; }
 
     // ดึง slot ทั้งหมดด้วย IDs (ไม่ filter date ใน Supabase — ปลอดภัยกว่า)
-    const slotIds = [...new Set(bks.map(b=>b.slot_id))];
-    const {data:slots} = await supabase.from("slots")
+    const slotIds = [...new Set(bks.map(b=>b.slot_id).filter(Boolean))];
+    if(!slotIds.length) { console.warn("[loadMyBooking] all bookings have null slot_id"); return null; }
+    const {data:slots, error:slotsErr} = await supabase.from("slots")
       .select("id,date,start_time,end_time,match_type,max_players,status,price,fee")
       .in("id",slotIds);
+    if(slotsErr) console.error("[loadMyBooking] slots query error:", slotsErr.message, slotsErr.code);
 
     // รวมข้อมูล — เอาทุก booking ที่มี slot (ไม่กรอง date เพราะ pending ควรโชว์เสมอ)
     const enriched = bks
@@ -710,6 +713,7 @@ export default function SquadHub() {
         return da.localeCompare(db);
       });
 
+    if(!enriched.length) console.warn("[loadMyBooking] enriched empty — bookings found but no matching slots. bks:", bks.length, "slots:", slots?.length);
     setAllBookings(enriched);
     if(!enriched.length) return null;
 
