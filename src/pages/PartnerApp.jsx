@@ -1310,6 +1310,13 @@ const BookingConfirmTab = ({venueId, slots=[]}) => {
   const [addAmount,setAddAmount]=useState("");
   const [addSlotId,setAddSlotId]=useState("");
   const [addSaving,setAddSaving]=useState(false);
+  // Group Booking form
+  const [showGroup,setShowGroup]=useState(false);
+  const [groupSlotId,setGroupSlotId]=useState("");
+  const [groupPlayers,setGroupPlayers]=useState("");
+  const [groupAmount,setGroupAmount]=useState("");
+  const [groupTeamName,setGroupTeamName]=useState("");
+  const [groupSaving,setGroupSaving]=useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -1373,8 +1380,17 @@ const BookingConfirmTab = ({venueId, slots=[]}) => {
     if(!addSlotId||!addLineId.trim()||!addName.trim()) return;
     setAddSaving(true);
     try {
-      // ค้นหา player_id จาก LINE ID
-      const {data:pl} = await supabase.from("players").select("id").eq("line_user_id",addLineId.trim()).maybeSingle();
+      // ค้นหา player_id จาก LINE ID — ถ้าไม่มี auto-create ก่อน
+      let {data:pl} = await supabase.from("players").select("id").eq("line_user_id",addLineId.trim()).maybeSingle();
+      if(!pl?.id) {
+        const {data:newPl,error:plErr} = await supabase.from("players").upsert({
+          line_user_id: addLineId.trim(),
+          display_name: addName.trim(),
+          tier: "Bronze", level: 1, xp: 0,
+        },{onConflict:"line_user_id"}).select("id").single();
+        if(plErr) console.warn("auto-create player error:", plErr);
+        else pl = newPl;
+      }
       const {data:bk,error:bkErr} = await supabase.from("bookings").insert({
         player_id: pl?.id||null,
         slot_id: addSlotId,
@@ -1500,6 +1516,72 @@ const BookingConfirmTab = ({venueId, slots=[]}) => {
             </div>
             <Btn onClick={addPlayerBooking} disabled={addSaving||!addSlotId||!addLineId.trim()||!addName.trim()} style={{marginTop:4}}>
               {addSaving?"กำลังบันทึก...":"✅ สร้างการจอง + แจ้ง LINE"}
+            </Btn>
+          </div>
+        )}
+      </div>
+
+      {/* ── Group Booking (จองแทนทีม) ── */}
+      <div style={{marginTop:14,background:C.bg2,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden"}}>
+        <div onClick={()=>setShowGroup(p=>!p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",cursor:"pointer"}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:800,color:"#fbbf24"}}>🏆 จองให้ทีมลูกค้า (ฐานเดิม)</div>
+            <div style={{fontSize:10,color:C.sub,marginTop:1}}>ลูกค้าจองเป็นทีม — ไม่ต้องใช้ LINE ID, แค่ check-in ตอนมาถึง</div>
+          </div>
+          <div style={{color:C.sub,fontSize:16}}>{showGroup?"▲":"▼"}</div>
+        </div>
+        {showGroup&&(
+          <div style={{padding:"0 16px 16px",display:"flex",flexDirection:"column",gap:8,borderTop:`1px solid ${C.border}`}}>
+            <div style={{marginTop:12}}>
+              <div style={{fontSize:10,color:C.sub,marginBottom:4}}>เลือกสล็อต</div>
+              <select value={groupSlotId} onChange={e=>setGroupSlotId(e.target.value)}
+                style={{width:"100%",background:"#0d1a0f",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13}}>
+                <option value="">-- เลือกสล็อต --</option>
+                {slots.map(s=>(
+                  <option key={s.id} value={s.id}>{s.start_time?.slice(0,5)}–{s.end_time?.slice(0,5)} · {s.match_type||""}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:C.sub,marginBottom:4}}>ชื่อทีม / กลุ่ม</div>
+              <input value={groupTeamName} onChange={e=>setGroupTeamName(e.target.value)} placeholder="เช่น ทีม FC ลุงสมชาย"
+                style={{width:"100%",background:"#0d1a0f",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13,boxSizing:"border-box"}}/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <div>
+                <div style={{fontSize:10,color:C.sub,marginBottom:4}}>จำนวนคน</div>
+                <input value={groupPlayers} onChange={e=>setGroupPlayers(e.target.value)} placeholder="14" type="number" min={1}
+                  style={{width:"100%",background:"#0d1a0f",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:C.sub,marginBottom:4}}>ยอดรวม (฿)</div>
+                <input value={groupAmount} onChange={e=>setGroupAmount(e.target.value)} placeholder="0" type="number"
+                  style={{width:"100%",background:"#0d1a0f",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13,boxSizing:"border-box"}}/>
+              </div>
+            </div>
+            <Btn onClick={async()=>{
+              const count = parseInt(groupPlayers)||0;
+              if(!groupSlotId || count < 1) return;
+              setGroupSaving(true);
+              try {
+                const teamName = groupTeamName.trim() || "ทีมลูกค้า";
+                const perAmount = count>0 ? (parseFloat(groupAmount)||0)/count : 0;
+                const rows = Array.from({length:count}).map(()=>({
+                  player_id: null, slot_id: groupSlotId, venue_id: venueId,
+                  amount: perAmount, status: "confirmed",
+                  confirmed_at: new Date().toISOString(), confirmed_by: "partner",
+                  booked_for_name: teamName,
+                }));
+                const {error} = await supabase.from("bookings").insert(rows);
+                if(error){ console.error(error); alert("❌ บันทึกไม่สำเร็จ"); }
+                else {
+                  alert(`✅ จองให้ทีม "${teamName}" จำนวน ${count} คน — ตอนมาถึงให้ใช้ QR check-in`);
+                  setGroupTeamName(""); setGroupPlayers(""); setGroupAmount(""); setGroupSlotId(""); setShowGroup(false);
+                }
+              } catch(e){ console.error(e); }
+              setGroupSaving(false);
+            }} disabled={groupSaving||!groupSlotId||!(parseInt(groupPlayers)>0)} style={{marginTop:4}}>
+              {groupSaving?"กำลังบันทึก...":"🏆 สร้าง Group Booking"}
             </Btn>
           </div>
         )}

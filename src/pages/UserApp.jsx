@@ -664,6 +664,7 @@ export default function SquadHub() {
   const [slipError,setSlipError]         = useState(false);
   const [confirmedCount,setConfirmedCount] = useState(0);
   const [showConfirmBanner,setShowConfirmBanner] = useState(false);
+  const [unassignedPlayers,setUnassignedPlayers] = useState([]);
   const [captainSignaled,setCaptainSignaled] = useState(false);
   const [isUserCaptain,setIsUserCaptain]     = useState(false);
   const fileRef = useRef(null);
@@ -702,10 +703,11 @@ export default function SquadHub() {
       .in("id",slotIds);
     if(slotsErr) console.error("[loadMyBooking] slots query error:", slotsErr.message, slotsErr.code);
 
-    // รวมข้อมูล — เอาทุก booking ที่มี slot (ไม่กรอง date เพราะ pending ควรโชว์เสมอ)
+    // รวมข้อมูล — กรองเฉพาะ today + future เพื่อให้ active booking ถูก ID เสมอ
+    const todayStr = new Date().toISOString().split("T")[0];
     const enriched = bks
       .map(b=>({...b, slotData: slots?.find(s=>s.id===b.slot_id)}))
-      .filter(b=>b.slotData)
+      .filter(b=>b.slotData && b.slotData.date >= todayStr)
       .sort((a,b)=>{
         const da = a.slotData?.date||"";
         const db = b.slotData?.date||"";
@@ -810,7 +812,12 @@ export default function SquadHub() {
       const enriched = finalPlayers.map(p=>({...p,...(nameMap[p.player_id]||{})}));
       setScorePlayers(enriched);
       const dbTeams = [...new Set(enriched.map(p=>p.team))].sort();
-      const finalTeams = dbTeams.length >= 2 ? dbTeams : ["A","B","C","D"];
+      // ดึง match_type จาก slot เพื่อรู้จำนวนทีมจริง (ไม่ขึ้นกับ match_players ที่อาจยังไม่ครบ)
+      const {data:matchSlot} = await supabase.from("slots")
+        .select("match_type").eq("id",match?.slot_id).maybeSingle();
+      const teamCount = parseMatchType(matchSlot?.match_type).teams;
+      const allTeamIds = TEAM_IDS.slice(0, teamCount);
+      const finalTeams = [...new Set([...allTeamIds,...dbTeams])].sort();
       setScoreTeams(finalTeams);
       setNewRound(r=>({...r,teamA:finalTeams[0],teamB:finalTeams[1]}));
     }catch(e){console.error("loadScoreData:",e);}
@@ -833,18 +840,42 @@ export default function SquadHub() {
   const loadRoomData = useCallback(async () => {
     if(!myBooking?.slot_id) return;
     try{
+      // ── Fresh slot fetch FIRST (ก่อน early return ทั้งหมด) ──
+      const {data:freshSlot} = await supabase.from("slots")
+        .select("id,match_type,max_players,status,start_time,end_time,date,price,fee")
+        .eq("id", myBooking.slot_id).single();
+      if(freshSlot) setSlot(prev=>({
+        ...prev, ...freshSlot,
+        time: freshSlot.start_time?.slice(0,5),
+        end:  freshSlot.end_time?.slice(0,5),
+      }));
+      // นับจำนวน confirmed bookings เพื่อแสดง capacity (ทำเสมอ ไม่ขึ้นกับ match_players)
+      const {count:confCount} = await supabase.from("bookings")
+        .select("id",{count:"exact",head:true}).eq("slot_id",myBooking.slot_id).eq("status","confirmed");
+      setConfirmedCount(confCount||0);
+
       const match = await findOrCreateMatch(myBooking.slot_id, myBooking.venue_id);
       if(!match?.id) return;
       const {data:mps} = await supabase.from("match_players")
         .select("player_id,team").eq("match_id", match.id);
-      if(!mps?.length) return;
+      // ใช้ freshSlot เป็น source of truth สำหรับ team count
+      const slotForCount = freshSlot || slot;
+      const expectedTeamCount = parseMatchType(slotForCount?.match_type).teams;
+      const allTeamIds = TEAM_IDS.slice(0, expectedTeamCount);
+      const maxPerTeam = slotForCount?.max_players && expectedTeamCount ? Math.floor(slotForCount.max_players/expectedTeamCount) : 7;
+
+      if(!mps?.length) {
+        // ยังไม่มีคนใน match_players → seed empty teams ตาม match_type
+        setTeams(allTeamIds.map((id,i)=>({
+          id, name:`ทีม ${id}`, color:TEAM_COLORS[i%TEAM_COLORS.length], max:maxPerTeam, code:"", players:[],
+        })));
+        return;
+      }
+
       const {data:pData} = await supabase.from("players")
-        .select("id,display_name,position").in("id", mps.map(m=>m.player_id));
-      // นับทีมจากข้อมูลจริงใน match_players (ไม่ใช้ match_type เพราะอาจไม่มีจำนวนทีม)
+        .select("id,display_name,position").in("id", mps.map(m=>m.player_id).filter(Boolean));
       const actualTeams = [...new Set(mps.map(m=>m.team).filter(Boolean))].sort();
-      const tc = Math.max(actualTeams.length, parseMatchType(slot?.match_type).teams);
-      const teamIds = actualTeams.length >= 2 ? actualTeams : TEAM_IDS.slice(0,tc);
-      const maxPerTeam = slot?.max_players && tc ? Math.floor(slot.max_players/tc) : 7;
+      const teamIds = [...new Set([...allTeamIds, ...actualTeams])].sort();
       setTeams(teamIds.map((id,i)=>({
         id, name:`ทีม ${id}`, color:TEAM_COLORS[i%TEAM_COLORS.length], max:maxPerTeam,
         code:"", players: mps.filter(m=>m.team===id).map(m=>{
@@ -858,12 +889,20 @@ export default function SquadHub() {
           };
         }),
       })));
+      // unassigned players (match_players row มี แต่ team=null) → list แยก
+      const unassigned = mps.filter(m=>!m.team).map(m=>{
+        const p = pData?.find(pd=>pd.id===m.player_id);
+        return {
+          player_id: m.player_id,
+          name: p?.display_name||"?",
+          pos:  p?.position||"MF",
+          isMe: m.player_id===player?.dbId,
+          photo: m.player_id===player?.dbId ? profilePhoto : null,
+        };
+      });
+      setUnassignedPlayers(unassigned);
       const myMp = mps.find(m=>m.player_id===player?.dbId);
       if(myMp?.team) setMyTeam(myMp.team);
-      // นับจำนวน confirmed bookings เพื่อแสดง capacity
-      const {count} = await supabase.from("bookings")
-        .select("id",{count:"exact",head:true}).eq("slot_id",myBooking.slot_id).eq("status","confirmed");
-      setConfirmedCount(count||0);
     }catch(e){ console.error("loadRoomData:", e); }
   },[myBooking, slot, player, profilePhoto]);
 
@@ -937,15 +976,28 @@ export default function SquadHub() {
     const ch = supabase.channel(`booking-status-${myBooking.id}`)
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"bookings",filter:`id=eq.${myBooking.id}`},
         (payload)=>{
+          console.log("[booking-realtime] payload:", payload);
           const newStatus = payload.new?.status;
           if(newStatus) {
             setMyBooking(prev=>prev?{...prev,status:newStatus}:prev);
             if(newStatus==="confirmed") setShowConfirmBanner(true);
           }
         }
-      ).subscribe();
+      ).subscribe((status)=>{ console.log("[booking-realtime] subscribe status:", status, "booking id:", myBooking.id); });
     return ()=>{ supabase.removeChannel(ch); };
   },[myBooking?.id]);
+
+  /* ── VISIBILITY / FOCUS REFRESH — refresh booking เมื่อกลับมาที่แท็บ ── */
+  useEffect(()=>{
+    if(!player?.dbId) return;
+    const refresh = ()=>{ if(document.visibilityState==="visible") loadMyBooking(player.dbId); };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return ()=>{
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  },[player?.dbId, loadMyBooking]);
 
   /* ── SUBMIT FINAL RESULT ── */
   const submitResult = async ()=>{
@@ -966,16 +1018,21 @@ export default function SquadHub() {
       });
       const maxW = Math.max(...Object.values(teamWins));
       const winTeams = Object.keys(teamWins).filter(t=>teamWins[t]===maxW&&maxW>0);
+      // ตรวจ draw: ทุกทีมที่เล่นได้ wins เท่ากัน (รวมถึง 0-0) → draw
+      const teamsWithRounds = Object.keys(teamWins).filter(t=>scoreRounds.some(r=>r.team_a_name===t||r.team_b_name===t));
+      const allEqual = teamsWithRounds.length>0 && teamsWithRounds.every(t=>teamWins[t]===teamWins[teamsWithRounds[0]]);
+      const isDrawMatch = allEqual && winTeams.length !== 1;
 
       for(const mp of scorePlayers){
-        const isWin   = winTeams.includes(mp.team);
+        const isWin   = winTeams.includes(mp.team) && !isDrawMatch;
+        const result  = isDrawMatch ? "draw" : isWin ? "win" : "loss";
         const isMvp   = mp.player_id===selectedMvp;
         const goals   = teamGoals[mp.team]||0;
-        const xpEarned= (isWin?30:10)+(isMvp?30:0);
+        const xpEarned= (isWin?30:isDrawMatch?20:10)+(isMvp?30:0);
         // upsert match_players (สร้าง row ถ้าไม่มี หรืออัพถ้ามีแล้ว)
         const {error:mpErr} = await supabase.from("match_players").upsert({
           match_id:scoreMatchId, player_id:mp.player_id, team:mp.team,
-          is_win:isWin, is_mvp:isMvp, xp_earned:xpEarned,
+          is_win:isWin, is_mvp:isMvp, xp_earned:xpEarned, result,
         },{ onConflict:"match_id,player_id" });
         if(mpErr) console.error("match_players upsert error:", mpErr);
         // xp_logs — บันทึก event ทุกครั้ง
@@ -1095,10 +1152,11 @@ export default function SquadHub() {
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
-            supabase.from("match_players").select("is_win").eq("player_id",data.id)
+            supabase.from("match_players").select("result,is_win,created_at").eq("player_id",data.id)
+              .not("result","is",null)
               .order("created_at",{ascending:false}).limit(5)
               .then(({data:mp})=>{
-                if(mp?.length) setPlayer(prev=>({...prev,form:(mp).map(m=>m.is_win?1:-1)}));
+                if(mp?.length) setPlayer(prev=>({...prev,form:(mp).map(m=>m.result==="win"?1:m.result==="draw"?0:m.result==="loss"?-1:(m.is_win?1:-1))}));
               });
             const bk = await loadMyBooking(data.id);
             setAppLoading(false);
@@ -1686,17 +1744,17 @@ const handlePhotoUpload = async (e) => {
             </div>
           </div>
           <div style={{background:C.greenDim,border:`1px solid ${C.borderHi}`,borderRadius:14,padding:"12px 16px",marginBottom:10}}>
-            <div style={{fontSize:9,fontWeight:800,color:C.green,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>ฉายา</div>
+            <div style={{fontSize:9,fontWeight:800,color:C.green,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>{T("ฉายา","Nickname")}</div>
             <div style={{fontSize:15,fontWeight:900,color:C.text,marginBottom:6}}>{player.nick||"—"}</div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               {player.tags?.map(t=><span key={t} style={{fontSize:10,color:C.green,fontWeight:700}}>{t}</span>)}
             </div>
           </div>
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:"12px 16px"}}>
-            <div style={{fontSize:9,fontWeight:800,color:C.sub,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>ฟอร์มล่าสุด</div>
+            <div style={{fontSize:9,fontWeight:800,color:C.sub,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>{T("ฟอร์มล่าสุด","Recent Form")}</div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <FormDots form={player.form?.length?player.form:[]}/>
-              {!player.form?.length&&<span style={{fontSize:10,color:C.sub}}>ยังไม่มีแมทช์</span>}
+              {!player.form?.length&&<span style={{fontSize:10,color:C.sub}}>{T("ยังไม่มีแมทช์","No matches yet")}</span>}
             </div>
           </div>
         </div>
@@ -1892,6 +1950,7 @@ const handlePhotoUpload = async (e) => {
       {(()=>{
         if(!isUserCaptain) return null;
         if(!myBooking?.slot_id) return null;
+        if(myBooking?.status !== "confirmed") return null;
         const isEnded    = slot?.status === "ended";
         const isPending  = captainSignaled && !isEnded;
         return (
@@ -2202,7 +2261,7 @@ const handlePhotoUpload = async (e) => {
             Match Lobby · Live
           </div>
           <div style={{fontSize:20,fontWeight:900,color:C.text,letterSpacing:.5}}>{venue?.name}</div>
-          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {parseMatchType(slot?.match_type).format||"7v7"} · {teams.length||2} ทีม · {confirmedCount||0}/{slot?.max_players||0} คน</div>
+          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {parseMatchType(slot?.match_type).format||"7v7"} · {teams.length||2} {T("ทีม","Teams")} · {confirmedCount||0}/{slot?.max_players||0} {T("คน","Players")}</div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:14}}>
           {[{id:"pitch",label:"🏟️ Stadium"},{id:"team",label:"👥 Team"},{id:"chat",label:"💬 Chat"}].map(lt=>(
@@ -2227,22 +2286,37 @@ const handlePhotoUpload = async (e) => {
             <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap",justifyContent:"center"}}>
               {teams.map(t=><div key={t.id} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,borderRadius:2,background:t.color}}/><span style={{fontSize:9,fontWeight:700,color:myTeam===t.id?t.color:C.sub}}>{t.name} {t.players.length}/{t.max}</span></div>)}
             </div>
-            {!myTeam&&<div style={{marginTop:14}}><Btn onClick={()=>setShowJoin(true)}>เลือกทีม / ใส่โค้ด <ChevronRight size={15}/></Btn></div>}
+            {unassignedPlayers.length>0&&(
+              <div style={{marginTop:14,padding:"12px 14px",background:"rgba(251,191,36,0.06)",border:"1px solid rgba(251,191,36,0.25)",borderRadius:12}}>
+                <div style={{fontSize:10,fontWeight:800,color:C.amber,letterSpacing:1.2,marginBottom:8,textTransform:"uppercase"}}>⏳ {T("รอเลือกทีม","Waiting to pick team")} · {unassignedPlayers.length}</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {unassignedPlayers.map((p,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px",background:"rgba(255,255,255,0.04)",border:`1px solid ${p.isMe?C.amber:C.border}`,borderRadius:99}}>
+                      <div style={{width:18,height:18,borderRadius:"50%",background:p.isMe?"rgba(251,191,36,0.18)":"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:p.isMe?C.amber:C.text,overflow:"hidden"}}>
+                        {p.photo?<ImgLoad src={p.photo} alt={p.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:p.name[0]}
+                      </div>
+                      <span style={{fontSize:10,fontWeight:700,color:p.isMe?C.amber:C.text}}>{p.isMe?T("คุณ","You"):p.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!myTeam&&<div style={{marginTop:14}}><Btn onClick={()=>setShowJoin(true)}>{T("เลือกทีม / ใส่โค้ด","Pick Team / Enter Code")} <ChevronRight size={15}/></Btn></div>}
             {myTeam&&(
   <div style={{marginTop:12,background:"#0a1a0f",borderTop:`1px solid rgba(16,185,129,0.2)`,borderRadius:12,padding:"14px 16px"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
         <div style={{width:10,height:10,borderRadius:2,background:myTeamData?.color}}/>
         <span style={{fontSize:14,fontWeight:900,color:C.text}}>{myTeamData?.name}</span>
-        <span style={{fontSize:11,color:C.sub}}>{myTeamData?.players.length}/{myTeamData?.max} คน</span>
+        <span style={{fontSize:11,color:C.sub}}>{myTeamData?.players.length}/{myTeamData?.max} {T("คน","")}</span>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,fontWeight:700,color:C.green}}>
         <div style={{width:6,height:6,borderRadius:"50%",background:C.green}}/>
-        เข้าร่วมแล้ว
+        {T("เข้าร่วมแล้ว","Joined")}
       </div>
     </div>
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-      <div style={{fontSize:10,color:C.sub}}>โค้ด:</div>
+      <div style={{fontSize:10,color:C.sub}}>{T("โค้ด:","Code:")}</div>
       <span style={{fontSize:12,fontWeight:900,color:myTeamData?.color,fontFamily:"monospace",letterSpacing:2}}>{myTeamData?.code}</span>
       <button onClick={()=>navigator.clipboard?.writeText(myTeamData?.code)} style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${C.border}`,borderRadius:6,padding:"2px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,color:C.sub,fontSize:10,fontWeight:700}}>
         <Copy size={11}/>Copy
@@ -2250,9 +2324,9 @@ const handlePhotoUpload = async (e) => {
     </div>
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
       <div style={{width:14,height:14,borderRadius:"50%",background:"rgba(251,191,36,0.15)",border:"1px solid rgba(251,191,36,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:C.amber,flexShrink:0}}>!</div>
-      <span style={{fontSize:10,color:C.sub}}>กดยืนยันเพื่อล็อคที่นั่งและชำระเงิน · ยังไม่หักเงินจนกว่าจะยืนยัน</span>
+      <span style={{fontSize:10,color:C.sub}}>{T("กดยืนยันเพื่อล็อคที่นั่งและชำระเงิน · ยังไม่หักเงินจนกว่าจะยืนยัน","Confirm to lock your spot and pay · No charge until you confirm")}</span>
     </div>
-    <Btn onClick={()=>{setPayStep("summary"); setTab("checkout");}}>ยืนยันและชำระเงิน <ChevronRight size={15}/></Btn>
+    <Btn onClick={()=>{setPayStep("summary"); setTab("checkout");}}>{T("ยืนยันและชำระเงิน","Confirm & Pay")} <ChevronRight size={15}/></Btn>
   </div>
 )}
             {pitchPopup&&(
@@ -2263,7 +2337,7 @@ const handlePhotoUpload = async (e) => {
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
                     <div>
                       <div style={{fontSize:16,fontWeight:900,color:pitchPopup.color}}>{pitchPopup.name}</div>
-                      <div style={{fontSize:10,color:C.sub,marginTop:2}}>{pitchPopup.players.length}/{pitchPopup.max} ผู้เล่น · ว่างอีก {pitchPopup.max-pitchPopup.players.length} ที่</div>
+                      <div style={{fontSize:10,color:C.sub,marginTop:2}}>{pitchPopup.players.length}/{pitchPopup.max} {T("ผู้เล่น · ว่างอีก","Players · ")}{T("","")} {pitchPopup.max-pitchPopup.players.length} {T("ที่","spots left")}</div>
                     </div>
                     <button onClick={()=>setPitchPopup(null)} style={{background:"rgba(255,255,255,0.06)",border:"none",color:C.sub,fontSize:13,padding:"4px 10px",borderRadius:6,cursor:"pointer"}}>✕</button>
                   </div>
@@ -2553,9 +2627,13 @@ const handlePhotoUpload = async (e) => {
         <div style={{marginBottom:14}}>
           <div style={{fontSize:11,fontWeight:700,color:C.sub,marginBottom:8}}>แนบสลิปการโอน <span style={{color:C.red}}>*</span></div>
           {slipUrl ? (
-            <div style={{position:"relative"}}>
-              <img src={slipUrl} alt="slip" style={{width:"100%",borderRadius:12,maxHeight:240,objectFit:"cover"}}/>
-              <div onClick={()=>setSlipUrl(null)} style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.65)",borderRadius:20,padding:"4px 12px",fontSize:11,color:"#fff",cursor:"pointer"}}>เปลี่ยน</div>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:12}}>
+              <span style={{fontSize:22}}>✅</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:800,color:C.green}}>{T("อัพโหลดสำเร็จ","Upload successful")}</div>
+                <div style={{fontSize:10,color:C.sub,marginTop:2}}>{T("สลิปพร้อมส่งให้สนามตรวจสอบ","Slip ready for venue review")}</div>
+              </div>
+              <div onClick={()=>setSlipUrl(null)} style={{fontSize:11,fontWeight:700,color:C.sub,cursor:"pointer",padding:"6px 10px",borderRadius:6,border:`1px solid ${C.border}`}}>{T("เปลี่ยน","Change")}</div>
             </div>
           ) : (
             <div onClick={()=>slipInputRef.current?.click()}
@@ -2733,6 +2811,15 @@ const handlePhotoUpload = async (e) => {
   /* ═══ SCORE TAB ═══ */
   const renderScore = ()=>{
     const teamColor = t=>({A:C.red,B:C.blue,C:"#10b981",D:C.amber}[t]||C.green);
+
+    // Guard: ถ้า booking ยัง pending ห้ามกรอกสกอร์
+    if(myBooking?.status === "pending") return(
+      <div style={{padding:32,textAlign:"center"}}>
+        <div style={{fontSize:48,marginBottom:12}}>⏳</div>
+        <div style={{fontSize:15,fontWeight:800,color:C.amber,marginBottom:6}}>{T("รอ Partner ยืนยัน booking ก่อน","Waiting for partner to confirm booking")}</div>
+        <div style={{fontSize:12,color:C.sub}}>{T("ระบบจะแจ้งทาง LINE เมื่อสนามยืนยันแล้ว","System will notify via LINE once confirmed")}</div>
+      </div>
+    );
 
     if(scoreDataLoading) return(
       <div style={{padding:32,textAlign:"center",color:C.sub,fontSize:13}}>⏳ กำลังโหลดข้อมูลแมตช์...</div>
@@ -3125,18 +3212,34 @@ const handlePhotoUpload = async (e) => {
                 <div style={{textAlign:"center",padding:"6px 0",color:C.muted,fontSize:10}}>{T("Player QR สำหรับ Check-in อยู่ที่ Profile →","Player QR for Check-in is in Profile →")}</div>
                 {allBookings.length>1&&(
                   <div style={{marginTop:16}}>
-                    <div style={{fontSize:9,fontWeight:800,letterSpacing:2,color:C.sub,textTransform:"uppercase",marginBottom:8}}>Upcoming Bookings</div>
-                    {allBookings.slice(1).map(b=>(
-                      <div key={b.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <div>
-                          <div style={{fontSize:12,fontWeight:700,color:C.text}}>{b.slotData?.date}</div>
-                          <div style={{fontSize:10,color:C.sub}}>{b.slotData?.start_time?.slice(0,5)}–{b.slotData?.end_time?.slice(0,5)} · {b.slotData?.match_type||"7v7"}</div>
+                    <div style={{fontSize:9,fontWeight:800,letterSpacing:2,color:C.sub,textTransform:"uppercase",marginBottom:8}}>{T("Booking ถัดไป","Upcoming Bookings")} · {allBookings.length-1}</div>
+                    {allBookings.slice(1).map(b=>{
+                      const mt = parseMatchType(b.slotData?.match_type);
+                      const dateObj = b.slotData?.date ? new Date(b.slotData.date) : null;
+                      const dateLabel = dateObj ? `${dateObj.getDate()} ${monthTH[dateObj.getMonth()]||""}` : "—";
+                      return (
+                        <div key={b.id} onClick={async()=>{
+                          setMyBooking(b);
+                          if(b.slotData) setSlot({...b.slotData,time:b.slotData.start_time?.slice(0,5),end:b.slotData.end_time?.slice(0,5)});
+                          const {data:vd} = await supabase.from("venues").select("id,name,area,promptpay_id,promptpay_name").eq("id",b.venue_id).single();
+                          if(vd) setVenue(vd);
+                          setShowNotif(false);
+                          setTab("room");
+                        }} style={{background:C.surface,border:`1px solid ${b.status==="confirmed"?"rgba(16,212,132,0.25)":C.border}`,borderRadius:12,padding:"12px 14px",marginBottom:8,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                              <span style={{fontSize:13,fontWeight:900,color:C.text}}>{dateLabel}</span>
+                              <span style={{fontSize:11,color:C.muted}}>·</span>
+                              <span style={{fontSize:11,fontWeight:700,color:C.green}}>{b.slotData?.start_time?.slice(0,5)}–{b.slotData?.end_time?.slice(0,5)}</span>
+                            </div>
+                            <div style={{fontSize:10,color:C.sub}}>{mt.label} · ฿{b.amount||"—"}</div>
+                          </div>
+                          <div style={{padding:"4px 10px",borderRadius:99,fontSize:9,fontWeight:800,background:b.status==="confirmed"?"rgba(16,212,132,0.15)":"rgba(251,191,36,0.15)",color:b.status==="confirmed"?C.green:C.amber,border:`1px solid ${b.status==="confirmed"?"rgba(16,212,132,0.3)":"rgba(251,191,36,0.3)"}`}}>
+                            {b.status==="confirmed"?T("ยืนยันแล้ว","Confirmed"):T("รอยืนยัน","Pending")}
+                          </div>
                         </div>
-                        <div style={{padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:700,background:b.status==="confirmed"?"rgba(16,212,132,0.15)":"rgba(251,191,36,0.15)",color:b.status==="confirmed"?C.green:C.amber}}>
-                          {b.status==="confirmed"?"ยืนยันแล้ว":"รอยืนยัน"}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </>
