@@ -2542,9 +2542,9 @@ const handlePhotoUpload = async (e) => {
               const ext=file.name.split(".").pop()||"jpg";
               const path=`slips/${player.dbId}_${Date.now()}.${ext}`;
               setSlipError(false);
-              const {error:upErr}=await supabase.storage.from("bookings").upload(path,file,{upsert:true});
+              const {error:upErr}=await supabase.storage.from("bookings slip").upload(path,file,{upsert:true});
               if(!upErr){
-                const {data:urlData}=supabase.storage.from("bookings").getPublicUrl(path);
+                const {data:urlData}=supabase.storage.from("bookings slip").getPublicUrl(path);
                 setSlipUrl(urlData.publicUrl);
               }else{
                 console.error("slip upload:",upErr);
