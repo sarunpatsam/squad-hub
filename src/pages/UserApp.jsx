@@ -62,6 +62,29 @@ const NICKS = {
   GK:{ "The Wall":{nick:"เทพเจ้าประตู 🧤",tags:["#WallGK","#เซฟไม่ยั้ง","#ผ่านไม่ผ่าน"]}, Speedster:{nick:"GK ปีกเร็ว ⚡",tags:["#SweepingGK","#ออกมาเลย","#ปอดเหล็ก"]}, Playmaker:{nick:"สร้างเกมจากหลัง 🎼",tags:["#PlaymakingGK","#เริ่มเกมจากประตู","#จ่ายทะลุ"]}, Commander:{nick:"แม่ทัพกองหลัง 📢",tags:["#Commander","#สั่งการ","#หัวโขก"]}, "Shot-Stopper":{nick:"มือเวทย์ 🪄",tags:["#ShotStopper","#เซฟแล้วเซฟอีก","#ผ่านประตูไม่ได้"]} },
 };
 
+// XP thresholds per level (cumulative)
+const XP_LEVELS = [0,100,250,500,1000,2000,3500,5000,7500,10000];
+const getXpProgress = (totalXp, level) => {
+  const idx = Math.min((level||1)-1, XP_LEVELS.length-2);
+  const base = XP_LEVELS[idx]||0;
+  const next = XP_LEVELS[idx+1]||XP_LEVELS[idx]+1000;
+  const pct = Math.min(Math.max(((totalXp-base)/(next-base))*100,0),100);
+  return { pct, toNext: Math.max(next-totalXp,0), next };
+};
+const getLevel = (totalXp) => {
+  let lv = 1;
+  for(let i=1;i<XP_LEVELS.length;i++){ if(totalXp>=XP_LEVELS[i]) lv=i+1; else break; }
+  return Math.min(lv, XP_LEVELS.length);
+};
+
+// Parse PartnerApp match_type format e.g. "7v7_3t" → {format:"7v7", teams:3, label:"7v7 · 3 ทีม"}
+const parseMatchType = (mt) => {
+  if(!mt) return {format:"7v7",teams:2,label:"7v7 · 2 ทีม"};
+  const [fmt,t] = mt.split("_");
+  const teams = parseInt(t?.replace("t",""))||2;
+  return {format:fmt||"7v7", teams, label:`${fmt||"7v7"} · ${teams} ทีม`};
+};
+
 const VENUES = [
   { id:1, name:"S-One Football Club", area:"ลาดพร้าว", distance:"2.5 km", rating:4.8, slots:[
     {id:101,time:"16:00",end:"18:00",type:"7v7",price:150,fee:20,status:"Open",  filled:8, total:28},
@@ -76,23 +99,20 @@ const VENUES = [
   ]},
 ];
 
-const SEED_TEAMS = () => ([
-  { id:"A", name:"ทีม A", color:TC.A, max:7, code:"A4X9",
-    players:[
+const TEAM_IDS = ["A","B","C","D"];
+const TEAM_COLORS = [TC.A,TC.B,TC.C,TC.D];
+const SEED_TEAMS = (count=4) => {
+  const n = Math.min(Math.max(count,2),4);
+  return TEAM_IDS.slice(0,n).map((id,i)=>({
+    id, name:`ทีม ${id}`, color:TEAM_COLORS[i], max:7,
+    code:`${id}${Math.random().toString(36).slice(2,6).toUpperCase()}`,
+    players: i===0 ? [
       {name:"กัปตัน",pos:"MF",ovr:92,nick:"ปรมาจารย์จ่าย 🎼",tags:["#KingAssist","#VisionGod"],form:[5,4,5,5,4],isCaptain:true,stats:SM.MF.Playmaker},
-      {name:"อาร์ม",  pos:"FW",ovr:85,nick:"เครื่องทำประตู 🎯",tags:["#GoalMachine","#หน้าเป้า"],form:[4,5,3,5,5],stats:SM.FW.Finisher},
-      {name:"บิ๊ก",  pos:"GK",ovr:82,nick:"เทพเจ้าประตู 🧤",tags:["#WallGK"],form:[5,5,4,3,5],stats:SM.GK["The Wall"]},
-      {name:"ปอ",    pos:"DF",ovr:74,nick:"กำแพงเหล็ก 🧱",tags:["#TheWall"],form:[3,4,4,5,4],stats:SM.DF["The Wall"]},
-    ]},
-  { id:"B", name:"ทีม B", color:TC.B, max:7, code:"B7K2",
-    players:[
+    ] : i===1 ? [
       {name:"นิว",pos:"FW",ovr:80,nick:"สายฟ้า ⚡",tags:["#SpeedDemon"],form:[4,3,5,4,4],isCaptain:true,stats:SM.FW.Speedster},
-      {name:"โจ้",pos:"MF",ovr:76,nick:"ม้าใช้ทีม 🐎",tags:["#BoxToBox"],form:[3,4,4,3,5],stats:SM.MF.Speedster},
-      {name:"บอม",pos:"DF",ovr:78,nick:"กำแพงเคลื่อนที่ 🏃",tags:["#SweepKeeper"],form:[4,4,3,4,4],stats:SM.DF.Speedster},
-    ]},
-  { id:"C", name:"ทีม C", color:TC.C, max:7, code:"C2M5", players:[] },
-  { id:"D", name:"ทีม D", color:TC.D, max:7, code:"D8P1", players:[] },
-]);
+    ] : [],
+  }));
+};
 
 const SEED_CHAT = [
   {id:1,team:"match",sender:"กัปตัน",msg:"ใครอยู่ทีม C บ้าง? มาเจอกันก่อนนะ",time:"17:42",pos:"MF"},
@@ -207,7 +227,12 @@ const MiniStat = ({label,value}) => {
 };
 const FormDots = ({form=[]}) => (
   <div style={{display:"flex",gap:4}}>
-    {form.map((v,i)=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:v>=4?C.green:v===3?C.amber:C.red,boxShadow:v>=4?`0 0 5px ${C.green}66`:"none"}}/>)}
+    {form.map((v,i)=>{
+      // v: 1=win(green), -1=loss(red), 0=draw(amber) — หรือ legacy 4-5=green, 3=amber, <3=red
+      const col = (v===1||v>=4)?C.green:(v===0||v===3)?C.amber:C.red;
+      const glow = (v===1||v>=4)?`0 0 5px ${C.green}66`:"none";
+      return <div key={i} style={{width:8,height:8,borderRadius:"50%",background:col,boxShadow:glow}}/>;
+    })}
   </div>
 );
 
@@ -628,6 +653,7 @@ export default function SquadHub() {
   const [scoreLoading,setScoreLoading]     = useState(false);
   const [scoreDataLoading,setScoreDataLoading] = useState(false);
   const [venueNotified,setVenueNotified]   = useState(false);
+  const [lbData,setLbData] = useState([]);
   const [captainSignaled,setCaptainSignaled] = useState(false);
   const [isUserCaptain,setIsUserCaptain]     = useState(false);
   const fileRef = useRef(null);
@@ -722,6 +748,17 @@ export default function SquadHub() {
 
   useEffect(()=>{ if(tab==="score"&&scoreMatchId) loadScoreData(scoreMatchId); },[tab,scoreMatchId]);
 
+  // Fetch leaderboard from real players table
+  useEffect(()=>{
+    if(tab!=="leaderboard") return;
+    (async()=>{
+      const {data} = await supabase.from("players")
+        .select("id,display_name,nick,tier,level,xp,matches_played,wins")
+        .order("xp",{ascending:false}).limit(20);
+      if(data?.length) setLbData(data);
+    })();
+  },[tab]);
+
   /* ── ADD ROUND ── */
   const addRound = async ()=>{
     const rn = scoreRounds.length+1;
@@ -798,22 +835,31 @@ export default function SquadHub() {
         const isMvp   = mp.player_id===selectedMvp;
         const goals   = teamGoals[mp.team]||0;
         const xpEarned= (isWin?30:10)+(isMvp?30:0);
-        // อัพ match_players
-        await supabase.from("match_players")
-          .update({is_win:isWin,is_mvp:isMvp,xp_earned:xpEarned})
-          .eq("match_id",scoreMatchId).eq("player_id",mp.player_id);
-        // อัพ players aggregate
+        // upsert match_players (สร้าง row ถ้าไม่มี หรืออัพถ้ามีแล้ว)
+        await supabase.from("match_players").upsert({
+          match_id:scoreMatchId, player_id:mp.player_id, team:mp.team,
+          is_win:isWin, is_mvp:isMvp, xp_earned:xpEarned,
+        },{ onConflict:"match_id,player_id" });
+        // xp_logs — บันทึก event ทุกครั้ง
+        await supabase.from("xp_logs").insert({
+          player_id:mp.player_id, match_id:scoreMatchId, xp_earned:xpEarned,
+          reason: isMvp?"match_mvp":isWin?"match_win":"match_played",
+        });
+        // อัพ players aggregate + auto level-up
         const {data:p} = await supabase.from("players")
-          .select("matches_played,wins,losses,goals,mvp_count,xp")
+          .select("matches_played,wins,losses,goals,mvp_count,xp,level")
           .eq("id",mp.player_id).single();
         if(p){
+          const newXp = (p.xp||0)+xpEarned;
+          const newLevel = getLevel(newXp);
           await supabase.from("players").update({
             matches_played:(p.matches_played||0)+1,
             wins:   (p.wins||0)+(isWin?1:0),
             losses: (p.losses||0)+(!isWin&&winTeams.length>0?1:0),
             goals:  (p.goals||0)+goals,
             mvp_count:(p.mvp_count||0)+(isMvp?1:0),
-            xp:    (p.xp||0)+xpEarned,
+            xp:    newXp,
+            level: newLevel,
           }).eq("id",mp.player_id);
         }
       }
@@ -908,6 +954,11 @@ export default function SquadHub() {
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
+            supabase.from("match_players").select("is_win").eq("player_id",data.id)
+              .order("created_at",{ascending:false}).limit(5)
+              .then(({data:mp})=>{
+                if(mp?.length) setPlayer(prev=>({...prev,form:(mp).map(m=>m.is_win?1:-1)}));
+              });
             const bk = await loadMyBooking(data.id);
             setAppLoading(false);
             setTab(resolveTab(bk?.status==="pending" ? "success" : "home"));
@@ -961,6 +1012,12 @@ export default function SquadHub() {
             form: [],
           });
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
+          // Fetch recent form จาก match_players (async — ไม่ block login)
+          supabase.from("match_players").select("is_win").eq("player_id",data.id)
+            .order("created_at",{ascending:false}).limit(5)
+            .then(({data:mp})=>{
+              if(mp?.length) setPlayer(prev=>({...prev,form:(mp).map(m=>m.is_win?1:-1)}));
+            });
           const bk2 = await loadMyBooking(data.id);
           setAppLoading(false);
           setTab(resolveTab(bk2?.status==="pending" ? "success" : "home"));
@@ -1438,13 +1495,18 @@ const handlePhotoUpload = async (e) => {
   </button>
 </div>
           <div style={{padding:"10px 20px 0",position:"relative",zIndex:2}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontSize:9,fontWeight:700,color:C.sub,letterSpacing:1,textTransform:"uppercase"}}>XP Progress</span>
-              <span style={{fontSize:9,fontWeight:800,color:C.green}}>{player.xp}%</span>
-            </div>
-            <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99}}>
-              <div style={{height:"100%",width:`${player.xp}%`,background:`linear-gradient(90deg,#059669,${C.greenBr})`,borderRadius:99}}/>
-            </div>
+            {(()=>{
+              const {pct,toNext} = getXpProgress(player.xp||0, player.level||1);
+              return (<>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                  <span style={{fontSize:9,fontWeight:700,color:C.sub,letterSpacing:1,textTransform:"uppercase"}}>XP Progress · LV.{player.level||1}</span>
+                  <span style={{fontSize:9,fontWeight:800,color:C.green}}>{player.xp||0} XP · อีก {toNext} → LV.{(player.level||1)+1}</span>
+                </div>
+                <div style={{height:4,background:"rgba(255,255,255,0.06)",borderRadius:99}}>
+                  <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,#059669,${C.greenBr})`,borderRadius:99,transition:"width .5s"}}/>
+                </div>
+              </>);
+            })()}
           </div>
         </div>
         <div style={{padding:"0 16px"}}>
@@ -1489,8 +1551,8 @@ const handlePhotoUpload = async (e) => {
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:"12px 16px"}}>
             <div style={{fontSize:9,fontWeight:800,color:C.sub,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>ฟอร์มล่าสุด</div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <FormDots form={player.form?.length?player.form:[0,0,0,0,0]}/>
-              <span style={{fontSize:10,color:C.sub}}>ยังไม่มีแมทช์</span>
+              <FormDots form={player.form?.length?player.form:[]}/>
+              {!player.form?.length&&<span style={{fontSize:10,color:C.sub}}>ยังไม่มีแมทช์</span>}
             </div>
           </div>
         </div>
@@ -1640,7 +1702,7 @@ const handlePhotoUpload = async (e) => {
         }
       },100);
     } else if(item._type==="venue"){setVenue(item);setTab("venue");}
-    else{setVenue(item._venue);setSlot(item);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}
+    else{setVenue(item._venue);setSlot(item);setTeams(SEED_TEAMS(parseMatchType(item.match_type||item.type).teams));setMyTeam(null);setLobbyTab("pitch");setTab("room");}
   };
 
   const hotSlot = venues.flatMap(v=>(v.slots||[]).map(s=>({...s,_venue:v})))
@@ -1759,7 +1821,7 @@ const handlePhotoUpload = async (e) => {
         const pct=hotSlot.total>0?Math.round((hotSlot.filled||0)/hotSlot.total*100):0;
         const spotsLeft=(hotSlot.total||14)-(hotSlot.filled||0);
         return(
-          <div onClick={()=>{setVenue(hotSlot._venue);setSlot(hotSlot);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}}
+          <div onClick={()=>{setVenue(hotSlot._venue);setSlot(hotSlot);setTeams(SEED_TEAMS(parseMatchType(hotSlot.match_type||hotSlot.type).teams));setMyTeam(null);setLobbyTab("pitch");setTab("room");}}
             style={{background:"#0a0a0a",border:"1.5px solid #ef4444",borderRadius:18,padding:"16px 18px",marginBottom:20,cursor:"pointer",position:"relative",overflow:"hidden",boxShadow:"0 0 24px rgba(239,68,68,0.15),inset 0 0 20px rgba(239,68,68,0.04)"}}>
             <div style={{position:"absolute",top:-30,right:-30,width:120,height:120,background:"radial-gradient(circle,rgba(239,68,68,0.12),transparent 70%)",pointerEvents:"none"}}/>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -1957,15 +2019,16 @@ const handlePhotoUpload = async (e) => {
         )}
         <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>{T("ตารางแมทช์วันนี้","Today's Matches")}</div>
         {(venue?.slots||[]).map(s=>{
+          const mt=parseMatchType(s.match_type||s.type);
           const sc=s.status==="Full"?C.sub:s.status==="Hot"?C.red:C.green;
           const pct=Math.round((s.filled/s.total)*100)||0;
           return (
-            <div key={s.id} onClick={()=>{if(s.status!=="Full"){setSlot(s);setTeams(SEED_TEAMS());setMyTeam(null);setLobbyTab("pitch");setTab("room");}}}
+            <div key={s.id} onClick={()=>{if(s.status!=="Full"){setSlot(s);setTeams(SEED_TEAMS(mt.teams));setMyTeam(null);setLobbyTab("pitch");setTab("room");}}}
               style={{background:C.surface,border:`1px solid ${s.status==="Hot"?"rgba(239,68,68,0.22)":C.border}`,borderRadius:15,padding:"15px 17px",marginBottom:10,cursor:s.status==="Full"?"default":"pointer",opacity:s.status==="Full"?.5:1}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                 <div>
                   <div style={{fontSize:17,fontWeight:900,color:C.text}}>{s.time} <span style={{fontSize:12,color:C.sub}}>– {s.end}</span></div>
-                  <div style={{fontSize:11,color:C.sub,marginTop:2}}>{s.type} · 4 {T("ทีม","teams")} · ฿{s.price+s.fee}/{T("คน","p")}</div>
+                  <div style={{fontSize:11,color:C.sub,marginTop:2}}>{mt.label} · ฿{s.price+s.fee}/{T("คน","p")}</div>
                 </div>
                 <Tag color={sc}>{s.status}</Tag>
               </div>
@@ -1987,7 +2050,7 @@ const handlePhotoUpload = async (e) => {
     const curTeam=teams[activeTeam];
     return (
       <div style={{paddingTop:16}}>
-        <BackBtn onClick={()=>{setMyTeam(null);setTeams(SEED_TEAMS());setTab("venue");}}/>
+        <BackBtn onClick={()=>{setMyTeam(null);setTeams(SEED_TEAMS(parseMatchType(slot?.match_type).teams));setTab("venue");}}/>
         <div style={{marginBottom:14,padding:"14px 16px",background:"rgba(0,255,135,0.04)",border:`1px solid rgba(0,255,135,0.15)`,borderRadius:12,position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",top:-20,right:-20,width:80,height:80,background:"radial-gradient(circle,rgba(0,255,135,0.08) 0%,transparent 70%)"}}/>
           <div style={{fontSize:9,color:C.green,fontWeight:900,letterSpacing:3,textTransform:"uppercase",marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
@@ -2420,36 +2483,39 @@ const handlePhotoUpload = async (e) => {
 
   /* ── LEADERBOARD ── */
   const renderLeaderboard = () => {
-    const board=[
-      {rank:1,name:"กัปตัน",ovr:92,tier:"Diamond",matches:48,wins:36,change:0,nick:"ปรมาจารย์จ่าย 🎼"},
-      {rank:2,name:"อาร์ม", ovr:85,tier:"Platinum",matches:41,wins:29,change:1,nick:"เครื่องทำประตู 🎯"},
-      {rank:3,name:"บอม",   ovr:78,tier:"Platinum",matches:39,wins:22,change:-1,nick:"กำแพงเคลื่อนที่ 🏃"},
-      {rank:4,name:"นิว",   ovr:80,tier:"Gold",matches:35,wins:20,change:2,nick:"สายฟ้า ⚡"},
-      {rank:5,name:"โจ้",   ovr:76,tier:"Gold",matches:32,wins:16,change:0,nick:"ม้าใช้ทีม 🐎"},
+    // ใช้ข้อมูลจริงจาก DB — fallback mock ถ้ายังโหลดไม่เสร็จ
+    const MOCK=[
+      {id:0,display_name:"กัปตัน",nick:"ปรมาจารย์จ่าย 🎼",tier:"Diamond",level:8,xp:1800,matches_played:48,wins:36},
+      {id:0,display_name:"อาร์ม",nick:"เครื่องทำประตู 🎯",tier:"Platinum",level:6,xp:1200,matches_played:41,wins:29},
+      {id:0,display_name:"บอม",nick:"กำแพงเคลื่อนที่ 🏃",tier:"Platinum",level:5,xp:900,matches_played:39,wins:22},
+      {id:0,display_name:"นิว",nick:"สายฟ้า ⚡",tier:"Gold",level:5,xp:800,matches_played:35,wins:20},
+      {id:0,display_name:"โจ้",nick:"ม้าใช้ทีม 🐎",tier:"Gold",level:4,xp:600,matches_played:32,wins:16},
     ];
-    if(player) board.push({rank:board.length+1,name:player.name,ovr:player.ovr,tier:player.tier,matches:0,wins:0,change:0,nick:player.nick,isMe:true,photo:profilePhoto});
+    const source = lbData.length ? lbData : MOCK;
+    const board = source.map((p,i)=>({...p,rank:i+1,isMe:p.id===player?.dbId}));
     return (
       <div style={{paddingTop:16}}>
         <div style={{textAlign:"center",marginBottom:20}}>
           <div style={{fontSize:9,fontWeight:800,letterSpacing:2.5,color:C.green,textTransform:"uppercase",marginBottom:4}}>Season 1 · 2026</div>
           <div style={{fontSize:22,fontWeight:900,color:C.text}}>Leaderboard</div>
+          {!lbData.length&&<div style={{fontSize:10,color:C.muted,marginTop:4}}>ตัวอย่าง · กำลังโหลดข้อมูลจริง</div>}
         </div>
         {board.map(p=>{
-          const tc2=TIER_CFG[p.tier];
-          const wr=p.matches>0?Math.round((p.wins/p.matches)*100):0;
+          const tc2=TIER_CFG[p.tier||"Bronze"]||TIER_CFG.Bronze;
+          const wr=(p.matches_played||0)>0?Math.round(((p.wins||0)/(p.matches_played||1))*100):0;
           return (
-            <div key={p.rank} style={{background:p.isMe?"rgba(16,185,129,0.05)":C.surface,border:`1px solid ${p.isMe?C.borderHi:C.border}`,borderRadius:14,padding:"12px 15px",marginBottom:8,display:"flex",alignItems:"center",gap:11}}>
+            <div key={`${p.id}-${p.rank}`} style={{background:p.isMe?"rgba(16,185,129,0.05)":C.surface,border:`1px solid ${p.isMe?C.borderHi:C.border}`,borderRadius:14,padding:"12px 15px",marginBottom:8,display:"flex",alignItems:"center",gap:11}}>
               <div style={{width:24,fontSize:13,fontWeight:900,color:p.rank<=3?C.amber:C.sub,textAlign:"center"}}>#{p.rank}</div>
-              <Av name={p.name} size={36} photo={p.isMe?profilePhoto:null}/>
+              <Av name={p.display_name||p.name} size={36} photo={p.isMe?profilePhoto:null}/>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:800,color:C.text}}>{p.name}{p.isMe&&<span style={{fontSize:9,color:C.green}}> · คุณ</span>}</div>
-                <div style={{fontSize:10,color:C.sub,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.nick}</div>
+                <div style={{fontSize:13,fontWeight:800,color:C.text}}>{p.display_name||p.name}{p.isMe&&<span style={{fontSize:9,color:C.green}}> · คุณ</span>}</div>
+                <div style={{fontSize:10,color:C.sub,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.nick||"—"}</div>
                 <div style={{marginTop:3}}><Tag color={tc2.glow} sm>{tc2.label}</Tag></div>
               </div>
               <div style={{textAlign:"right"}}>
-                <div style={{fontSize:17,fontWeight:900,color:C.text}}>{p.ovr}</div>
+                <div style={{fontSize:15,fontWeight:900,color:C.text}}>LV.{p.level||1}</div>
+                <div style={{fontSize:9,fontWeight:700,color:C.green}}>{p.xp||0} XP</div>
                 <div style={{fontSize:9,fontWeight:700,color:C.sub}}>{wr}% WR</div>
-                <div style={{fontSize:9,fontWeight:700,color:p.change>0?C.green:p.change<0?C.red:C.sub}}>{p.change>0?`↑${p.change}`:p.change<0?`↓${Math.abs(p.change)}`:"—"}</div>
               </div>
             </div>
           );
@@ -2780,11 +2846,14 @@ const handlePhotoUpload = async (e) => {
                 {/* Journey Steps */}
                 {(()=>{
                   const isConfirmed = myBooking.status==="confirmed";
+                  const isLive = slot?.status==="live"||slot?.status==="captain_signaled";
+                  const isEnded2 = slot?.status==="ended";
                   const steps=[
-                    {icon:"✓",label:T("จองแล้ว","Booked"),done:true,active:false},
+                    {icon:"📋",label:T("จองแล้ว","Booked"),done:true,active:false},
                     {icon:"✅",label:T("ยืนยันแล้ว","Confirmed"),done:isConfirmed,active:!isConfirmed},
-                    {icon:"⚽",label:T("แข่ง","Play"),done:false,active:isConfirmed},
-                    {icon:"🏆",label:T("จบ","Done"),done:false,active:false},
+                    {icon:"🎫",label:T("Check In","Check In"),done:isLive||isEnded2,active:isConfirmed&&!isLive&&!isEnded2},
+                    {icon:"⚽",label:T("กำลังเล่น","Playing"),done:isEnded2,active:isLive&&!isEnded2},
+                    {icon:"🏆",label:T("จบ","Done"),done:isEnded2,active:false},
                   ];
                   return (
                     <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:16,padding:"10px 14px",background:"rgba(16,185,129,0.04)",border:"1px solid rgba(16,185,129,0.12)",borderRadius:12}}>
@@ -2816,7 +2885,7 @@ const handlePhotoUpload = async (e) => {
                   {/* Info grid */}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
                     {[
-                      {l:T("แมตช์","Match"),v:slot?.match_type||"—"},
+                      {l:T("แมตช์","Match"),v:parseMatchType(slot?.match_type).label},
                       {l:T("ยอดโอน","Amount"),v:`฿${myBooking.amount||"—"}`,c:C.green},
                     ].map((item,i)=>(
                       <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:8,padding:"8px 4px",textAlign:"center"}}>
