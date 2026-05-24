@@ -687,7 +687,7 @@ export default function SquadHub() {
   const loadMyBooking = useCallback(async (playerId) => {
     // ดึง bookings ทั้งหมดที่ active (ไม่กรอง date ใน query — กรองใน JS แทน)
     const {data:bks, error:bksErr} = await supabase.from("bookings")
-      .select("id,slot_id,venue_id,amount,status")
+      .select("id,slot_id,venue_id,amount,status,created_at")
       .eq("player_id", playerId)
       .in("status",["pending","confirmed"])
       .order("created_at",{ascending:false});
@@ -707,10 +707,10 @@ export default function SquadHub() {
       .map(b=>({...b, slotData: slots?.find(s=>s.id===b.slot_id)}))
       .filter(b=>b.slotData)
       .sort((a,b)=>{
-        // sort: วันใกล้ที่สุดก่อน
         const da = a.slotData?.date||"";
         const db = b.slotData?.date||"";
-        return da.localeCompare(db);
+        if(da !== db) return da.localeCompare(db); // ต่างวัน: วันใกล้ก่อน
+        return (b.created_at||"").localeCompare(a.created_at||""); // วันเดียวกัน: ล่าสุดก่อน
       });
 
     if(!enriched.length) console.warn("[loadMyBooking] enriched empty — bookings found but no matching slots. bks:", bks.length, "slots:", slots?.length);
