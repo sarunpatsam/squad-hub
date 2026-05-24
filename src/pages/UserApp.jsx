@@ -699,7 +699,7 @@ export default function SquadHub() {
     const slotIds = [...new Set(bks.map(b=>b.slot_id).filter(Boolean))];
     if(!slotIds.length) { console.warn("[loadMyBooking] all bookings have null slot_id"); return null; }
     const {data:slots, error:slotsErr} = await supabase.from("slots")
-      .select("id,date,start_time,end_time,match_type,max_players,status,fee")
+      .select("id,date,start_time,end_time,match_type,max_players,status")
       .in("id",slotIds);
     if(slotsErr) console.error("[loadMyBooking] slots query error:", slotsErr.message, slotsErr.code);
 
@@ -842,7 +842,7 @@ export default function SquadHub() {
     try{
       // ── Fresh slot fetch FIRST (ก่อน early return ทั้งหมด) ──
       const {data:freshSlot} = await supabase.from("slots")
-        .select("id,match_type,max_players,status,start_time,end_time,date,fee")
+        .select("id,match_type,max_players,status,start_time,end_time,date")
         .eq("id", myBooking.slot_id).single();
       if(freshSlot) setSlot(prev=>({
         ...prev, ...freshSlot,
