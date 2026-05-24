@@ -1152,9 +1152,9 @@ export default function SquadHub() {
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
-            supabase.from("match_players").select("result,created_at").eq("player_id",data.id)
+            supabase.from("match_players").select("result,joined_at").eq("player_id",data.id)
               .not("result","is",null)
-              .order("created_at",{ascending:false}).limit(5)
+              .order("joined_at",{ascending:false}).limit(5)
               .then(({data:mp})=>{
                 if(mp?.length) setPlayer(prev=>({...prev,form:(mp).map(m=>m.result==="win"?1:m.result==="draw"?0:-1)}));
               });
@@ -1213,9 +1213,9 @@ export default function SquadHub() {
           });
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
           // Fetch recent form จาก match_players (async — ไม่ block login)
-          supabase.from("match_players").select("result,created_at").eq("player_id",data.id)
+          supabase.from("match_players").select("result,joined_at").eq("player_id",data.id)
             .not("result","is",null)
-            .order("created_at",{ascending:false}).limit(5)
+            .order("joined_at",{ascending:false}).limit(5)
             .then(({data:mp})=>{
               if(mp?.length) setPlayer(prev=>({...prev,form:(mp).map(m=>m.result==="win"?1:m.result==="draw"?0:-1)}));
             });
