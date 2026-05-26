@@ -684,6 +684,21 @@ export default function SquadHub() {
   const dayTH = ["อา","จ","อ","พ","พฤ","ศ","ส"];
   const monthTH = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 
+  /* ── LOAD VENUE SLOTS (used when venue set without slots) ── */
+  const loadVenueSlots = useCallback(async (venueId, dateStr) => {
+    if(!venueId) return;
+    const d = dateStr || new Date().toISOString().split("T")[0];
+    const {data:slots} = await supabase.from("slots")
+      .select("id,start_time,end_time,match_type,max_players,status,price_per_player,date")
+      .eq("venue_id",venueId).eq("date",d).order("start_time");
+    if(slots) setVenue(prev=>({...prev, slots:slots.map(s=>({
+      id:s.id, time:s.start_time?.slice(0,5), end:s.end_time?.slice(0,5),
+      type:s.match_type, match_type:s.match_type, price:s.price_per_player||0, fee:0,
+      status:s.status==="open"?"Open":s.status==="full"?"Full":"Hot",
+      filled:0, total:s.max_players||14,
+    }))}));
+  },[]);
+
   /* ── LOAD MY BOOKING (plural support) ── */
   const loadMyBooking = useCallback(async (playerId) => {
     // ดึง bookings ทั้งหมดที่ active (ไม่กรอง date ใน query — กรองใน JS แทน)
@@ -699,7 +714,7 @@ export default function SquadHub() {
     const slotIds = [...new Set(bks.map(b=>b.slot_id).filter(Boolean))];
     if(!slotIds.length) { console.warn("[loadMyBooking] all bookings have null slot_id"); return null; }
     const {data:slots, error:slotsErr} = await supabase.from("slots")
-      .select("id,date,start_time,end_time,match_type,max_players,status")
+      .select("id,date,start_time,end_time,match_type,max_players,status,price_per_player")
       .in("id",slotIds);
     if(slotsErr) console.error("[loadMyBooking] slots query error:", slotsErr.message, slotsErr.code);
 
@@ -731,15 +746,19 @@ export default function SquadHub() {
       supabase.from("venues").select("id,name,area,promptpay_id,promptpay_name").eq("id",active.venue_id).single(),
       supabase.from("matches").select("id").eq("slot_id",active.slot_id).maybeSingle(),
     ]);
-    if(vd) setVenue(vd);
+    if(vd) {
+      setVenue(vd);
+      loadVenueSlots(vd.id, active.slotData?.date);
+    }
     if(active.slotData) setSlot({
       ...active.slotData,
-      time: active.slotData.start_time?.slice(0,5),
-      end:  active.slotData.end_time?.slice(0,5),
+      time:  active.slotData.start_time?.slice(0,5),
+      end:   active.slotData.end_time?.slice(0,5),
+      price: active.slotData.price_per_player || 0,
     });
     if(m?.id) setScoreMatchId(m.id);
     return active;
-  },[]);
+  },[loadVenueSlots]);
 
   /* ── CHECK IF USER IS CAPTAIN (on load / booking change) ── */
   useEffect(()=>{
@@ -839,15 +858,17 @@ export default function SquadHub() {
   /* ── LOAD ROOM DATA — populate lobby from match_players ── */
   const loadRoomData = useCallback(async () => {
     if(!myBooking?.slot_id) return;
+    if(slot?.id && slot.id !== myBooking.slot_id) return; // user กำลัง browse slot อื่น — ไม่ทับ
     try{
       // ── Fresh slot fetch FIRST (ก่อน early return ทั้งหมด) ──
       const {data:freshSlot} = await supabase.from("slots")
-        .select("id,match_type,max_players,status,start_time,end_time,date")
+        .select("id,match_type,max_players,status,start_time,end_time,date,price_per_player")
         .eq("id", myBooking.slot_id).single();
       if(freshSlot) setSlot(prev=>({
         ...prev, ...freshSlot,
-        time: freshSlot.start_time?.slice(0,5),
-        end:  freshSlot.end_time?.slice(0,5),
+        time:  freshSlot.start_time?.slice(0,5),
+        end:   freshSlot.end_time?.slice(0,5),
+        price: freshSlot.price_per_player || prev?.price || 0,
       }));
       // นับจำนวน confirmed bookings เพื่อแสดง capacity (ทำเสมอ ไม่ขึ้นกับ match_players)
       const {count:confCount} = await supabase.from("bookings")
@@ -1160,7 +1181,7 @@ export default function SquadHub() {
               });
             const bk = await loadMyBooking(data.id);
             setAppLoading(false);
-            setTab(resolveTab(bk?.status==="pending" ? "success" : "home"));
+            setTab(resolveTab(bk?.status==="pending" ? "success" : bk?.status==="confirmed" ? "room" : "home"));
           } else {
             setAppLoading(false); setTab("register");
           }
@@ -1221,7 +1242,7 @@ export default function SquadHub() {
             });
           const bk2 = await loadMyBooking(data.id);
           setAppLoading(false);
-          setTab(resolveTab(bk2?.status==="pending" ? "success" : "home"));
+          setTab(resolveTab(bk2?.status==="pending" ? "success" : bk2?.status==="confirmed" ? "room" : "home"));
         } else {
           // ยังไม่มี → register พร้อม LINE profile
           setAppLoading(false);
@@ -2254,7 +2275,11 @@ const handlePhotoUpload = async (e) => {
     const curTeam=teams[activeTeam]||teams[0]||{players:[],id:"A",name:"ทีม A",color:"#10d484",max:7,code:""};
     return (
       <div style={{paddingTop:16}}>
-        <BackBtn onClick={()=>{setMyTeam(null);setTeams(SEED_TEAMS(parseMatchType(slot?.match_type).teams));setTab("venue");}}/>
+        <BackBtn onClick={()=>{
+          setMyTeam(null);setTeams(SEED_TEAMS(parseMatchType(slot?.match_type).teams));
+          if(venue?.id && !venue?.slots?.length) loadVenueSlots(venue.id);
+          setTab("venue");
+        }}/>
         <div style={{marginBottom:14,padding:"14px 16px",background:"rgba(0,255,135,0.04)",border:`1px solid rgba(0,255,135,0.15)`,borderRadius:12,position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",top:-20,right:-20,width:80,height:80,background:"radial-gradient(circle,rgba(0,255,135,0.08) 0%,transparent 70%)"}}/>
           <div style={{fontSize:9,color:C.green,fontWeight:900,letterSpacing:3,textTransform:"uppercase",marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
@@ -2522,7 +2547,7 @@ const handlePhotoUpload = async (e) => {
   const renderCheckout = () => {
     const venuePromptpay = venue?.promptpay_id || "0800706187";
     const venueName = venue?.promptpay_name || venue?.name || "สนาม";
-    const matchPrice = slot?.price||0;
+    const matchPrice = slot?.price_per_player || slot?.price || 0;
     const platformFee = slot?.fee||0; // Season 1 = 0
     const total = matchPrice; // ไม่รวม fee เพราะ Season 1 ฟรี
     const qrData = generatePromptPayQR(venuePromptpay, total);
@@ -3154,13 +3179,13 @@ const handlePhotoUpload = async (e) => {
                 {/* Journey Steps */}
                 {(()=>{
                   const isConfirmed = myBooking.status==="confirmed";
-                  const isEnded2 = slot?.status==="ended";
+                  const isEnded2    = slot?.status==="ended";
                   const steps=[
-                    {icon:"📋",label:T("จองแล้ว","Booked"),done:true,active:false},
-                    {icon:"✅",label:T("ยืนยันแล้ว","Confirmed"),done:isConfirmed,active:!isConfirmed},
-                    {icon:"🎫",label:T("Check In","Check In"),done:isCheckedIn||isEnded2,active:isConfirmed&&!isCheckedIn&&!isEnded2},
-                    {icon:"⚽",label:T("กำลังเล่น","Playing"),done:isEnded2,active:isCheckedIn&&!isEnded2},
-                    {icon:"🏆",label:T("จบ","Done"),done:isEnded2,active:false},
+                    {icon:"📋",label:T("จองแล้ว","Booked"),          done:true,                       active:false},
+                    {icon:"✅",label:T("ยืนยันแล้ว","Confirmed"),     done:isConfirmed,                active:!isConfirmed},
+                    {icon:"🎫",label:T("Check In","Check In"),        done:isCheckedIn,                active:isConfirmed&&!isCheckedIn&&!isEnded2},
+                    {icon:"⚽",label:T("กำลังเล่น","Playing"),        done:isEnded2,                   active:isCheckedIn&&!isEnded2},
+                    {icon:"🏆",label:T("จบ","Done"),                  done:isEnded2&&isCheckedIn,      active:false},
                   ];
                   return (
                     <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:16,padding:"10px 14px",background:"rgba(16,185,129,0.04)",border:"1px solid rgba(16,185,129,0.12)",borderRadius:12}}>

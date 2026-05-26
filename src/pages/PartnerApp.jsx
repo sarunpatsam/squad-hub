@@ -292,7 +292,7 @@ const QRScanner = ({onResult,onClose}) => {
 };
 
 /* ═══ SCAN RESULT ═══ */
-const ScanResult = ({playerId,onClose,onScanNext}) => {
+const ScanResult = ({playerId,venueId,onClose,onScanNext}) => {
   const [player,setPlayer]=useState(null);
   const [loading,setLoading]=useState(true);
   const [done,setDone]=useState(false);
@@ -315,12 +315,28 @@ const ScanResult = ({playerId,onClose,onScanNext}) => {
       });
   },[playerId]);
 
-  const handleCheckin = ()=>{
+  const handleCheckin = async ()=>{
     try{
       const map=JSON.parse(sessionStorage.getItem("sq_ci")||"{}");
-map[String(playerId)]=Date.now();
-sessionStorage.setItem("sq_ci",JSON.stringify(map));
-    }catch{}
+      map[String(playerId)]=Date.now();
+      sessionStorage.setItem("sq_ci",JSON.stringify(map));
+      // อัพ match_players.checked_in ใน DB
+      if(venueId){
+        const todayStr = new Date().toISOString().split("T")[0];
+        const {data:activeSlot} = await supabase.from("slots")
+          .select("id").eq("venue_id",venueId).eq("date",todayStr)
+          .in("status",["open","live"]).order("start_time").limit(1).maybeSingle();
+        if(activeSlot?.id){
+          const {data:match} = await supabase.from("matches")
+            .select("id").eq("slot_id",activeSlot.id).maybeSingle();
+          if(match?.id){
+            await supabase.from("match_players")
+              .update({checked_in:true})
+              .eq("match_id",match.id).eq("player_id",playerId);
+          }
+        }
+      }
+    }catch(e){console.error("checkin error:",e);}
     setDone(true);
   };
   if(loading)return(
@@ -2156,7 +2172,7 @@ const MobileApp = ({venue,slots,ownerUnlocked,onLogout}) => {
         setShowScanner(false);
         setScanId(parsed);
       }} onClose={()=>setShowScanner(false)}/>}
-      {!showScanner&&scanId&&<ScanResult playerId={scanId}
+      {!showScanner&&scanId&&<ScanResult playerId={scanId} venueId={venueId}
         onClose={()=>setScanId(null)}
         onScanNext={()=>{setScanId(null);setScanKey(k=>k+1);setShowScanner(true);}}
       />}
@@ -2373,7 +2389,7 @@ export default function SquadPartner() {
   setScanId(parsed);
   setShowScanner(false);
 }} onClose={()=>setShowScanner(false)}/>}
-      {scanId&&<ScanResult playerId={scanId}
+      {scanId&&<ScanResult playerId={scanId} venueId={venueId}
         onClose={()=>setScanId(null)}
         onScanNext={()=>{setScanId(null);setShowScanner(true);}}
       />}
