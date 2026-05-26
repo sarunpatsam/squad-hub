@@ -1292,8 +1292,14 @@ const N8N_MATCH_END = "https://primary-production-e855.up.railway.app/webhook/ma
 
 /* สร้าง matches row สำหรับ slot นี้ (ถ้ายังไม่มี) แล้วเพิ่ม player เข้า match_players */
 const ensureMatch = async (bk) => {
-  const {data:existing} = await supabase.from("matches").select("id").eq("slot_id",bk.slot_id).maybeSingle();
+  const {data:existing} = await supabase.from("matches")
+    .select("id,status").eq("slot_id",bk.slot_id)
+    .order("id",{ascending:false}).limit(1).maybeSingle();
   let matchId = existing?.id;
+  // ถ้า match เก่าจบแล้ว → สร้างใหม่ (ไม่ reuse — ป้องกัน rounds เก่าติดมา)
+  if(existing && (existing.status==="ended" || existing.status==="completed")){
+    matchId = null;
+  }
   if(!matchId){
     const code = `SQ-${bk.slot_id}-${Date.now().toString(36).toUpperCase().slice(-4)}`;
     const {data:nm} = await supabase.from("matches").insert({

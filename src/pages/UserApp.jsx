@@ -42,24 +42,98 @@ const PC = { FW:"#ef4444", MF:"#10b981", DF:"#60a5fa", GK:"#fbbf24" };
 const TC = { A:"#ef4444", B:"#60a5fa", C:"#10b981", D:"#fbbf24" };
 
 const SM = {
-  FW:{ Speedster:{pace:90,shooting:80,passing:65,dribbling:82,defending:40,physical:70}, Finisher:{pace:72,shooting:93,passing:60,dribbling:76,defending:38,physical:74}, Playmaker:{pace:68,shooting:72,passing:89,dribbling:79,defending:45,physical:65}, Dribbler:{pace:85,shooting:74,passing:70,dribbling:94,defending:36,physical:62}, "Target Man":{pace:60,shooting:86,passing:62,dribbling:65,defending:50,physical:90} },
-  MF:{ Speedster:{pace:84,shooting:65,passing:78,dribbling:80,defending:55,physical:72}, Finisher:{pace:70,shooting:78,passing:76,dribbling:72,defending:58,physical:75}, Playmaker:{pace:66,shooting:60,passing:93,dribbling:83,defending:63,physical:65}, Enforcer:{pace:70,shooting:62,passing:72,dribbling:68,defending:84,physical:88}, "Box-to-Box":{pace:80,shooting:70,passing:80,dribbling:75,defending:72,physical:82} },
-  DF:{ Speedster:{pace:86,shooting:44,passing:68,dribbling:65,defending:83,physical:79}, "The Wall":{pace:58,shooting:40,passing:64,dribbling:54,defending:93,physical:89}, Playmaker:{pace:64,shooting:47,passing:81,dribbling:68,defending:86,physical:74}, Aggressive:{pace:76,shooting:46,passing:62,dribbling:60,defending:90,physical:87}, Overlapper:{pace:83,shooting:52,passing:74,dribbling:72,defending:80,physical:76} },
-  GK:{ "The Wall":{pace:54,shooting:28,passing:62,dribbling:42,defending:93,physical:86}, Speedster:{pace:70,shooting:30,passing:64,dribbling:50,defending:89,physical:80}, Playmaker:{pace:57,shooting:33,passing:76,dribbling:48,defending:90,physical:78}, Commander:{pace:58,shooting:28,passing:68,dribbling:44,defending:91,physical:85}, "Shot-Stopper":{pace:55,shooting:25,passing:58,dribbling:40,defending:95,physical:84} },
+  FW:{
+    Speedster:{pace:90,shooting:80,passing:65,dribbling:82,defending:40,physical:70}, Finisher:{pace:72,shooting:93,passing:60,dribbling:76,defending:38,physical:74}, Playmaker:{pace:68,shooting:72,passing:89,dribbling:79,defending:45,physical:65}, Dribbler:{pace:85,shooting:74,passing:70,dribbling:94,defending:36,physical:62}, "Target Man":{pace:60,shooting:86,passing:62,dribbling:65,defending:50,physical:90},
+    "⚡ ลมกรด":{pace:90,shooting:80,passing:65,dribbling:82,defending:40,physical:70},
+    "🎯 มือปืน":{pace:72,shooting:93,passing:60,dribbling:76,defending:38,physical:74},
+    "🪄 จอมเวท":{pace:68,shooting:72,passing:89,dribbling:79,defending:45,physical:65},
+    "🌀 พ่อมดลูกหนัง":{pace:85,shooting:74,passing:70,dribbling:94,defending:36,physical:62},
+    "🦏 หัวหอกถัง":{pace:60,shooting:86,passing:62,dribbling:65,defending:50,physical:90},
+    "🦊 จิ้งจอกในกรอบ":{pace:74,shooting:91,passing:58,dribbling:80,defending:35,physical:68},
+    "🎭 หมายเลข 9 ปลอม":{pace:78,shooting:76,passing:85,dribbling:82,defending:42,physical:66},
+    "🦅 ราชาลูกโด่ง":{pace:65,shooting:88,passing:65,dribbling:62,defending:52,physical:87},
+  },
+  MF:{
+    Speedster:{pace:84,shooting:65,passing:78,dribbling:80,defending:55,physical:72}, Finisher:{pace:70,shooting:78,passing:76,dribbling:72,defending:58,physical:75}, Playmaker:{pace:66,shooting:60,passing:93,dribbling:83,defending:63,physical:65}, Enforcer:{pace:70,shooting:62,passing:72,dribbling:68,defending:84,physical:88}, "Box-to-Box":{pace:80,shooting:70,passing:80,dribbling:75,defending:72,physical:82},
+    "⚡ ม้าศึก":{pace:84,shooting:65,passing:78,dribbling:80,defending:55,physical:72},
+    "💥 บ็อกซ์คราชเชอร์":{pace:70,shooting:78,passing:76,dribbling:72,defending:58,physical:75},
+    "🎼 ผู้ควบคุมเกม":{pace:66,shooting:60,passing:93,dribbling:83,defending:63,physical:65},
+    "💪 ผู้ทำลาย":{pace:70,shooting:62,passing:72,dribbling:68,defending:84,physical:88},
+    "🔄 บ็อกซ์ทูบ็อกซ์":{pace:80,shooting:70,passing:80,dribbling:75,defending:72,physical:82},
+    "⚓ สมอเรือ":{pace:62,shooting:58,passing:75,dribbling:65,defending:88,physical:85},
+    "🎩 เทรควาร์ติสตา":{pace:71,shooting:73,passing:91,dribbling:87,defending:45,physical:64},
+    "🏹 ปีกหิน":{pace:88,shooting:70,passing:78,dribbling:85,defending:60,physical:74},
+  },
+  DF:{
+    Speedster:{pace:86,shooting:44,passing:68,dribbling:65,defending:83,physical:79}, "The Wall":{pace:58,shooting:40,passing:64,dribbling:54,defending:93,physical:89}, Playmaker:{pace:64,shooting:47,passing:81,dribbling:68,defending:86,physical:74}, Aggressive:{pace:76,shooting:46,passing:62,dribbling:60,defending:90,physical:87}, Overlapper:{pace:83,shooting:52,passing:74,dribbling:72,defending:80,physical:76},
+    "⚡ แบ็กจรวด":{pace:86,shooting:44,passing:68,dribbling:65,defending:83,physical:79},
+    "🧱 กำแพงเหล็ก":{pace:58,shooting:40,passing:64,dribbling:54,defending:93,physical:89},
+    "🎯 ลิเบโร่":{pace:64,shooting:47,passing:81,dribbling:68,defending:86,physical:74},
+    "🦁 สิงห์ล่าเหยื่อ":{pace:76,shooting:46,passing:62,dribbling:60,defending:90,physical:87},
+    "🚀 ปีกตัวบุก":{pace:83,shooting:52,passing:74,dribbling:72,defending:80,physical:76},
+    "🛑 ตัวปิดสกอร์":{pace:68,shooting:42,passing:60,dribbling:58,defending:88,physical:85},
+    "🥊 นักล่าบอล":{pace:80,shooting:44,passing:65,dribbling:63,defending:91,physical:84},
+    "🧹 ตัวเก็บกวาด":{pace:72,shooting:40,passing:70,dribbling:61,defending:88,physical:82},
+  },
+  GK:{
+    "The Wall":{pace:54,shooting:28,passing:62,dribbling:42,defending:93,physical:86}, Speedster:{pace:70,shooting:30,passing:64,dribbling:50,defending:89,physical:80}, Playmaker:{pace:57,shooting:33,passing:76,dribbling:48,defending:90,physical:78}, Commander:{pace:58,shooting:28,passing:68,dribbling:44,defending:91,physical:85}, "Shot-Stopper":{pace:55,shooting:25,passing:58,dribbling:40,defending:95,physical:84},
+    "🧤 มือกาวเหล็ก":{pace:54,shooting:28,passing:62,dribbling:42,defending:93,physical:86},
+    "⚡ ผู้รักษาประตูปีกเร็ว":{pace:70,shooting:30,passing:64,dribbling:50,defending:89,physical:80},
+    "🎼 ผู้สร้างเกมจากหลัง":{pace:57,shooting:33,passing:76,dribbling:48,defending:90,physical:78},
+    "📢 แม่ทัพหลังเสา":{pace:58,shooting:28,passing:68,dribbling:44,defending:91,physical:85},
+    "🪄 จอมเซฟ":{pace:55,shooting:25,passing:58,dribbling:40,defending:95,physical:84},
+  },
 };
 const PLS = {
-  FW:["Speedster","Finisher","Playmaker","Dribbler","Target Man"],
-  MF:["Speedster","Finisher","Playmaker","Enforcer","Box-to-Box"],
-  DF:["Speedster","The Wall","Playmaker","Aggressive","Overlapper"],
-  GK:["The Wall","Speedster","Playmaker","Commander","Shot-Stopper"],
+  FW:["⚡ ลมกรด","🎯 มือปืน","🪄 จอมเวท","🌀 พ่อมดลูกหนัง","🦏 หัวหอกถัง","🦊 จิ้งจอกในกรอบ","🎭 หมายเลข 9 ปลอม","🦅 ราชาลูกโด่ง"],
+  MF:["⚡ ม้าศึก","💥 บ็อกซ์คราชเชอร์","🎼 ผู้ควบคุมเกม","💪 ผู้ทำลาย","🔄 บ็อกซ์ทูบ็อกซ์","⚓ สมอเรือ","🎩 เทรควาร์ติสตา","🏹 ปีกหิน"],
+  DF:["⚡ แบ็กจรวด","🧱 กำแพงเหล็ก","🎯 ลิเบโร่","🦁 สิงห์ล่าเหยื่อ","🚀 ปีกตัวบุก","🛑 ตัวปิดสกอร์","🥊 นักล่าบอล","🧹 ตัวเก็บกวาด"],
+  GK:["🧤 มือกาวเหล็ก","⚡ ผู้รักษาประตูปีกเร็ว","🎼 ผู้สร้างเกมจากหลัง","📢 แม่ทัพหลังเสา","🪄 จอมเซฟ"],
 };
 const OVR = s => Math.round(s.pace*.18+s.shooting*.18+s.passing*.16+s.dribbling*.16+s.defending*.16+s.physical*.16);
 const KEY_STATS = { FW:["shooting","pace","dribbling"], MF:["passing","dribbling","pace"], DF:["defending","physical","pace"], GK:["defending","physical","passing"] };
 const NICKS = {
-  FW:{ Speedster:{nick:"สายฟ้า ⚡",tags:["#SpeedDemon","#ปีกไฟ","#เร็วกว่าเงา"]}, Finisher:{nick:"เครื่องทำประตู 🎯",tags:["#GoalMachine","#หน้าเป้า","#ไม่มีพลาด"]}, Playmaker:{nick:"จอมวางเกม 🧠",tags:["#CreativeFW","#ตัวจี๊ด","#จ่ายแล้วบุก"]}, Dribbler:{nick:"งูเห่าบอล 🐍",tags:["#DribbleMaster","#ไม่มีใครแย่งได้","#ลูกติดเท้า"]}, "Target Man":{nick:"หัวหอก 🗡️",tags:["#TargetMan","#โหม่งก็ได้","#ยิงก็ดี"]} },
-  MF:{ Speedster:{nick:"ม้าใช้ทีม 🐎",tags:["#BoxToBox","#วิ่งไม่หยุด","#ปอดเหล็ก"]}, Finisher:{nick:"MF หน้าเป้า 💥",tags:["#GoalMidfield","#ยิงจากนอก","#ไม่ใช่แค่ส่ง"]}, Playmaker:{nick:"ปรมาจารย์จ่าย 🎼",tags:["#KingAssist","#VisionGod","#จ่ายทะลุแนว"]}, Enforcer:{nick:"จอมทำลาย 💪",tags:["#Enforcer","#ดักกลางสนาม","#ล้มไม่ลง"]}, "Box-to-Box":{nick:"สองหน้าสองหลัง 🔄",tags:["#B2B","#ครบเครื่อง","#ทำได้ทุกอย่าง"]} },
-  DF:{ Speedster:{nick:"กำแพงเคลื่อนที่ 🏃",tags:["#SweepKeeper","#ดักบุก","#ไล่ไม่ทัน"]}, "The Wall":{nick:"กำแพงเหล็ก 🧱",tags:["#TheWall","#ผ่านไม่ได้","#หัวโขก"]}, Playmaker:{nick:"ลิเบโร่ 🎯",tags:["#Libero","#บิ้วจากหลัง","#กองหลังจ่ายได้"]}, Aggressive:{nick:"นักล่า 🦁",tags:["#Aggressive","#สไลด์ทุกอย่าง","#อย่ามาแถว"]}, Overlapper:{nick:"ปีกป้องกัน 🚀",tags:["#WingBack","#ขึ้นบุก","#ลงป้องกัน"]} },
-  GK:{ "The Wall":{nick:"เทพเจ้าประตู 🧤",tags:["#WallGK","#เซฟไม่ยั้ง","#ผ่านไม่ผ่าน"]}, Speedster:{nick:"GK ปีกเร็ว ⚡",tags:["#SweepingGK","#ออกมาเลย","#ปอดเหล็ก"]}, Playmaker:{nick:"สร้างเกมจากหลัง 🎼",tags:["#PlaymakingGK","#เริ่มเกมจากประตู","#จ่ายทะลุ"]}, Commander:{nick:"แม่ทัพกองหลัง 📢",tags:["#Commander","#สั่งการ","#หัวโขก"]}, "Shot-Stopper":{nick:"มือเวทย์ 🪄",tags:["#ShotStopper","#เซฟแล้วเซฟอีก","#ผ่านประตูไม่ได้"]} },
+  FW:{
+    Speedster:{nick:"สายฟ้า ⚡",tags:["#SpeedDemon","#ปีกไฟ","#เร็วกว่าเงา"]}, Finisher:{nick:"เครื่องทำประตู 🎯",tags:["#GoalMachine","#หน้าเป้า","#ไม่มีพลาด"]}, Playmaker:{nick:"จอมวางเกม 🧠",tags:["#CreativeFW","#ตัวจี๊ด","#จ่ายแล้วบุก"]}, Dribbler:{nick:"งูเห่าบอล 🐍",tags:["#DribbleMaster","#ไม่มีใครแย่งได้","#ลูกติดเท้า"]}, "Target Man":{nick:"หัวหอก 🗡️",tags:["#TargetMan","#โหม่งก็ได้","#ยิงก็ดี"]},
+    "⚡ ลมกรด":{nick:"สายฟ้า ⚡",tags:["#SpeedDemon","#ปีกไฟ","#เร็วกว่าเงา"]},
+    "🎯 มือปืน":{nick:"เครื่องทำประตู 🎯",tags:["#GoalMachine","#หน้าเป้า","#ไม่มีพลาด"]},
+    "🪄 จอมเวท":{nick:"จอมวางเกม 🧠",tags:["#CreativeFW","#ตัวจี๊ด","#จ่ายแล้วบุก"]},
+    "🌀 พ่อมดลูกหนัง":{nick:"งูเห่าบอล 🐍",tags:["#DribbleMaster","#ไม่มีใครแย่งได้","#ลูกติดเท้า"]},
+    "🦏 หัวหอกถัง":{nick:"หัวหอก 🗡️",tags:["#TargetMan","#โหม่งก็ได้","#ยิงก็ดี"]},
+    "🦊 จิ้งจอกในกรอบ":{nick:"นักดักบอล 🦊",tags:["#Poacher","#ดักทำประตู","#ไม่ต้องพยายามมาก"]},
+    "🎭 หมายเลข 9 ปลอม":{nick:"เบอร์ 9 ปลอม 🎭",tags:["#False9","#ลงต่ำดึงแนวรับ","#สร้างพื้นที่"]},
+    "🦅 ราชาลูกโด่ง":{nick:"ราชาโหม่ง 🦅",tags:["#AerialKing","#โหม่งเทพ","#แข็งแกร่งในอากาศ"]},
+  },
+  MF:{
+    Speedster:{nick:"ม้าใช้ทีม 🐎",tags:["#BoxToBox","#วิ่งไม่หยุด","#ปอดเหล็ก"]}, Finisher:{nick:"MF หน้าเป้า 💥",tags:["#GoalMidfield","#ยิงจากนอก","#ไม่ใช่แค่ส่ง"]}, Playmaker:{nick:"ปรมาจารย์จ่าย 🎼",tags:["#KingAssist","#VisionGod","#จ่ายทะลุแนว"]}, Enforcer:{nick:"จอมทำลาย 💪",tags:["#Enforcer","#ดักกลางสนาม","#ล้มไม่ลง"]}, "Box-to-Box":{nick:"สองหน้าสองหลัง 🔄",tags:["#B2B","#ครบเครื่อง","#ทำได้ทุกอย่าง"]},
+    "⚡ ม้าศึก":{nick:"ม้าใช้ทีม 🐎",tags:["#BoxToBox","#วิ่งไม่หยุด","#ปอดเหล็ก"]},
+    "💥 บ็อกซ์คราชเชอร์":{nick:"MF หน้าเป้า 💥",tags:["#GoalMidfield","#ยิงจากนอก","#ไม่ใช่แค่ส่ง"]},
+    "🎼 ผู้ควบคุมเกม":{nick:"ปรมาจารย์จ่าย 🎼",tags:["#KingAssist","#VisionGod","#จ่ายทะลุแนว"]},
+    "💪 ผู้ทำลาย":{nick:"จอมทำลาย 💪",tags:["#Enforcer","#ดักกลางสนาม","#ล้มไม่ลง"]},
+    "🔄 บ็อกซ์ทูบ็อกซ์":{nick:"สองหน้าสองหลัง 🔄",tags:["#B2B","#ครบเครื่อง","#ทำได้ทุกอย่าง"]},
+    "⚓ สมอเรือ":{nick:"สมอเรือ ⚓",tags:["#Anchor","#กลางลึกค้ำหลัง","#ดักตรงกลาง"]},
+    "🎩 เทรควาร์ติสตา":{nick:"เบอร์สิบ 🎩",tags:["#Trequartista","#จ่ายขุน","#สร้างเกม"]},
+    "🏹 ปีกหิน":{nick:"นักล่าปีก 🏹",tags:["#WingWizard","#ปีกเดี่ยว","#ทะลุแนวรับ"]},
+  },
+  DF:{
+    Speedster:{nick:"กำแพงเคลื่อนที่ 🏃",tags:["#SweepKeeper","#ดักบุก","#ไล่ไม่ทัน"]}, "The Wall":{nick:"กำแพงเหล็ก 🧱",tags:["#TheWall","#ผ่านไม่ได้","#หัวโขก"]}, Playmaker:{nick:"ลิเบโร่ 🎯",tags:["#Libero","#บิ้วจากหลัง","#กองหลังจ่ายได้"]}, Aggressive:{nick:"นักล่า 🦁",tags:["#Aggressive","#สไลด์ทุกอย่าง","#อย่ามาแถว"]}, Overlapper:{nick:"ปีกป้องกัน 🚀",tags:["#WingBack","#ขึ้นบุก","#ลงป้องกัน"]},
+    "⚡ แบ็กจรวด":{nick:"กำแพงเคลื่อนที่ 🏃",tags:["#SweepKeeper","#ดักบุก","#ไล่ไม่ทัน"]},
+    "🧱 กำแพงเหล็ก":{nick:"กำแพงเหล็ก 🧱",tags:["#TheWall","#ผ่านไม่ได้","#หัวโขก"]},
+    "🎯 ลิเบโร่":{nick:"ลิเบโร่ 🎯",tags:["#Libero","#บิ้วจากหลัง","#กองหลังจ่ายได้"]},
+    "🦁 สิงห์ล่าเหยื่อ":{nick:"นักล่า 🦁",tags:["#Aggressive","#สไลด์ทุกอย่าง","#อย่ามาแถว"]},
+    "🚀 ปีกตัวบุก":{nick:"ปีกป้องกัน 🚀",tags:["#WingBack","#ขึ้นบุก","#ลงป้องกัน"]},
+    "🛑 ตัวปิดสกอร์":{nick:"นักหยุดบอล 🛑",tags:["#Stopper","#บล็อกทุกลูก","#ไม่ผ่านไปได้"]},
+    "🥊 นักล่าบอล":{nick:"นักแย่งบอล 🥊",tags:["#BallWinner","#แย่งบอลแหลก","#ดักกลาง"]},
+    "🧹 ตัวเก็บกวาด":{nick:"ผู้กวาดสนาม 🧹",tags:["#Sweeper","#ค้ำหลังคลีน","#จัดการทุกอย่าง"]},
+  },
+  GK:{
+    "The Wall":{nick:"เทพเจ้าประตู 🧤",tags:["#WallGK","#เซฟไม่ยั้ง","#ผ่านไม่ผ่าน"]}, Speedster:{nick:"GK ปีกเร็ว ⚡",tags:["#SweepingGK","#ออกมาเลย","#ปอดเหล็ก"]}, Playmaker:{nick:"สร้างเกมจากหลัง 🎼",tags:["#PlaymakingGK","#เริ่มเกมจากประตู","#จ่ายทะลุ"]}, Commander:{nick:"แม่ทัพกองหลัง 📢",tags:["#Commander","#สั่งการ","#หัวโขก"]}, "Shot-Stopper":{nick:"มือเวทย์ 🪄",tags:["#ShotStopper","#เซฟแล้วเซฟอีก","#ผ่านประตูไม่ได้"]},
+    "🧤 มือกาวเหล็ก":{nick:"เทพเจ้าประตู 🧤",tags:["#WallGK","#เซฟไม่ยั้ง","#ผ่านไม่ผ่าน"]},
+    "⚡ ผู้รักษาประตูปีกเร็ว":{nick:"GK ปีกเร็ว ⚡",tags:["#SweepingGK","#ออกมาเลย","#ปอดเหล็ก"]},
+    "🎼 ผู้สร้างเกมจากหลัง":{nick:"สร้างเกมจากหลัง 🎼",tags:["#PlaymakingGK","#เริ่มเกมจากประตู","#จ่ายทะลุ"]},
+    "📢 แม่ทัพหลังเสา":{nick:"แม่ทัพกองหลัง 📢",tags:["#Commander","#สั่งการ","#หัวโขก"]},
+    "🪄 จอมเซฟ":{nick:"มือเวทย์ 🪄",tags:["#ShotStopper","#เซฟแล้วเซฟอีก","#ผ่านประตูไม่ได้"]},
+  },
 };
 
 // XP thresholds per level (cumulative)
@@ -843,7 +917,12 @@ export default function SquadHub() {
     setScoreDataLoading(false);
   },[]);
 
-  useEffect(()=>{ if(tab==="score"&&scoreMatchId) loadScoreData(scoreMatchId); },[tab,scoreMatchId]);
+  useEffect(()=>{
+    setScoreRounds([]);
+    setSelectedMvp(null);
+    setScoreSubmitted(false);
+    if(tab==="score"&&scoreMatchId) loadScoreData(scoreMatchId);
+  },[tab,scoreMatchId]);
 
   // เมื่อ slot โหลดแล้ว → reset teams ด้วย team count + max ที่ถูกต้อง
   useEffect(()=>{
@@ -858,6 +937,7 @@ export default function SquadHub() {
   /* ── LOAD ROOM DATA — populate lobby from match_players ── */
   const loadRoomData = useCallback(async () => {
     if(!myBooking?.slot_id) return;
+    if(tab !== "room") return;
     if(slot?.id && slot.id !== myBooking.slot_id) return; // user กำลัง browse slot อื่น — ไม่ทับ
     try{
       // ── Fresh slot fetch FIRST (ก่อน early return ทั้งหมด) ──
@@ -870,13 +950,14 @@ export default function SquadHub() {
         end:   freshSlot.end_time?.slice(0,5),
         price: freshSlot.price_per_player || prev?.price || 0,
       }));
-      // นับจำนวน confirmed bookings เพื่อแสดง capacity (ทำเสมอ ไม่ขึ้นกับ match_players)
-      const {count:confCount} = await supabase.from("bookings")
-        .select("id",{count:"exact",head:true}).eq("slot_id",myBooking.slot_id).eq("status","confirmed");
-      setConfirmedCount(confCount||0);
 
       const match = await findOrCreateMatch(myBooking.slot_id, myBooking.venue_id);
       if(!match?.id) return;
+      // นับจาก match_players จริง (ไม่ใช่ bookings) เพื่อป้องกัน booking เก่าค้างนับ
+      const {count:mpCount} = await supabase.from("match_players")
+        .select("player_id",{count:"exact",head:true}).eq("match_id",match.id);
+      setConfirmedCount(mpCount||0);
+
       const {data:mps} = await supabase.from("match_players")
         .select("player_id,team").eq("match_id", match.id);
       // ใช้ freshSlot เป็น source of truth สำหรับ team count
@@ -890,6 +971,7 @@ export default function SquadHub() {
         setTeams(allTeamIds.map((id,i)=>({
           id, name:`ทีม ${id}`, color:TEAM_COLORS[i%TEAM_COLORS.length], max:maxPerTeam, code:"", players:[],
         })));
+        setIsCheckedIn(false);
         return;
       }
 
@@ -924,8 +1006,14 @@ export default function SquadHub() {
       setUnassignedPlayers(unassigned);
       const myMp = mps.find(m=>m.player_id===player?.dbId);
       if(myMp?.team) setMyTeam(myMp.team);
+      // reset isCheckedIn จาก DB ทุกครั้ง — ไม่ค้างจาก session ก่อน
+      if(player?.dbId){
+        const {data:myMpFull} = await supabase.from("match_players")
+          .select("checked_in").eq("match_id",match.id).eq("player_id",player.dbId).maybeSingle();
+        setIsCheckedIn(!!myMpFull?.checked_in);
+      }
     }catch(e){ console.error("loadRoomData:", e); }
-  },[myBooking, slot, player, profilePhoto]);
+  },[myBooking, slot, player, profilePhoto, tab]);
 
   useEffect(()=>{ if(tab==="room" && slot?.id) loadRoomData(); },[tab, slot?.id]);
 
@@ -1181,7 +1269,7 @@ export default function SquadHub() {
               });
             const bk = await loadMyBooking(data.id);
             setAppLoading(false);
-            setTab(resolveTab(bk?.status==="pending" ? "success" : bk?.status==="confirmed" ? "room" : "home"));
+            setTab(resolveTab(bk?.status==="pending" ? "success" : "home"));
           } else {
             setAppLoading(false); setTab("register");
           }
@@ -1242,7 +1330,7 @@ export default function SquadHub() {
             });
           const bk2 = await loadMyBooking(data.id);
           setAppLoading(false);
-          setTab(resolveTab(bk2?.status==="pending" ? "success" : bk2?.status==="confirmed" ? "room" : "home"));
+          setTab(resolveTab(bk2?.status==="pending" ? "success" : "home"));
         } else {
           // ยังไม่มี → register พร้อม LINE profile
           setAppLoading(false);
@@ -2970,8 +3058,9 @@ const handlePhotoUpload = async (e) => {
             </div>
           ):(
             <button onClick={()=>setAddingRound(true)}
-              style={{width:"100%",padding:"11px",borderRadius:12,border:`1.5px dashed ${C.border}`,background:"transparent",color:C.sub,fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:4}}>
-              ➕ บันทึกรอบ
+              disabled={!isCheckedIn}
+              style={{width:"100%",padding:"11px",borderRadius:12,border:`1.5px dashed ${C.border}`,background:"transparent",color:C.sub,fontSize:13,fontWeight:700,cursor:isCheckedIn?"pointer":"not-allowed",marginBottom:4,opacity:isCheckedIn?1:0.45}}>
+              {isCheckedIn ? "➕ บันทึกรอบ" : "⏳ รอ Partner check-in ก่อนบันทึก"}
             </button>
           )}
         </div>
@@ -3015,22 +3104,33 @@ const handlePhotoUpload = async (e) => {
         </div>
 
         {/* ── Submit ── */}
-        <button
-          onClick={submitResult}
-          disabled={scoreRounds.length===0||(scorePlayers.length>0&&!selectedMvp)||scoreLoading}
-          style={{width:"100%",padding:"15px",borderRadius:13,border:"none",
-            background:(scoreRounds.length>0&&(scorePlayers.length===0||selectedMvp))?`linear-gradient(135deg,#00c96b,${C.green})`:"rgba(255,255,255,0.06)",
-            color:(scoreRounds.length>0&&(scorePlayers.length===0||selectedMvp))?"#001a0d":"#3d6b52",
-            fontSize:15,fontWeight:900,cursor:(scoreRounds.length>0&&(scorePlayers.length===0||selectedMvp))?"pointer":"not-allowed",
-            letterSpacing:.5,boxShadow:(scoreRounds.length>0&&(scorePlayers.length===0||selectedMvp))?`0 0 20px rgba(0,255,135,0.3)`:"none",
-            transition:"all .3s"}}>
-          {scoreLoading?"⏳ กำลังบันทึก...":scoreRounds.length===0?"ต้องมีอย่างน้อย 1 รอบ":(scorePlayers.length>0&&!selectedMvp)?"เลือก MVP ก่อน":"✅ ยืนยันผลสุดท้าย"}
-        </button>
+        {(()=>{
+          const canSubmit = slot?.status==="ended" && isCheckedIn && scoreRounds.length>0 && (scorePlayers.length===0||selectedMvp);
+          const submitLabel = scoreLoading ? "⏳ กำลังบันทึก..."
+            : !isCheckedIn ? "⏳ รอ check-in ก่อน"
+            : slot?.status!=="ended" ? "⏳ รอ Partner กด End Match"
+            : scoreRounds.length===0 ? "ต้องมีอย่างน้อย 1 รอบ"
+            : (scorePlayers.length>0&&!selectedMvp) ? "เลือก MVP ก่อน"
+            : "✅ ยืนยันผลสุดท้าย";
+          return (
+            <button onClick={submitResult} disabled={!canSubmit||scoreLoading}
+              style={{width:"100%",padding:"15px",borderRadius:13,border:"none",
+                background:canSubmit?`linear-gradient(135deg,#00c96b,${C.green})`:"rgba(255,255,255,0.06)",
+                color:canSubmit?"#001a0d":"#3d6b52",
+                fontSize:15,fontWeight:900,cursor:canSubmit?"pointer":"not-allowed",
+                letterSpacing:.5,boxShadow:canSubmit?`0 0 20px rgba(0,255,135,0.3)`:"none",
+                transition:"all .3s"}}>
+              {submitLabel}
+            </button>
+          );
+        })()}
 
-        {(scoreRounds.length===0||(scorePlayers.length>0&&!selectedMvp))&&(
+        {(!isCheckedIn||slot?.status!=="ended"||scoreRounds.length===0||(scorePlayers.length>0&&!selectedMvp))&&(
           <div style={{textAlign:"center",marginTop:8,fontSize:10,color:C.muted}}>
-            {scoreRounds.length===0&&"• เพิ่มรอบที่เล่นก่อน"}
-            {scoreRounds.length>0&&scorePlayers.length>0&&!selectedMvp&&"• เลือก MVP ก่อนยืนยัน"}
+            {!isCheckedIn&&"• ต้อง check-in ก่อน"}
+            {isCheckedIn&&slot?.status!=="ended"&&"• รอ Partner กด End Match"}
+            {isCheckedIn&&slot?.status==="ended"&&scoreRounds.length===0&&"• เพิ่มรอบที่เล่นก่อน"}
+            {isCheckedIn&&slot?.status==="ended"&&scoreRounds.length>0&&scorePlayers.length>0&&!selectedMvp&&"• เลือก MVP ก่อนยืนยัน"}
           </div>
         )}
       </div>
