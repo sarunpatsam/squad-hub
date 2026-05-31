@@ -40,6 +40,11 @@ const TIER_CFG = {
 /* Position / style data */
 const PC = { FW:"#ef4444", MF:"#10b981", DF:"#60a5fa", GK:"#fbbf24" };
 const TC = { A:"#ef4444", B:"#60a5fa", C:"#10b981", D:"#fbbf24" };
+const LEVEL_CFG = {
+  friendly:{emoji:"💚",label:"Friendly",bg:"rgba(16,212,132,0.12)",color:"#10d484",border:"rgba(16,212,132,0.3)"},
+  pro:     {emoji:"🧡",label:"Pro",     bg:"rgba(251,191,36,0.1)", color:"#fbbf24",border:"rgba(251,191,36,0.3)"},
+  league:  {emoji:"❤️",label:"League",  bg:"rgba(239,68,68,0.1)",  color:"#ef4444",border:"rgba(239,68,68,0.3)"},
+};
 
 const SM = {
   FW:{
@@ -741,6 +746,7 @@ export default function SquadHub() {
   const [unassignedPlayers,setUnassignedPlayers] = useState([]);
   const [captainSignaled,setCaptainSignaled] = useState(false);
   const [isUserCaptain,setIsUserCaptain]     = useState(false);
+  const [gameLevelFilter,setGameLevelFilter] = useState(new Set(["friendly"]));
   const fileRef = useRef(null);
   const slipInputRef = useRef(null);
 
@@ -763,13 +769,14 @@ export default function SquadHub() {
     if(!venueId) return;
     const d = dateStr || new Date().toISOString().split("T")[0];
     const {data:slots} = await supabase.from("slots")
-      .select("id,start_time,end_time,match_type,max_players,status,price_per_player,date")
+      .select("id,start_time,end_time,match_type,max_players,status,price_per_player,date,game_level")
       .eq("venue_id",venueId).eq("date",d).order("start_time");
     if(slots) setVenue(prev=>({...prev, slots:slots.map(s=>({
       id:s.id, time:s.start_time?.slice(0,5), end:s.end_time?.slice(0,5),
       type:s.match_type, match_type:s.match_type, price:s.price_per_player||0, fee:0,
       status:s.status==="open"?"Open":s.status==="full"?"Full":"Hot",
       filled:0, total:s.max_players||14,
+      game_level:s.game_level||"friendly",
     }))}));
   },[]);
 
@@ -818,7 +825,7 @@ export default function SquadHub() {
     // โหลด venue + match ของ active booking
     const [{data:vd},{data:m}] = await Promise.all([
       supabase.from("venues").select("id,name,area,promptpay_id,promptpay_name").eq("id",active.venue_id).single(),
-      supabase.from("matches").select("id").eq("slot_id",active.slot_id).maybeSingle(),
+      supabase.from("matches").select("id").eq("slot_id",active.slot_id).neq("status","completed").order("created_at",{ascending:false}).limit(1).maybeSingle(),
     ]);
     if(vd) {
       setVenue(vd);
@@ -839,7 +846,8 @@ export default function SquadHub() {
     if(!myBooking?.slot_id || !player?.dbId) return;
     (async()=>{
       const {data:m} = await supabase.from("matches")
-        .select("id").eq("slot_id",myBooking.slot_id).maybeSingle();
+        .select("id").eq("slot_id",myBooking.slot_id).neq("status","completed")
+        .order("created_at",{ascending:false}).limit(1).maybeSingle();
       if(!m?.id) return;
       const {data:cap} = await supabase.from("captain_lookup")
         .select("id").eq("match_id",m.id).eq("player_id",player.dbId).maybeSingle();
@@ -1060,7 +1068,7 @@ export default function SquadHub() {
         // อัพ slot status → captain_signaled (PartnerApp จะเห็น)
         await supabase.from("slots").update({status:"captain_signaled"}).eq("id",slotId);
         // อัพ match ด้วยถ้ามี
-        const {data:m} = await supabase.from("matches").select("id").eq("slot_id",slotId).maybeSingle();
+        const {data:m} = await supabase.from("matches").select("id").eq("slot_id",slotId).neq("status","completed").order("created_at",{ascending:false}).limit(1).maybeSingle();
         if(m?.id) await supabase.from("matches").update({status:"captain_signaled"}).eq("id",m.id);
       }
       setCaptainSignaled(true);
@@ -1399,6 +1407,7 @@ export default function SquadHub() {
             price:s.price_per_player||150, fee:0,
             status:s.status==="open"?"Open":s.status==="full"?"Full":"Hot",
             filled:countMap[s.id]||0, total:s.max_players||14,
+            game_level:s.game_level||"friendly",
           })),
       }));
       setVenues(mapped);
@@ -1579,10 +1588,14 @@ const handlePhotoUpload = async (e) => {
   };
 
   // หา หรือ สร้าง matches row สำหรับ slot นี้
+  // ⚠️ skip status='completed' — เพราะ slot อาจถูก reuse ทำให้ match เก่าค้าง
   const findOrCreateMatch = useCallback(async (slotId, fallbackVenueId) => {
     if(!slotId) return null;
-    let { data: match } = await supabase.from("matches")
-      .select("id,venue_id").eq("slot_id", slotId).maybeSingle();
+    let { data: matches } = await supabase.from("matches")
+      .select("id,venue_id,status").eq("slot_id", slotId)
+      .neq("status", "completed")
+      .order("created_at",{ascending:false}).limit(1);
+    const match = matches?.[0];
     if(match?.id) return match;
     // ไม่มี → สร้างใหม่ — ใช้ fallbackVenueId ก่อน ถ้าไม่มีค่อย query slot
     let venueId = fallbackVenueId || null;
@@ -2095,7 +2108,8 @@ const handlePhotoUpload = async (e) => {
                     let matchId = myBooking?.match_id;
                     if(!matchId && myBooking?.slot_id){
                       const {data:m} = await supabase.from("matches")
-                        .select("id").eq("slot_id",myBooking.slot_id).maybeSingle();
+                        .select("id").eq("slot_id",myBooking.slot_id).neq("status","completed")
+                        .order("created_at",{ascending:false}).limit(1).maybeSingle();
                       matchId = m?.id;
                     }
                     if(matchId) setScoreMatchId(matchId);
@@ -2145,7 +2159,8 @@ const handlePhotoUpload = async (e) => {
               <div style={{fontSize:10,fontWeight:800,color:"#ef4444"}}>{pct}% {T("เต็มแล้ว","full")}</div>
             </div>
             <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2,position:"relative"}}>{hotSlot._venue?.name}</div>
-            <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:10}}>{hotSlot.time}–{hotSlot.end} · {hotSlot.type} · ฿{hotSlot.price}/{T("คน","p")}</div>
+            <div style={{fontSize:12,color:C.green,fontWeight:700,marginBottom:6}}>{hotSlot.time}–{hotSlot.end} · {hotSlot.type} · ฿{hotSlot.price}/{T("คน","p")}</div>
+            {hotSlot.game_level&&(()=>{const lc=LEVEL_CFG[hotSlot.game_level]||LEVEL_CFG.friendly;return(<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:800,background:lc.bg,color:lc.color,border:`1px solid ${lc.border}`,marginBottom:10}}>{lc.emoji} {lc.label}</span>);})()}
             <div style={{height:4,background:"rgba(255,255,255,0.08)",borderRadius:99,marginBottom:8,overflow:"hidden"}}>
               <div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#ef4444,#f97316,#fbbf24)",borderRadius:99,transition:"width .3s"}}/>
             </div>
@@ -2156,6 +2171,42 @@ const handlePhotoUpload = async (e) => {
           </div>
         );
       })()}
+
+      {/* ── Level Filter Slicer ── */}
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        {[
+          {k:"all",  emoji:"⚽", label:T("ทั้งหมด","All"),     disabled:false},
+          {k:"friendly",emoji:"💚",label:"Friendly",            disabled:false},
+          {k:"pro",  emoji:"🧡", label:"Pro",                   disabled:true},
+          {k:"league",emoji:"❤️",label:"League",               disabled:true},
+        ].map(({k,emoji,label,disabled})=>{
+          const active = k==="all" ? gameLevelFilter.size===0 : gameLevelFilter.has(k);
+          return (
+            <button key={k}
+              disabled={disabled}
+              onClick={()=>{
+                if(disabled) return;
+                if(k==="all"){ setGameLevelFilter(new Set()); return; }
+                setGameLevelFilter(prev=>{
+                  const s=new Set(prev);
+                  if(s.has(k)) s.delete(k); else s.add(k);
+                  return s;
+                });
+              }}
+              style={{
+                display:"flex",alignItems:"center",gap:4,
+                padding:"6px 12px",borderRadius:99,fontSize:11,fontWeight:800,cursor:disabled?"default":"pointer",
+                border:`1px solid ${active?"rgba(16,185,129,0.5)":disabled?"rgba(255,255,255,0.06)":"rgba(16,185,129,0.15)"}`,
+                background:active?"rgba(16,185,129,0.12)":disabled?"rgba(255,255,255,0.02)":"transparent",
+                color:active?C.green:disabled?C.muted:C.sub,
+                opacity:disabled?0.6:1,transition:"all .15s",
+              }}>
+              {emoji} {label}
+              {disabled&&<span style={{fontSize:8,fontWeight:700,color:C.muted,marginLeft:2}}>Soon</span>}
+            </button>
+          );
+        })}
+      </div>
 
       <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:12}}>{T("สนามใกล้คุณ","Nearby Venues")}</div>
 
@@ -2240,7 +2291,10 @@ const handlePhotoUpload = async (e) => {
       })()}
 
       {venuesLoading&&<div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:C.sub}}>{T("กำลังโหลดสนาม...","Loading venues...")}</div>}
-      {venues.map(v=>(
+      {venues.filter(v=>{
+        if(gameLevelFilter.size===0) return true;
+        return (v.slots||[]).some(s=>gameLevelFilter.has(s.game_level||"friendly"));
+      }).map(v=>(
         <div key={v.id} onClick={()=>{setVenue(v);setTab("venue");}}
           style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:16,padding:"13px 15px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:13}}>
           <div style={{width:42,height:42,background:C.greenDim,border:`1px solid rgba(16,185,129,0.2)`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -2341,7 +2395,10 @@ const handlePhotoUpload = async (e) => {
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                 <div>
                   <div style={{fontSize:17,fontWeight:900,color:C.text}}>{s.time} <span style={{fontSize:12,color:C.sub}}>– {s.end}</span></div>
-                  <div style={{fontSize:11,color:C.sub,marginTop:2}}>{mt.label} · ฿{s.price+s.fee}/{T("คน","p")}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,flexWrap:"wrap"}}>
+                    <span style={{fontSize:11,color:C.sub}}>{mt.label} · ฿{s.price+s.fee}/{T("คน","p")}</span>
+                    {s.game_level&&(()=>{const lc=LEVEL_CFG[s.game_level]||LEVEL_CFG.friendly;return(<span style={{display:"inline-flex",alignItems:"center",gap:2,padding:"1px 6px",borderRadius:4,fontSize:9,fontWeight:800,background:lc.bg,color:lc.color,border:`1px solid ${lc.border}`}}>{lc.emoji} {lc.label}</span>);})()}
+                  </div>
                 </div>
                 <Tag color={sc}>{s.status}</Tag>
               </div>
