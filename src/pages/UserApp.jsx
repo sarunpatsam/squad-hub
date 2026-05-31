@@ -735,9 +735,9 @@ export default function SquadHub() {
   const [lbData,setLbData] = useState([]);
   const [allBookings,setAllBookings] = useState([]);
   const [isCheckedIn,setIsCheckedIn] = useState(false);
-  const [bookForFriend,setBookForFriend] = useState(false);
-  const [friendLineId,setFriendLineId]   = useState("");
-  const [friendName,setFriendName]       = useState("");
+  const [partySize,setPartySize]         = useState(1);           // 1-7
+  const [friendsInfo,setFriendsInfo]     = useState([]);           // [{name,lineId}] length = partySize-1
+  const [capacityError,setCapacityError] = useState(false);
   const [slipUrl,setSlipUrl]             = useState(null);
   const [slipUploading,setSlipUploading] = useState(false);
   const [slipError,setSlipError]         = useState(false);
@@ -2694,7 +2694,7 @@ const handlePhotoUpload = async (e) => {
     const venueName = venue?.promptpay_name || venue?.name || "สนาม";
     const matchPrice = slot?.price_per_player || slot?.price || 0;
     const platformFee = slot?.fee||0; // Season 1 = 0
-    const total = matchPrice; // ไม่รวม fee เพราะ Season 1 ฟรี
+    const total = matchPrice * partySize; // รวมทั้งปาร์ตี้
     const qrData = generatePromptPayQR(venuePromptpay, total);
     const qrURL  = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrData)}`;
 
@@ -2709,7 +2709,8 @@ const handlePhotoUpload = async (e) => {
             {myTeamData&&<Tag color={myTeamData.color}>{myTeamData.name}</Tag>}
           </div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.sub,marginBottom:9}}>
-            <span>ค่าแมทช์</span><span style={{color:C.text,fontWeight:700}}>฿{matchPrice}</span>
+            <span>ค่าแมทช์{partySize>1?` × ${partySize} คน`:""}</span>
+            <span style={{color:C.text,fontWeight:700}}>฿{total}</span>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.sub,marginBottom:9,alignItems:"center"}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -2733,20 +2734,41 @@ const handlePhotoUpload = async (e) => {
         <div style={{background:"rgba(251,191,36,0.07)",border:"1px solid rgba(251,191,36,0.18)",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
           <span style={{fontSize:11,color:C.amber,lineHeight:1.6}}>⚠️ {T("การยกเลิกหลัง 30 นาทีก่อนแมทช์จะส่งผลต่อ Reliability Score","Cancellation within 30 min of match affects your Reliability Score")}</span>
         </div>
-        {/* จองให้เพื่อน toggle */}
-        <div style={{background:C.surface,border:`1px solid ${bookForFriend?C.borderHi:C.border}`,borderRadius:12,padding:"12px 14px",marginBottom:20}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setBookForFriend(p=>!p)}>
-            <div><div style={{fontSize:13,fontWeight:700,color:C.text}}>จองให้เพื่อน</div><div style={{fontSize:10,color:C.sub}}>ส่ง LINE แจ้งเพื่อนให้ยืนยัน</div></div>
-            <div style={{width:40,height:22,borderRadius:11,background:bookForFriend?C.green:"#333",position:"relative",transition:"background .2s",flexShrink:0}}>
-              <div style={{position:"absolute",top:3,left:bookForFriend?20:3,width:16,height:16,borderRadius:8,background:"#fff",transition:"left .2s"}}/>
+        {/* Party size selector */}
+        <div style={{background:C.surface,border:`1px solid ${partySize>1?C.borderHi:C.border}`,borderRadius:12,padding:"14px 16px",marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:partySize>1?12:0}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:800,color:C.text}}>🎉 จองเป็นปาร์ตี้</div>
+              <div style={{fontSize:10,color:C.sub}}>Owner จ่ายครั้งเดียว · เพื่อนรับ LINE แจ้ง</div>
             </div>
+            <select value={partySize}
+              onChange={e=>{
+                const n=parseInt(e.target.value);
+                setPartySize(n);
+                setFriendsInfo(Array.from({length:Math.max(0,n-1)},(_,i)=>friendsInfo[i]||{name:"",lineId:""}));
+              }}
+              style={{background:"#091510",border:`1px solid ${partySize>1?C.borderHi:C.border}`,borderRadius:8,padding:"6px 10px",color:partySize>1?C.green:C.sub,fontSize:13,fontWeight:800,outline:"none",cursor:"pointer"}}>
+              {[1,2,3,4,5,6,7].map(n=><option key={n} value={n} style={{background:"#091510"}}>
+                {n===1?"1 คน (เฉพาะตัวเอง)":`${n} คน`}
+              </option>)}
+            </select>
           </div>
-          {bookForFriend&&(
-            <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
-              <input placeholder="LINE ID ของเพื่อน (เช่น Uid1234abc)" value={friendLineId} onChange={e=>setFriendLineId(e.target.value)}
-                style={{background:"#0d0d1a",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13,outline:"none",width:"100%",boxSizing:"border-box"}}/>
-              <input placeholder="ชื่อเพื่อน (แสดงใน LINE notification)" value={friendName} onChange={e=>setFriendName(e.target.value)}
-                style={{background:"#0d0d1a",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+          {partySize>1&&(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {friendsInfo.map((f,i)=>(
+                <div key={i} style={{background:"rgba(16,185,129,0.04)",border:`1px solid rgba(16,185,129,0.12)`,borderRadius:10,padding:"10px 12px"}}>
+                  <div style={{fontSize:10,fontWeight:800,color:C.green,marginBottom:7,letterSpacing:.5}}>เพื่อนคนที่ {i+2}</div>
+                  <input placeholder="ชื่อเพื่อน *" value={f.name}
+                    onChange={e=>{const a=[...friendsInfo];a[i]={...a[i],name:e.target.value};setFriendsInfo(a);}}
+                    style={{background:"#0d1510",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13,outline:"none",width:"100%",boxSizing:"border-box",marginBottom:7}}/>
+                  <input placeholder="LINE ID (ไม่บังคับ — ระบบจะส่ง link ผ่านคุณ)" value={f.lineId}
+                    onChange={e=>{const a=[...friendsInfo];a[i]={...a[i],lineId:e.target.value};setFriendsInfo(a);}}
+                    style={{background:"#0d1510",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",color:C.text,fontSize:13,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+                </div>
+              ))}
+              <div style={{background:"rgba(16,185,129,0.06)",border:"1px solid rgba(16,185,129,0.15)",borderRadius:8,padding:"8px 12px",fontSize:11,color:C.sub,lineHeight:1.6}}>
+                💳 ยอดรวม <span style={{color:C.green,fontWeight:800}}>฿{total}</span> ({partySize} คน × ฿{matchPrice}) — คุณจ่ายครั้งเดียว
+              </div>
             </div>
           )}
         </div>
@@ -2768,8 +2790,12 @@ const handlePhotoUpload = async (e) => {
           <div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.35)",borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:16}}>⚠️</span>
             <div>
-              <div style={{fontSize:12,fontWeight:800,color:C.red}}>บันทึกไม่สำเร็จ</div>
-              <div style={{fontSize:11,color:C.muted,marginTop:1}}>กรุณาลองใหม่ หรือติดต่อสนาม</div>
+              <div style={{fontSize:12,fontWeight:800,color:C.red}}>
+                {capacityError?"สนามไม่พอสำหรับปาร์ตี้ของคุณ":"บันทึกไม่สำเร็จ"}
+              </div>
+              <div style={{fontSize:11,color:C.muted,marginTop:1}}>
+                {capacityError?`ที่นั่งไม่พอสำหรับ ${partySize} คน กรุณาลดจำนวนหรือเลือก slot อื่น`:"กรุณาลองใหม่ หรือติดต่อสนาม"}
+              </div>
             </div>
           </div>
         )}
@@ -2836,17 +2862,55 @@ const handlePhotoUpload = async (e) => {
         </div>
 
         <Btn onClick={async ()=>{
-          // Guard: ต้องมี player + slot + slip ก่อน
-          if(!player?.dbId || !slot?.id || !venue?.id) {
-            console.error("booking guard failed:",{pid:player?.dbId,sid:slot?.id,vid:venue?.id});
-            setPayStep("qr_error");
-            return;
-          }
+          // Guard
+          if(!player?.dbId || !slot?.id || !venue?.id) { setPayStep("qr_error"); return; }
           if(!slipUrl) { setSlipError(true); return; }
+          // Party: validate friend names
+          if(partySize>1 && friendsInfo.some(f=>!f.name?.trim())) {
+            alert("กรุณากรอกชื่อเพื่อนทุกคน"); return;
+          }
+          setCapacityError(false);
           setPayStep("verifying");
           const payRef = `PAY-${Date.now()}`;
           try {
-            // ใช้แค่ insert ไม่ต้องการ SELECT policy
+            // B4: Capacity check
+            const {data:cap} = await supabase.rpc("check_slot_capacity",{p_slot_id:slot.id, p_party_size:partySize});
+            if(cap && !cap.ok) {
+              setCapacityError(true);
+              setPayStep("qr_error");
+              return;
+            }
+
+            let partyId = null;
+            if(partySize > 1) {
+              // B2: Create booking_parties
+              const {data:party,error:pErr} = await supabase.from("booking_parties").insert({
+                owner_player_id: player.dbId,
+                slot_id: slot.id,
+                venue_id: venue.id,
+                size: partySize,
+                total_amount: total,
+                status: "pending",
+                payment_ref: payRef,
+                slip_url: slipUrl,
+              }).select("id").single();
+              if(pErr) { console.error("party insert:",pErr); setPayStep("qr_error"); return; }
+              partyId = party.id;
+
+              // Insert party members
+              const members = [
+                {party_id:partyId, position:1, player_id:player.dbId, line_user_id:player.lineUserId||null, display_name:player.name||"Owner"},
+                ...friendsInfo.map((f,i)=>({
+                  party_id:partyId, position:i+2, player_id:null,
+                  line_user_id:f.lineId?.trim()||null,
+                  display_name:f.name.trim()||`เพื่อนคนที่ ${i+2}`,
+                })),
+              ];
+              const {error:mErr} = await supabase.from("booking_party_members").insert(members);
+              if(mErr) { console.error("members insert:",mErr); setPayStep("qr_error"); return; }
+            }
+
+            // Always create 1 bookings row (PartnerApp reads this)
             const {error:bkErr} = await supabase.from("bookings").insert({
               player_id: player.dbId,
               slot_id: slot.id,
@@ -2854,24 +2918,14 @@ const handlePhotoUpload = async (e) => {
               amount: total,
               status: "pending",
               payment_ref: payRef,
-              booked_for_line_id: bookForFriend&&friendLineId ? friendLineId : null,
-              booked_for_name: bookForFriend&&friendName ? friendName : null,
-              slip_url: slipUrl||null,
+              slip_url: slipUrl,
+              party_id: partyId,
+              booked_for_name: partySize>1 ? `+ ${partySize-1} เพื่อน (${partySize} คน)` : null,
+              booked_for_line_id: partySize===1&&friendsInfo[0]?.lineId ? friendsInfo[0].lineId : null,
             });
-            if(bkErr) {
-              console.error("booking insert error:",bkErr.message, bkErr.details, bkErr.hint);
-              setPayStep("qr_error");
-              return;
-            }
-            // Set optimistic state ก่อน แล้ว re-fetch เพื่อดึง match_id (ถ้ามี)
-            setMyBooking({
-              player_id: player.dbId,
-              slot_id: slot.id,
-              venue_id: venue.id,
-              amount: total,
-              status: "pending",
-            });
-            // Re-fetch เพื่อดึง match_id จาก DB (async — ไม่ต้อง await)
+            if(bkErr) { console.error("booking insert:",bkErr); setPayStep("qr_error"); return; }
+
+            setMyBooking({player_id:player.dbId,slot_id:slot.id,venue_id:venue.id,amount:total,status:"pending"});
             if(player?.dbId) loadMyBooking(player.dbId);
             setPayStep("done");
             setTab("success");
