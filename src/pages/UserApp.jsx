@@ -1015,7 +1015,7 @@ export default function SquadHub() {
     }catch(e){ console.error("loadRoomData:", e); }
   },[myBooking, slot, player, profilePhoto, tab]);
 
-  useEffect(()=>{ if(tab==="room" && slot?.id) loadRoomData(); },[tab, slot?.id]);
+  useEffect(()=>{ if(tab==="room" && slot?.id) loadRoomData(); },[tab, slot?.id, loadRoomData]);
 
   // Fetch leaderboard from real players table
   useEffect(()=>{
@@ -1146,7 +1146,7 @@ export default function SquadHub() {
         if(mpErr) console.error("match_players upsert error:", mpErr);
         // xp_logs — บันทึก event ทุกครั้ง
         const {error:xlErr} = await supabase.from("xp_logs").insert({
-          player_id:mp.player_id, match_id:scoreMatchId, xp_earned:xpEarned,
+          player_id:mp.player_id, match_id:scoreMatchId, amount:xpEarned,
           reason: isMvp?"match_mvp":isWin?"match_win":"match_played",
         });
         if(xlErr) console.error("xp_logs insert error:", xlErr);
@@ -1594,7 +1594,7 @@ const handlePhotoUpload = async (e) => {
     const { data: newMatch, error } = await supabase.from("matches").insert({
       slot_id: slotId,
       venue_id: venueId,
-      status: "active",
+      status: "confirmed",
       match_code: `M${Date.now().toString(36).toUpperCase()}`,
     }).select("id,venue_id").single();
     if(error) { console.warn("findOrCreateMatch:", error); return null; }
