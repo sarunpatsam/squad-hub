@@ -747,7 +747,6 @@ export default function SquadHub() {
   const [captainSignaled,setCaptainSignaled] = useState(false);
   const [isUserCaptain,setIsUserCaptain]     = useState(false);
   const [gameLevelFilter,setGameLevelFilter] = useState(new Set(["friendly"]));
-  const [roomOrganizer,setRoomOrganizer]     = useState(null); // C3: organizer card
   const fileRef = useRef(null);
   const slipInputRef = useRef(null);
 
@@ -1021,11 +1020,6 @@ export default function SquadHub() {
           .select("checked_in").eq("match_id",match.id).eq("player_id",player.dbId).maybeSingle();
         setIsCheckedIn(!!myMpFull?.checked_in);
       }
-      // โหลด Organizer (Team A captain) จาก captain_lookup
-      const {data:orgRow} = await supabase.from("captain_lookup")
-        .select("display_name,player_id")
-        .eq("match_id",match.id).eq("team","A").eq("is_captain",true).maybeSingle();
-      setRoomOrganizer(orgRow||null);
     }catch(e){ console.error("loadRoomData:", e); }
   },[myBooking, slot, player, profilePhoto, tab]);
 
@@ -2491,38 +2485,6 @@ const handlePhotoUpload = async (e) => {
             <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap",justifyContent:"center"}}>
               {teams.map(t=><div key={t.id} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,borderRadius:2,background:t.color}}/><span style={{fontSize:9,fontWeight:700,color:myTeam===t.id?t.color:C.sub}}>{t.name} {t.players.length}/{t.max}</span></div>)}
             </div>
-
-            {/* ── Organizer card (C3) ── */}
-            {(()=>{
-              const teamAHasCaptain = teams.find(t=>t.id==="A")?.players?.some(p=>p.isCaptain);
-              if(roomOrganizer){
-                return (
-                  <div style={{marginTop:12,padding:"12px 14px",background:"rgba(167,139,250,0.06)",border:"1px solid rgba(167,139,250,0.2)",borderRadius:14,display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{width:34,height:34,borderRadius:"50%",background:"rgba(167,139,250,0.15)",border:"1px solid rgba(167,139,250,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🎖️</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:9,fontWeight:800,color:"#a78bfa",letterSpacing:1.5,textTransform:"uppercase",marginBottom:2}}>{T("Organizer","Organizer")}</div>
-                      <div style={{fontSize:13,fontWeight:900,color:C.text}}>{roomOrganizer.display_name}</div>
-                      <div style={{fontSize:10,color:C.sub}}>{T("หน้าที่: สรุปผลแมตช์ + เลือก MVP","Role: Submit result · Pick MVP")}</div>
-                    </div>
-                  </div>
-                );
-              }
-              if(myTeam==="A" && !teamAHasCaptain){
-                return (
-                  <button onClick={claimCaptain}
-                    style={{marginTop:12,width:"100%",padding:"12px 14px",borderRadius:14,border:"1.5px dashed rgba(167,139,250,0.35)",background:"rgba(167,139,250,0.05)",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
-                    <span style={{fontSize:16}}>🎖️</span>
-                    <div style={{textAlign:"left",flex:1}}>
-                      <div style={{fontSize:13,fontWeight:800,color:"#a78bfa"}}>{T("ขอเป็น Organizer","Become Organizer")}</div>
-                      <div style={{fontSize:10,color:C.sub}}>{T("รับหน้าที่สรุปผล · +30 XP หลังแมตช์","Submit result after match · +30 XP")}</div>
-                    </div>
-                    <ChevronRight size={14} color="#a78bfa"/>
-                  </button>
-                );
-              }
-              return null;
-            })()}
-
             {unassignedPlayers.length>0&&(
               <div style={{marginTop:14,padding:"12px 14px",background:"rgba(251,191,36,0.06)",border:"1px solid rgba(251,191,36,0.25)",borderRadius:12}}>
                 <div style={{fontSize:10,fontWeight:800,color:C.amber,letterSpacing:1.2,marginBottom:8,textTransform:"uppercase"}}>⏳ {T("รอเลือกทีม","Waiting to pick team")} · {unassignedPlayers.length}</div>
