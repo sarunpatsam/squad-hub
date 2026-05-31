@@ -1025,6 +1025,32 @@ export default function SquadHub() {
 
   useEffect(()=>{ if(tab==="room" && slot?.id) loadRoomData(); },[tab, slot?.id, loadRoomData]);
 
+  // Refresh player data from DB เมื่อเปิด profile tab (เพื่อแสดง XP ล่าสุดหลัง submit)
+  useEffect(()=>{
+    if(tab!=="profile"||!player?.dbId) return;
+    (async()=>{
+      const {data:fresh} = await supabase.from("players")
+        .select("matches_played,wins,losses,goals,mvp_count,xp,tier,level,reliability_score")
+        .eq("id",player.dbId).single();
+      if(fresh){
+        setPlayer(prev=>({
+          ...prev,
+          tier:  fresh.tier||prev.tier,
+          level: fresh.level||prev.level,
+          xp:    fresh.xp??prev.xp,
+          matchStats:{
+            matches: fresh.matches_played||0,
+            wins:    fresh.wins||0,
+            losses:  fresh.losses||0,
+            mvp:     fresh.mvp_count||0,
+            goals:   fresh.goals||0,
+            assists: prev.matchStats?.assists||0,
+          },
+        }));
+      }
+    })();
+  },[tab]);
+
   // Fetch leaderboard from real players table
   useEffect(()=>{
     if(tab!=="leaderboard") return;
@@ -1152,18 +1178,13 @@ export default function SquadHub() {
           is_win:isWin, is_mvp:isMvp, xp_earned:xpEarned, result,
         },{ onConflict:"match_id,player_id" });
         if(mpErr) console.error("match_players upsert error:", mpErr);
-        // xp_logs — บันทึก event ทุกครั้ง
-        const {error:xlErr} = await supabase.from("xp_logs").insert({
-          player_id:mp.player_id, match_id:scoreMatchId, amount:xpEarned,
-          reason: isMvp?"match_mvp":isWin?"match_win":"match_played",
-        });
-        if(xlErr) console.error("xp_logs insert error:", xlErr);
-        // อัพ players aggregate + auto level-up
+        // อัพ players aggregate + auto level-up (ทำก่อน xp_logs เพื่อรู้ xp_before)
         const {data:p} = await supabase.from("players")
           .select("matches_played,wins,losses,goals,mvp_count,xp,level")
           .eq("id",mp.player_id).single();
         if(p){
-          const newXp = (p.xp||0)+xpEarned;
+          const xpBefore = p.xp||0;
+          const newXp    = xpBefore+xpEarned;
           const newLevel = getLevel(newXp);
           const {error:puErr} = await supabase.from("players").update({
             matches_played:(p.matches_played||0)+1,
@@ -1175,6 +1196,13 @@ export default function SquadHub() {
             level: newLevel,
           }).eq("id",mp.player_id);
           if(puErr) console.error("players update error:", puErr);
+          // xp_logs — บันทึกหลัง update เพื่อมี xp_before/xp_after ที่ถูกต้อง
+          const {error:xlErr} = await supabase.from("xp_logs").insert({
+            player_id:mp.player_id, match_id:scoreMatchId, amount:xpEarned,
+            reason: isMvp?"match_mvp":isWin?"match_win":"match_played",
+            xp_before:xpBefore, xp_after:newXp,
+          });
+          if(xlErr) console.error("xp_logs insert error:", xlErr);
         }
       }
       // Mark match + slot completed
