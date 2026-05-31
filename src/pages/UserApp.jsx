@@ -2128,9 +2128,8 @@ const handlePhotoUpload = async (e) => {
                 </div>
               </div>
             </div>
-            {!isEnded&&(
-              <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:12}}>
-                {/* ปุ่มบันทึกคะแนน — กดได้ตลอดระหว่างแมตช์ */}
+            {/* ปุ่มบันทึกคะแนน — กดได้ตลอด รวมถึงตอน isEnded */}
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:12}}>
                 <button
                   onClick={async()=>{
                     let matchId = myBooking?.match_id;
@@ -2152,7 +2151,7 @@ const handlePhotoUpload = async (e) => {
                   }}>
                   📝 บันทึกคะแนนรอบนี้
                 </button>
-                {!isPending&&(
+                {!isEnded&&!isPending&&(
                   <button
                     onClick={signalVenueMatchEnd}
                     style={{
@@ -2166,7 +2165,6 @@ const handlePhotoUpload = async (e) => {
                   </button>
                 )}
               </div>
-            )}
           </div>
         );
       })()}
