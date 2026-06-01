@@ -155,6 +155,16 @@ const getLevel = (totalXp) => {
   for(let i=1;i<XP_LEVELS.length;i++){ if(totalXp>=XP_LEVELS[i]) lv=i+1; else break; }
   return Math.min(lv, XP_LEVELS.length);
 };
+// Tier ผูกกับ Level — Bronze=Lv1-2, Silver=Lv3-4, Gold=Lv5-6, Platinum=Lv7-8, Diamond=Lv9-10
+// (key ต้องตรงกับ TIER_CFG) ใช้ร่วมกับ Player Card flex (n8n) ที่คำนวณสูตรเดียวกัน
+const getTier = (level) => {
+  const lv = level||1;
+  if(lv>=9) return "Diamond";
+  if(lv>=7) return "Platinum";
+  if(lv>=5) return "Gold";
+  if(lv>=3) return "Silver";
+  return "Bronze";
+};
 
 // Parse PartnerApp match_type format e.g. "7v7_3t" → {format:"7v7", teams:3, label:"7v7 · 3 ทีม"}
 const parseMatchType = (mt) => {
@@ -838,6 +848,15 @@ export default function SquadHub() {
       price: active.slotData.price_per_player || 0,
     });
     if(m?.id) setScoreMatchId(m.id);
+    // refresh isCheckedIn จาก DB (scoped กับ active match) — ไม่พึ่ง state ค้างจาก room/score tab
+    // เพื่อให้ stage ใน notification panel ถูกต้อง (รอ check-in ก่อน "กำลังเล่น")
+    if(m?.id && playerId){
+      const {data:myMp} = await supabase.from("match_players")
+        .select("checked_in").eq("match_id",m.id).eq("player_id",playerId).maybeSingle();
+      setIsCheckedIn(!!myMp?.checked_in);
+    } else {
+      setIsCheckedIn(false);
+    }
     return active;
   },[loadVenueSlots]);
 
@@ -920,7 +939,10 @@ export default function SquadHub() {
       const allTeamIds = TEAM_IDS.slice(0, teamCount);
       const finalTeams = [...new Set([...allTeamIds,...dbTeams])].sort();
       setScoreTeams(finalTeams);
-      setNewRound(r=>({...r,teamA:finalTeams[0],teamB:finalTeams[1]}));
+      // default คู่แรกจากทีมที่มีผู้เล่นจริง (รองรับ C vs D ฯลฯ) — fallback ไป finalTeams ถ้ายังไม่มีคน
+      const defA = dbTeams[0] || finalTeams[0];
+      const defB = dbTeams.find(t=>t!==defA) || finalTeams.find(t=>t!==defA) || finalTeams[1];
+      setNewRound(r=>({...r,teamA:defA,teamB:defB}));
     }catch(e){console.error("loadScoreData:",e);}
     setScoreDataLoading(false);
   },[]);
@@ -1167,6 +1189,8 @@ export default function SquadHub() {
       const isDrawMatch = allEqual && winTeams.length !== 1;
 
       for(const mp of scorePlayers){
+        // ทีมที่ไม่ได้ลงเล่นในรอบไหนเลย → ข้าม (ไม่ mark loss มั่ว, result คง null)
+        if(!teamsWithRounds.includes(mp.team)) continue;
         const isWin   = winTeams.includes(mp.team) && !isDrawMatch;
         const result  = isDrawMatch ? "draw" : isWin ? "win" : "loss";
         const isMvp   = mp.player_id===selectedMvp;
@@ -1189,11 +1213,12 @@ export default function SquadHub() {
           const {error:puErr} = await supabase.from("players").update({
             matches_played:(p.matches_played||0)+1,
             wins:   (p.wins||0)+(isWin?1:0),
-            losses: (p.losses||0)+(!isWin&&winTeams.length>0?1:0),
+            losses: (p.losses||0)+((!isWin&&!isDrawMatch)?1:0),
             goals:  (p.goals||0)+goals,
             mvp_count:(p.mvp_count||0)+(isMvp?1:0),
             xp:    newXp,
             level: newLevel,
+            tier:  getTier(newLevel),
           }).eq("id",mp.player_id);
           if(puErr) console.error("players update error:", puErr);
           // xp_logs — บันทึกหลัง update เพื่อมี xp_before/xp_after ที่ถูกต้อง
@@ -1297,9 +1322,9 @@ export default function SquadHub() {
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
-            supabase.from("match_players").select("result,joined_at").eq("player_id",data.id)
+            supabase.from("match_players").select("result,id").eq("player_id",data.id)
               .not("result","is",null)
-              .order("joined_at",{ascending:false}).limit(5)
+              .order("id",{ascending:false}).limit(5)
               .then(({data:mp})=>{
                 if(mp?.length) setPlayer(prev=>({...prev,form:(mp).map(m=>m.result==="win"?1:m.result==="draw"?0:-1)}));
               });
@@ -1358,9 +1383,9 @@ export default function SquadHub() {
           });
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
           // Fetch recent form จาก match_players (async — ไม่ block login)
-          supabase.from("match_players").select("result,joined_at").eq("player_id",data.id)
+          supabase.from("match_players").select("result,id").eq("player_id",data.id)
             .not("result","is",null)
-            .order("joined_at",{ascending:false}).limit(5)
+            .order("id",{ascending:false}).limit(5)
             .then(({data:mp})=>{
               if(mp?.length) setPlayer(prev=>({...prev,form:(mp).map(m=>m.result==="win"?1:m.result==="draw"?0:-1)}));
             });
@@ -2161,7 +2186,7 @@ const handlePhotoUpload = async (e) => {
                       color:C.red, fontSize:13, fontWeight:900, cursor:"pointer",
                       display:"flex", alignItems:"center", justifyContent:"center", gap:7,
                     }}>
-                    🏁 แจ้งสนามว่าเล่นจบแล้ว
+                    🏁 แจ้งสนามว่าเล่นจบแล้ว (สำหรับทดสอบ)
                   </button>
                 )}
               </div>
@@ -3444,7 +3469,10 @@ const handlePhotoUpload = async (e) => {
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",paddingBottom:10,marginBottom:10,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
                     <div>
                       <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venue?.name||"—"}</div>
-                      <div style={{fontSize:10,color:C.sub,marginTop:2}}>{slot?.time||"—"}–{slot?.end||"—"}{venue?.area?` · ${venue.area}`:""}</div>
+                      <div style={{fontSize:10,color:C.sub,marginTop:2}}>
+                        {(()=>{const ds=slot?.date||myBooking.slotData?.date;const d=ds?new Date(ds):null;return d?`${d.getDate()} ${monthTH[d.getMonth()]||""} · `:"";})()}
+                        {slot?.time||"—"}–{slot?.end||"—"}{venue?.area?` · ${venue.area}`:""}
+                      </div>
                     </div>
                     {myBooking.status==="confirmed"
                       ? <div style={{fontSize:9,fontWeight:800,padding:"3px 9px",borderRadius:99,background:"rgba(16,185,129,0.1)",color:C.green,border:"1px solid rgba(16,185,129,0.25)",flexShrink:0}}>✓ Confirmed</div>
@@ -3472,7 +3500,10 @@ const handlePhotoUpload = async (e) => {
                     <div style={{fontSize:10,fontWeight:800,color:C.green,background:"rgba(16,185,129,0.1)",padding:"2px 8px",borderRadius:99,border:"1px solid rgba(16,185,129,0.2)"}}>LV.{player?.level}</div>
                   </div>
                 </div>
-                <div style={{textAlign:"center",padding:"6px 0",color:C.muted,fontSize:10}}>{T("Player QR สำหรับ Check-in อยู่ที่ Profile →","Player QR for Check-in is in Profile →")}</div>
+                <button onClick={()=>{setQrMode("card");setShowNotif(false);setShowQR(true);}}
+                  style={{width:"100%",marginTop:2,padding:"12px",borderRadius:12,border:`1.5px solid ${C.borderHi}`,background:"rgba(16,185,129,0.1)",color:C.green,fontSize:13,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                  🎫 {T("เปิด Player QR เพื่อ Check-in","Open Player QR to Check-in")}
+                </button>
               </>
             ):(
               <div style={{textAlign:"center",padding:"28px 0",color:C.muted,fontSize:13}}>
