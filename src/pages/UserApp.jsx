@@ -343,20 +343,23 @@ const ImgLoad = ({src, alt="", style={}, ...rest}) => {
 
 /* Match result stats grid — Matches / WIN / Draw / MVP */
 const StatGrid = ({matches, wins, losses, mvp}) => {
-  const draws = Math.max(0, (matches||0) - (wins||0) - (losses||0));
+  const m = matches||0, w = wins||0, l = losses||0;
+  const draws = Math.max(0, m - w - l);
+  const winrate = m > 0 ? Math.round((w / m) * 100) : 0;
   const items = [
-    {label:"MATCHES", value:matches||0, color:C.text,  icon:"🏟️"},
-    {label:"WIN",     value:wins||0,    color:C.green, icon:"🏆"},
-    {label:"DRAW",    value:draws,      color:C.amber, icon:"🤝"},
-    {label:"MVP",     value:mvp||0,     color:C.amber, icon:"🏅"},
+    {label:"MATCHES", value:m,             color:C.text,  icon:"🏟️"},
+    {label:"WIN",     value:w,             color:C.green, icon:"🏆"},
+    {label:"DRAW",    value:draws,         color:C.amber, icon:"🤝"},
+    {label:"MVP",     value:mvp||0,        color:C.amber, icon:"🏅"},
+    {label:"WIN %",   value:`${winrate}%`, color:winrate>=50?C.green:C.amber, icon:"📊"},
   ];
   return (
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:7}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:5}}>
       {items.map(it=>(
-        <div key={it.label} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 6px",textAlign:"center"}}>
-          <div style={{fontSize:14,marginBottom:3}}>{it.icon}</div>
-          <div style={{fontSize:18,fontWeight:900,color:it.color,lineHeight:1}}>{it.value}</div>
-          <div style={{fontSize:8,color:C.sub,fontWeight:700,marginTop:2,letterSpacing:.5}}>{it.label}</div>
+        <div key={it.label} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 4px",textAlign:"center"}}>
+          <div style={{fontSize:13,marginBottom:3}}>{it.icon}</div>
+          <div style={{fontSize:15,fontWeight:900,color:it.color,lineHeight:1}}>{it.value}</div>
+          <div style={{fontSize:7,color:C.sub,fontWeight:700,marginTop:2,letterSpacing:.3}}>{it.label}</div>
         </div>
       ))}
     </div>
@@ -745,6 +748,7 @@ export default function SquadHub() {
   const [lbData,setLbData] = useState([]);
   const [allBookings,setAllBookings] = useState([]);
   const [isCheckedIn,setIsCheckedIn] = useState(false);
+  const [activeMatchStatus,setActiveMatchStatus] = useState(null);  // match.status ของ active booking — ใช้ตัดสิน "จบ" stage
   const [partySize,setPartySize]         = useState(1);           // 1-7
   const [friendsInfo,setFriendsInfo]     = useState([]);           // [{name,lineId}] length = partySize-1
   const [capacityError,setCapacityError] = useState(false);
@@ -835,7 +839,7 @@ export default function SquadHub() {
     // โหลด venue + match ของ active booking
     const [{data:vd},{data:m}] = await Promise.all([
       supabase.from("venues").select("id,name,area,promptpay_id,promptpay_name").eq("id",active.venue_id).single(),
-      supabase.from("matches").select("id").eq("slot_id",active.slot_id).neq("status","completed").order("created_at",{ascending:false}).limit(1).maybeSingle(),
+      supabase.from("matches").select("id,status").eq("slot_id",active.slot_id).order("created_at",{ascending:false}).limit(1).maybeSingle(),
     ]);
     if(vd) {
       setVenue(vd);
@@ -848,8 +852,9 @@ export default function SquadHub() {
       price: active.slotData.price_per_player || 0,
     });
     if(m?.id) setScoreMatchId(m.id);
-    // refresh isCheckedIn จาก DB (scoped กับ active match) — ไม่พึ่ง state ค้างจาก room/score tab
-    // เพื่อให้ stage ใน notification panel ถูกต้อง (รอ check-in ก่อน "กำลังเล่น")
+    // refresh isCheckedIn + match.status จาก DB (scoped กับ active match) — ไม่พึ่ง state ค้างจาก room/score tab
+    // เพื่อให้ stage ใน notification panel ถูกต้อง (รอ check-in ก่อน "กำลังเล่น" ก่อน "จบ")
+    setActiveMatchStatus(m?.status||null);
     if(m?.id && playerId){
       const {data:myMp} = await supabase.from("match_players")
         .select("checked_in").eq("match_id",m.id).eq("player_id",playerId).maybeSingle();
@@ -910,15 +915,19 @@ export default function SquadHub() {
         team: p.team || ["A","B","C","D"][i%4],
       }));
 
-      // ดึง checked_in status ของ player คนนี้
+      // ดึง checked_in status ของ player คนนี้ — sync จาก DB เสมอ (ไม่ปล่อยค่าค้างจาก match ก่อน)
       if(match?.id){
         // player state อาจยังไม่ได้ set ตอน callback นี้ run → ดึง dbId จาก localStorage เป็น fallback
         const myPlayerId = localStorage.getItem("squad_player_db_id");
         if(myPlayerId){
           const {data:myMp} = await supabase.from("match_players")
             .select("checked_in").eq("match_id",match.id).eq("player_id",myPlayerId).maybeSingle();
-          if(myMp?.checked_in) setIsCheckedIn(true);
+          setIsCheckedIn(!!myMp?.checked_in);
+        } else {
+          setIsCheckedIn(false);
         }
+      } else {
+        setIsCheckedIn(false);
       }
 
       // ดึง display_name
@@ -1310,7 +1319,16 @@ export default function SquadHub() {
           const { data } = await supabase.from("players").select("*").eq("id", savedId).single();
           if(data) {
             localStorage.setItem("squad_player_db_id", data.id);
-            const stats = SM[data.position]?.[data.playstyle]||{pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
+            // อ่าน 6 stats จาก DB ก่อน; fallback ไป SM map ถ้ายังไม่ migrate
+            const smFallback = SM[data.position]?.[data.playstyle]||{pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
+            const stats = {
+              pace:      data.pace      ?? smFallback.pace,
+              shooting:  data.shooting  ?? smFallback.shooting,
+              passing:   data.passing   ?? smFallback.passing,
+              dribbling: data.dribbling ?? smFallback.dribbling,
+              defending: data.defending ?? smFallback.defending,
+              physical:  data.physical  ?? smFallback.physical,
+            };
             const ni = NICKS[data.position]?.[data.playstyle];
             setPlayer({
               name:data.display_name,id:`SQ-${data.id}`,dbId:data.id,
@@ -1322,11 +1340,17 @@ export default function SquadHub() {
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
-            supabase.from("match_players").select("result,id").eq("player_id",data.id)
-              .not("result","is",null)
-              .order("id",{ascending:false}).limit(5)
+            // form: fallback ไป is_win ถ้า result เป็น null (row เก่าๆ ก่อน U5 fix)
+            supabase.from("match_players").select("result,is_win,id").eq("player_id",data.id)
+              .order("id",{ascending:false}).limit(10)
               .then(({data:mp})=>{
-                if(mp?.length) setPlayer(prev=>({...prev,form:(mp).map(m=>m.result==="win"?1:m.result==="draw"?0:-1)}));
+                if(!mp?.length) return;
+                const form = mp
+                  .map(x=>x.result||(x.is_win===true?"win":x.is_win===false?"loss":null))
+                  .filter(r=>r!==null)
+                  .slice(0,5)
+                  .map(r=>r==="win"?1:r==="draw"?0:-1);
+                setPlayer(prev=>({...prev,form}));
               });
             const bk = await loadMyBooking(data.id);
             setAppLoading(false);
@@ -1353,7 +1377,16 @@ export default function SquadHub() {
           localStorage.setItem("squad_player_id", data.id);
           localStorage.setItem("squad_player_db_id", data.id);
           localStorage.setItem("squad_line_uid", lineUserId);
-          const stats = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
+          // อ่าน 6 stats จาก DB ก่อน; fallback ไป SM map ถ้ายังไม่ migrate
+          const smFallback = SM[data.position]?.[data.playstyle] || {pace:70,shooting:70,passing:70,dribbling:70,defending:70,physical:70};
+          const stats = {
+            pace:      data.pace      ?? smFallback.pace,
+            shooting:  data.shooting  ?? smFallback.shooting,
+            passing:   data.passing   ?? smFallback.passing,
+            dribbling: data.dribbling ?? smFallback.dribbling,
+            defending: data.defending ?? smFallback.defending,
+            physical:  data.physical  ?? smFallback.physical,
+          };
           const ni = NICKS[data.position]?.[data.playstyle];
           setPlayer({
             name:      data.display_name,
@@ -1382,12 +1415,17 @@ export default function SquadHub() {
             form: [],
           });
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
-          // Fetch recent form จาก match_players (async — ไม่ block login)
-          supabase.from("match_players").select("result,id").eq("player_id",data.id)
-            .not("result","is",null)
-            .order("id",{ascending:false}).limit(5)
+          // Fetch recent form จาก match_players — fallback ไป is_win ถ้า result null (row เก่าก่อน U5 fix)
+          supabase.from("match_players").select("result,is_win,id").eq("player_id",data.id)
+            .order("id",{ascending:false}).limit(10)
             .then(({data:mp})=>{
-              if(mp?.length) setPlayer(prev=>({...prev,form:(mp).map(m=>m.result==="win"?1:m.result==="draw"?0:-1)}));
+              if(!mp?.length) return;
+              const form = mp
+                .map(x=>x.result||(x.is_win===true?"win":x.is_win===false?"loss":null))
+                .filter(r=>r!==null)
+                .slice(0,5)
+                .map(r=>r==="win"?1:r==="draw"?0:-1);
+              setPlayer(prev=>({...prev,form}));
             });
           const bk2 = await loadMyBooking(data.id);
           setAppLoading(false);
@@ -1494,11 +1532,14 @@ const handlePhotoUpload = async (e) => {
     const { data: urlData } = supabase.storage
       .from('player-avatars')
       .getPublicUrl(path);
+    // cache-bust: append ?v=timestamp เพื่อบังคับให้ browser/LINE CDN โหลดรูปใหม่
+    // (Storage path เดิม avatars/{id} ถูก upsert ทับ — URL string เดิม → CDN cache รูปเก่า)
     const publicUrl = urlData?.publicUrl;
+    const versionedUrl = `${publicUrl}?v=${Date.now()}`;
     await supabase.from('players')
-      .update({ avatar_url: publicUrl })
+      .update({ avatar_url: versionedUrl })
       .eq('id', player.dbId);
-    setProfilePhoto(publicUrl);
+    setProfilePhoto(versionedUrl);
   } catch(err){
     console.error("Photo upload failed:", err);
   }
@@ -1551,6 +1592,13 @@ const handlePhotoUpload = async (e) => {
         goals:             0,
         assists:           0,
         mvp_count:         0,
+        // 6 stats จาก position+playstyle map (SM) — เก็บลง DB เพื่อ sync กับ Player Card LINE
+        pace:              stats.pace,
+        shooting:          stats.shooting,
+        passing:           stats.passing,
+        dribbling:         stats.dribbling,
+        defending:         stats.defending,
+        physical:          stats.physical,
       }).select("id").single();
 
       if(error) console.error("Supabase insert error:", error);
@@ -1849,8 +1897,10 @@ const handlePhotoUpload = async (e) => {
                 <Tag color={PC[player.position]||C.green} sm>{player.position}</Tag>
                 <Tag color={C.sub} sm>LV.{player.level}</Tag>
               </div>
-              <div style={{display:"flex",gap:12}}>
-                {ks.map(k=><MiniStat key={k} label={k} value={player.stats[k]}/>)}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,rowGap:8}}>
+                {["pace","shooting","passing","dribbling","defending","physical"].map(k=>
+                  <MiniStat key={k} label={k} value={player.stats?.[k]||"—"}/>
+                )}
               </div>
             </div>
           </div>
@@ -1935,7 +1985,7 @@ const handlePhotoUpload = async (e) => {
           </div>
         </div>
 {showQR&&(
-  <div onClick={()=>{setShowQR(false);setQrMode("card");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}>
+  <div onClick={()=>{setShowQR(false);setQrMode("card");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:16}}>
     <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:320}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div style={{fontSize:10,fontWeight:800,color:"#3d6b52",letterSpacing:2.5,textTransform:"uppercase"}}>QR ของฉัน</div>
@@ -3441,7 +3491,8 @@ const handlePhotoUpload = async (e) => {
                 {/* Journey Steps */}
                 {(()=>{
                   const isConfirmed = myBooking.status==="confirmed";
-                  const isEnded2    = slot?.status==="ended";
+                  // "จบ" ผูกกับ match.status (ended/completed) ก่อน — ตัด noise จาก slot ที่ reuse
+                  const isEnded2    = activeMatchStatus==="ended" || activeMatchStatus==="completed" || slot?.status==="ended";
                   const steps=[
                     {icon:"📋",label:T("จองแล้ว","Booked"),          done:true,                       active:false},
                     {icon:"✅",label:T("ยืนยันแล้ว","Confirmed"),     done:isConfirmed,                active:!isConfirmed},
@@ -3470,7 +3521,7 @@ const handlePhotoUpload = async (e) => {
                     <div>
                       <div style={{fontSize:14,fontWeight:800,color:C.text}}>{venue?.name||"—"}</div>
                       <div style={{fontSize:10,color:C.sub,marginTop:2}}>
-                        {(()=>{const ds=slot?.date||myBooking.slotData?.date;const d=ds?new Date(ds):null;return d?`${d.getDate()} ${monthTH[d.getMonth()]||""} · `:"";})()}
+                        {(()=>{const ds=myBooking.slotData?.date||slot?.date;if(!ds)return"";const m=String(ds).match(/^(\d{4})-(\d{2})-(\d{2})/);if(!m)return"";const d=parseInt(m[3],10),mo=parseInt(m[2],10)-1;return `${d} ${monthTH[mo]||""} · `;})()}
                         {slot?.time||"—"}–{slot?.end||"—"}{venue?.area?` · ${venue.area}`:""}
                       </div>
                     </div>
@@ -3500,7 +3551,7 @@ const handlePhotoUpload = async (e) => {
                     <div style={{fontSize:10,fontWeight:800,color:C.green,background:"rgba(16,185,129,0.1)",padding:"2px 8px",borderRadius:99,border:"1px solid rgba(16,185,129,0.2)"}}>LV.{player?.level}</div>
                   </div>
                 </div>
-                <button onClick={()=>{setQrMode("card");setShowNotif(false);setShowQR(true);}}
+                <button onClick={()=>{setQrMode("card");setShowNotif(false);requestAnimationFrame(()=>setShowQR(true));}}
                   style={{width:"100%",marginTop:2,padding:"12px",borderRadius:12,border:`1.5px solid ${C.borderHi}`,background:"rgba(16,185,129,0.1)",color:C.green,fontSize:13,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                   🎫 {T("เปิด Player QR เพื่อ Check-in","Open Player QR to Check-in")}
                 </button>
