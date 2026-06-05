@@ -314,6 +314,48 @@ const MiniStat = ({label,value}) => {
     </div>
   );
 };
+/* ═══ SIX STAT PANEL — brand FIFA-style (ไม่ใช่ copy) ═══ */
+const SixStatPanel = ({stats,tier,ovr})=>{
+  const tc=TIER_CFG[tier]||TIER_CFG.Bronze;
+  const ORDER=["pace","shooting","passing","dribbling","defending","physical"];
+  const ICON={pace:"⚡",shooting:"🎯",passing:"🎼",dribbling:"🌀",defending:"🛡️",physical:"💪"};
+  const statColor=v=>v>=85?C.greenBr:v>=70?C.green:v>=55?"#94a3b8":C.sub;
+  return(
+    <div style={{position:"relative",background:"rgba(5,15,10,0.88)",border:`1px solid rgba(16,185,129,0.18)`,borderRadius:16,padding:"14px 16px",marginBottom:14,overflow:"hidden"}}>
+      {/* Tier-colored corner accents — brand mark */}
+      {[["top:0;left:0","borderTop","borderLeft"],["top:0;right:0","borderTop","borderRight"],["bottom:0;left:0","borderBottom","borderLeft"],["bottom:0;right:0","borderBottom","borderRight"]].map(([pos,b1,b2])=>{
+        const [v,h]=pos.split(";");
+        return <div key={pos} style={{position:"absolute",...Object.fromEntries([v,h].map(s=>s.split(":"))),width:10,height:10,[b1]:`1.5px solid ${tc.glow}`,[b2]:`1.5px solid ${tc.glow}`}}/>;
+      })}
+      {/* Tier glow bg */}
+      <div style={{position:"absolute",top:-30,right:-20,width:100,height:100,background:`radial-gradient(circle,${tc.glow}0a 0%,transparent 70%)`}}/>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,position:"relative"}}>
+        <div style={{fontSize:8,fontWeight:800,color:C.sub,letterSpacing:2,textTransform:"uppercase"}}>Player Attributes</div>
+        <div style={{fontSize:9,fontWeight:900,color:tc.glow,letterSpacing:1,background:`${tc.glow}15`,padding:"2px 8px",borderRadius:99,border:`1px solid ${tc.glow}40`}}>OVR {ovr}</div>
+      </div>
+      {/* 6 stats grid 2-col */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 20px",position:"relative"}}>
+        {ORDER.map(k=>{
+          const val=stats?.[k]||70;
+          const col=statColor(val);
+          return(
+            <div key={k}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                <span style={{fontSize:9,fontWeight:700,color:C.sub,letterSpacing:.5,textTransform:"uppercase"}}>{ICON[k]} {k}</span>
+                <span style={{fontSize:12,fontWeight:900,color:col,lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{val}</span>
+              </div>
+              <div style={{height:3,background:"rgba(255,255,255,0.06)",borderRadius:99,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${val}%`,borderRadius:99,background:`linear-gradient(90deg,${col}88,${col})`,boxShadow:`0 0 4px ${col}60`,transition:"width .4s"}}/>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const FormDots = ({form=[]}) => (
   <div style={{display:"flex",gap:4}}>
     {form.map((v,i)=>{
@@ -740,7 +782,8 @@ export default function SquadHub() {
   const [scoreTeams,setScoreTeams]     = useState(["A","B","C","D"]); // default ก่อน load จาก DB
   const [addingRound,setAddingRound]   = useState(false);
   const [newRound,setNewRound]         = useState({teamA:"A",teamB:"B",scoreA:0,scoreB:0});
-  const [selectedMvp,setSelectedMvp]   = useState(null);
+  const [selectedMvp,setSelectedMvp]   = useState(null); // legacy fallback
+  const [myVote,setMyVote]             = useState(null); // voted_player_id ใน mvp_votes
   const [scoreSubmitted,setScoreSubmitted] = useState(false);
   const [scoreLoading,setScoreLoading]     = useState(false);
   const [scoreDataLoading,setScoreDataLoading] = useState(false);
@@ -959,6 +1002,7 @@ export default function SquadHub() {
   useEffect(()=>{
     setScoreRounds([]);
     setSelectedMvp(null);
+    setMyVote(null);
     setScoreSubmitted(false);
     if(tab==="score"&&scoreMatchId) loadScoreData(scoreMatchId);
   },[tab,scoreMatchId]);
@@ -1095,24 +1139,64 @@ export default function SquadHub() {
 
   /* ── ADD ROUND ── */
   const addRound = async ()=>{
+    const ta = newRound.teamA, tb = newRound.teamB;
+    // ห้าม pairing เดียวกัน
+    if(ta === tb){ alert("เลือกทีมคนละทีมนะ"); return; }
+    // ตรวจ duplicate pairing (A vs B หรือ B vs A)
+    const exists = scoreRounds.find(r=>
+      (r.team_a_name===ta&&r.team_b_name===tb)||(r.team_a_name===tb&&r.team_b_name===ta)
+    );
+    if(exists){
+      alert(`ทีม ${ta} vs ทีม ${tb} บันทึกไปแล้ว\nถ้าผิดให้กด ❌ คัดค้านในรายการด้านบน`);
+      setAddingRound(false);
+      return;
+    }
     const rn = scoreRounds.length+1;
+    // organizer mode = myTeam เป็น null → confirmed อัตโนมัติ
+    const isOrganizer = !myTeam;
     const roundData = {
       round_number:rn,
-      team_a_name:newRound.teamA, team_b_name:newRound.teamB,
+      team_a_name:ta, team_b_name:tb,
       score_a:parseInt(newRound.scoreA)||0, score_b:parseInt(newRound.scoreB)||0,
     };
     if(scoreMatchId){
-      // มี match_id → save ลง DB
       const {data:rd} = await supabase.from("match_rounds").insert({
-        match_id:scoreMatchId, ...roundData,
+        match_id:scoreMatchId,
+        submitted_by_team: myTeam||null,
+        confirmed: isOrganizer,   // organizer → true, captain → false (รอคู่แข่ง confirm)
+        ...roundData,
       }).select().single();
-      setScoreRounds(prev=>[...prev, rd||{...roundData,id:Date.now()}]);
+      setScoreRounds(prev=>[...prev, rd||{...roundData,id:Date.now(),confirmed:isOrganizer,submitted_by_team:myTeam||null}]);
     } else {
-      // ไม่มี match_id → save ใน state ก่อน (submit จะ warn)
-      setScoreRounds(prev=>[...prev,{...roundData,id:Date.now()}]);
+      setScoreRounds(prev=>[...prev,{...roundData,id:Date.now(),confirmed:true,submitted_by_team:null}]);
     }
     setAddingRound(false);
     setNewRound(r=>({...r,scoreA:0,scoreB:0}));
+  };
+
+  /* ── CONFIRM ROUND (คู่แข่ง confirm) ── */
+  const confirmRound = async (roundId)=>{
+    await supabase.from("match_rounds").update({confirmed:true,disputed:false}).eq("id",roundId);
+    setScoreRounds(prev=>prev.map(r=>r.id===roundId?{...r,confirmed:true,disputed:false}:r));
+  };
+
+  /* ── DISPUTE ROUND (คัดค้าน) ── */
+  const disputeRound = async (roundId)=>{
+    await supabase.from("match_rounds").update({disputed:true}).eq("id",roundId);
+    setScoreRounds(prev=>prev.map(r=>r.id===roundId?{...r,disputed:true}:r));
+    alert("บันทึกการคัดค้านแล้ว 🔴\nกรุณาตกลงกันในสนาม แล้วให้ organizer หรือกัปตันที่กรอกแก้ให้");
+  };
+
+  /* ── CAST MVP VOTE ── */
+  const castMvpVote = async (votedPlayerId)=>{
+    if(!player?.dbId||!myTeam||!scoreMatchId) return;
+    await supabase.from("mvp_votes").upsert({
+      match_id:scoreMatchId,
+      team:myTeam,
+      voter_player_id:player.dbId,
+      voted_player_id:votedPlayerId,
+    },{onConflict:"match_id,voter_player_id"});
+    setMyVote(votedPlayerId);
   };
 
   /* ── CAPTAIN SIGNAL VENUE ── */
@@ -1161,6 +1245,16 @@ export default function SquadHub() {
     return ()=>{ supabase.removeChannel(ch); };
   },[myBooking?.id]);
 
+  /* ── MATCH ROUNDS REALTIME — sync เมื่อกัปตันคนอื่นกรอก/confirm/dispute ── */
+  useEffect(()=>{
+    if(!scoreMatchId) return;
+    const ch = supabase.channel(`match-rounds-${scoreMatchId}`)
+      .on("postgres_changes",{event:"*",schema:"public",table:"match_rounds",filter:`match_id=eq.${scoreMatchId}`},
+        ()=>{ loadScoreData(scoreMatchId); }
+      ).subscribe();
+    return ()=>{ supabase.removeChannel(ch); };
+  },[scoreMatchId]);
+
   /* ── VISIBILITY / FOCUS REFRESH — refresh booking เมื่อกลับมาที่แท็บ ── */
   useEffect(()=>{
     if(!player?.dbId) return;
@@ -1176,14 +1270,46 @@ export default function SquadHub() {
   /* ── SUBMIT FINAL RESULT ── */
   const submitResult = async ()=>{
     if(scoreRounds.length===0)return;
-    if(scorePlayers.length>0&&!selectedMvp)return; // MVP required เฉพาะเมื่อมี players โหลดมา
+    // MVP ไม่บังคับอีกต่อไป — tally จาก mvp_votes แทน
     if(!scoreMatchId){ alert("ไม่พบ Match ID — กรุณาเปิดจากลิงก์ใน LINE"); return; }
+
+    // Guard: ตรวจ match ไม่ได้ completed ไปแล้ว (ป้องกัน double-submit)
+    const {data:currentMatch} = await supabase.from("matches").select("status").eq("id",scoreMatchId).single();
+    if(currentMatch?.status==="completed"){
+      alert("ผลแมตช์นี้ถูกส่งแล้ว ✅");
+      setScoreSubmitted(true);
+      return;
+    }
+
     setScoreLoading(true);
     try{
-      // คำนวณ wins + goals per team
+      // ใช้เฉพาะ effective rounds: confirmed=true หรือ submitted_by_team=null (organizer)
+      const effectiveRounds = scoreRounds.filter(r=>r.confirmed===true||r.submitted_by_team===null);
+      if(effectiveRounds.length===0){
+        alert("ยังไม่มีรอบที่ยืนยันแล้ว — กรุณา confirm ผลกับคู่แข่งก่อน");
+        setScoreLoading(false);
+        return;
+      }
+
+      // Tally MVP per team จาก mvp_votes
+      const {data:votes} = await supabase.from("mvp_votes").select("team,voted_player_id").eq("match_id",scoreMatchId);
+      const mvpByTeam = {}; // team → Set<player_id>
+      if(votes?.length){
+        const teamTally = {};
+        votes.forEach(v=>{
+          if(!teamTally[v.team]) teamTally[v.team]={};
+          teamTally[v.team][v.voted_player_id]=(teamTally[v.team][v.voted_player_id]||0)+1;
+        });
+        Object.entries(teamTally).forEach(([team,tv])=>{
+          const maxV=Math.max(...Object.values(tv));
+          mvpByTeam[team]=new Set(Object.keys(tv).filter(pid=>tv[pid]===maxV).map(Number));
+        });
+      }
+
+      // คำนวณ wins + goals per team (จาก effectiveRounds)
       const teamWins={}, teamGoals={};
       scoreTeams.forEach(t=>{teamWins[t]=0;teamGoals[t]=0;});
-      scoreRounds.forEach(r=>{
+      effectiveRounds.forEach(r=>{
         const a=r.team_a_name, b=r.team_b_name;
         teamGoals[a]=(teamGoals[a]||0)+r.score_a;
         teamGoals[b]=(teamGoals[b]||0)+r.score_b;
@@ -1202,7 +1328,7 @@ export default function SquadHub() {
         if(!teamsWithRounds.includes(mp.team)) continue;
         const isWin   = winTeams.includes(mp.team) && !isDrawMatch;
         const result  = isDrawMatch ? "draw" : isWin ? "win" : "loss";
-        const isMvp   = mp.player_id===selectedMvp;
+        const isMvp   = mvpByTeam[mp.team]?.has(mp.player_id)||false; // per-team vote tally
         const goals   = teamGoals[mp.team]||0;
         const xpEarned= (isWin?30:isDrawMatch?20:10)+(isMvp?30:0);
         // upsert match_players (สร้าง row ถ้าไม่มี หรืออัพถ้ามีแล้ว)
@@ -1897,11 +2023,7 @@ const handlePhotoUpload = async (e) => {
                 <Tag color={PC[player.position]||C.green} sm>{player.position}</Tag>
                 <Tag color={C.sub} sm>LV.{player.level}</Tag>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,rowGap:8}}>
-                {["pace","shooting","passing","dribbling","defending","physical"].map(k=>
-                  <MiniStat key={k} label={k} value={player.stats?.[k]||"—"}/>
-                )}
-              </div>
+              {/* stats ย้ายไป SixStatPanel ด้านล่าง — ให้ hero โล่งขึ้น */}
             </div>
           </div>
           <div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
@@ -1938,6 +2060,8 @@ const handlePhotoUpload = async (e) => {
           </div>
         </div>
         <div style={{padding:"0 16px"}}>
+          {/* ── Player Attributes (SixStatPanel) ── */}
+          <SixStatPanel stats={player.stats} tier={player.tier} ovr={player.ovr}/>
           <div style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:C.sub,marginBottom:10}}>Match Status</div>
           <div style={{marginBottom:12}}><StatGrid matches={ms.matches||0} wins={ms.wins||0} losses={ms.losses||0} mvp={ms.mvp||0}/></div>
           {/* Goals & Assists — Coming Soon */}
@@ -3206,20 +3330,45 @@ const handlePhotoUpload = async (e) => {
             </div>
           )}
 
-          {scoreRounds.map((r,i)=>(
-            <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-              <div style={{textAlign:"center",minWidth:60}}>
-                <div style={{fontSize:11,fontWeight:700,color:teamColor(r.team_a_name),marginBottom:2}}>ทีม {r.team_a_name}</div>
-                <div style={{fontSize:20,fontWeight:900,color:C.text}}>{r.score_a}</div>
+          {scoreRounds.map((r,i)=>{
+            // canConfirm: เห็น pending row ที่คนอื่นกรอก (ไม่ใช่ทีมเรา) และยังไม่ confirmed/disputed
+            const isMySubmission = r.submitted_by_team===myTeam && myTeam;
+            const isPending = r.confirmed===false && !r.disputed && r.submitted_by_team;
+            const canConfirm = isPending && !isMySubmission;
+            const statusColor = r.disputed?C.red:r.confirmed===true?C.green:C.amber;
+            const statusLabel = r.disputed?"⚠️ คัดค้าน":r.confirmed===true?"✅ ยืนยัน":"⏳ รอยืนยัน";
+            return (
+              <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${statusColor}`,borderRadius:12,padding:"12px 16px",marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{textAlign:"center",minWidth:60}}>
+                    <div style={{fontSize:11,fontWeight:700,color:teamColor(r.team_a_name),marginBottom:2}}>ทีม {r.team_a_name}</div>
+                    <div style={{fontSize:20,fontWeight:900,color:C.text}}>{r.score_a}</div>
+                  </div>
+                  <div style={{fontSize:10,color:C.muted,fontWeight:700,letterSpacing:1}}>VS</div>
+                  <div style={{textAlign:"center",minWidth:60}}>
+                    <div style={{fontSize:11,fontWeight:700,color:teamColor(r.team_b_name),marginBottom:2}}>ทีม {r.team_b_name}</div>
+                    <div style={{fontSize:20,fontWeight:900,color:C.text}}>{r.score_b}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:9,color:C.sub,marginBottom:2}}>รอบ {i+1}</div>
+                    <div style={{fontSize:9,fontWeight:800,color:statusColor}}>{statusLabel}</div>
+                  </div>
+                </div>
+                {canConfirm&&(
+                  <div style={{display:"flex",gap:6,marginTop:10}}>
+                    <button onClick={()=>confirmRound(r.id)}
+                      style={{flex:1,padding:"7px 0",borderRadius:8,border:"none",background:C.green,color:"#001a0d",fontSize:11,fontWeight:900,cursor:"pointer"}}>
+                      ✅ ยืนยันถูกต้อง
+                    </button>
+                    <button onClick={()=>disputeRound(r.id)}
+                      style={{flex:1,padding:"7px 0",borderRadius:8,border:`1px solid ${C.red}`,background:"transparent",color:C.red,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                      ❌ คัดค้าน
+                    </button>
+                  </div>
+                )}
               </div>
-              <div style={{fontSize:10,color:C.muted,fontWeight:700,letterSpacing:1}}>VS</div>
-              <div style={{textAlign:"center",minWidth:60}}>
-                <div style={{fontSize:11,fontWeight:700,color:teamColor(r.team_b_name),marginBottom:2}}>ทีม {r.team_b_name}</div>
-                <div style={{fontSize:20,fontWeight:900,color:C.text}}>{r.score_b}</div>
-              </div>
-              <div style={{fontSize:10,color:C.sub}}>รอบ {i+1}</div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Add Round Form */}
           {addingRound?(
@@ -3287,42 +3436,56 @@ const handlePhotoUpload = async (e) => {
           <div style={{padding:"3px 8px",borderRadius:6,background:"rgba(255,255,255,0.06)",fontSize:9,fontWeight:800,color:C.muted,letterSpacing:1,textTransform:"uppercase"}}>Soon</div>
         </div>
 
-        {/* ── MVP Selection ── */}
+        {/* ── MVP Voting — โหวต MVP ทีมตัวเอง ── */}
         <div style={{marginBottom:24}}>
-          <div style={{fontSize:12,fontWeight:800,color:C.sub,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>
-            🏅 เลือก MVP ประจำแมตช์
+          <div style={{fontSize:12,fontWeight:800,color:C.sub,letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>
+            🏅 โหวต MVP {myTeam?`ทีม ${myTeam}`:"ทีมคุณ"}
           </div>
-          {scorePlayers.length===0&&<div style={{fontSize:12,color:C.muted,textAlign:"center",padding:12}}>กำลังโหลดผู้เล่น...</div>}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {scorePlayers.map((p,i)=>{
-              const selected = selectedMvp===p.player_id;
-              return(
-                <button key={i} onClick={()=>setSelectedMvp(p.player_id)}
-                  style={{padding:"12px 10px",borderRadius:12,border:`1.5px solid ${selected?C.amber:"rgba(255,255,255,0.08)"}`,background:selected?"rgba(251,191,36,0.1)":"rgba(255,255,255,0.02)",cursor:"pointer",textAlign:"left",transition:"all .2s"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <div style={{width:28,height:28,borderRadius:"50%",background:`${teamColor(p.team)}22`,border:`1.5px solid ${teamColor(p.team)}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,color:teamColor(p.team)}}>
-                      {p.team}
-                    </div>
-                    <div>
-                      <div style={{fontSize:12,fontWeight:800,color:selected?C.amber:C.text,lineHeight:1.2}}>{p.name||`Player ${p.player_id}`}</div>
-                      <div style={{fontSize:9,color:C.muted}}>{p.pos||"—"}</div>
-                    </div>
-                    {selected&&<span style={{marginLeft:"auto",fontSize:14}}>⭐</span>}
-                  </div>
-                </button>
-              );
-            })}
+          <div style={{fontSize:9,color:C.muted,marginBottom:10}}>
+            โหวตได้ 1 เสียง · เปลี่ยนใจได้ก่อน submit · เสมอ = co-MVP ได้ทั้งคู่
           </div>
+          {!myTeam&&(
+            <div style={{fontSize:11,color:C.muted,textAlign:"center",padding:12,background:C.surface,borderRadius:10}}>
+              ไม่ทราบทีมของคุณ — organizer กรอกผลได้เลย ไม่ต้องโหวต
+            </div>
+          )}
+          {myTeam&&scorePlayers.filter(p=>p.team===myTeam&&p.player_id!==player?.dbId).length===0&&(
+            <div style={{fontSize:11,color:C.muted,textAlign:"center",padding:12,background:C.surface,borderRadius:10}}>
+              กำลังโหลดผู้เล่น...
+            </div>
+          )}
+          {myTeam&&(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {scorePlayers.filter(p=>p.team===myTeam&&p.player_id!==player?.dbId).map((p,i)=>{
+                const voted = myVote===p.player_id;
+                return(
+                  <button key={i} onClick={()=>castMvpVote(p.player_id)}
+                    style={{padding:"12px 10px",borderRadius:12,border:`1.5px solid ${voted?C.amber:"rgba(255,255,255,0.08)"}`,background:voted?"rgba(251,191,36,0.1)":"rgba(255,255,255,0.02)",cursor:"pointer",textAlign:"left",transition:"all .2s"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:28,height:28,borderRadius:"50%",background:`${C.amber}22`,border:`1.5px solid ${C.amber}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,color:C.amber}}>
+                        {p.team}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:800,color:voted?C.amber:C.text,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name||`Player ${p.player_id}`}</div>
+                        <div style={{fontSize:9,color:C.muted}}>{p.pos||"—"}</div>
+                      </div>
+                      {voted&&<span style={{marginLeft:"auto",fontSize:14,flexShrink:0}}>⭐</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* ── Submit ── */}
         {(()=>{
-          const canSubmit = slot?.status==="ended" && isCheckedIn && scoreRounds.length>0 && (scorePlayers.length===0||selectedMvp);
+          const effectiveCount = scoreRounds.filter(r=>r.confirmed===true||r.submitted_by_team===null).length;
+          const canSubmit = slot?.status==="ended" && isCheckedIn && effectiveCount>0;
           const submitLabel = scoreLoading ? "⏳ กำลังบันทึก..."
             : !isCheckedIn ? "⏳ รอ check-in ก่อน"
             : slot?.status!=="ended" ? "⏳ รอ Partner กด End Match"
-            : scoreRounds.length===0 ? "ต้องมีอย่างน้อย 1 รอบ"
-            : (scorePlayers.length>0&&!selectedMvp) ? "เลือก MVP ก่อน"
+            : effectiveCount===0 ? "ต้องมีรอบที่ยืนยันแล้วอย่างน้อย 1 รอบ"
             : "✅ ยืนยันผลสุดท้าย";
           return (
             <button onClick={submitResult} disabled={!canSubmit||scoreLoading}
@@ -3337,12 +3500,11 @@ const handlePhotoUpload = async (e) => {
           );
         })()}
 
-        {(!isCheckedIn||slot?.status!=="ended"||scoreRounds.length===0||(scorePlayers.length>0&&!selectedMvp))&&(
+        {!canSubmit&&!scoreLoading&&(
           <div style={{textAlign:"center",marginTop:8,fontSize:10,color:C.muted}}>
             {!isCheckedIn&&"• ต้อง check-in ก่อน"}
             {isCheckedIn&&slot?.status!=="ended"&&"• รอ Partner กด End Match"}
-            {isCheckedIn&&slot?.status==="ended"&&scoreRounds.length===0&&"• เพิ่มรอบที่เล่นก่อน"}
-            {isCheckedIn&&slot?.status==="ended"&&scoreRounds.length>0&&scorePlayers.length>0&&!selectedMvp&&"• เลือก MVP ก่อนยืนยัน"}
+            {isCheckedIn&&slot?.status==="ended"&&effectiveCount===0&&"• ต้องมีรอบที่ยืนยันแล้วก่อน (กด ✅ ยืนยัน)"}
           </div>
         )}
       </div>
