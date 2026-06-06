@@ -954,9 +954,20 @@ export default function SquadHub() {
         .select("id").eq("slot_id",myBooking.slot_id).neq("status","completed")
         .order("created_at",{ascending:false}).limit(1).maybeSingle();
       if(!m?.id){ setIsUserCaptain(false); return; }
+      // 1) มี captain_lookup ของเราในแมตช์นี้ไหม → เป็นกัปตันที่ claim แล้ว
       const {data:cap} = await supabase.from("captain_lookup")
         .select("id").eq("match_id",m.id).eq("player_id",player.dbId).maybeSingle();
-      setIsUserCaptain(!!cap);
+      if(cap){ setIsUserCaptain(true); return; }
+      // 2) fallback: แมตช์ที่ partner confirm แล้วแต่ผู้เล่นข้าม room flow → captain_lookup ว่าง
+      //    → ให้คนที่ join match ก่อน (match_players.id น้อยสุด) เป็น fallback captain คนเดียว
+      //    (ถ้ามีกัปตันคนอื่น claim ไว้แล้ว เรายังไม่ใช่กัปตัน — คงพฤติกรรมเดิม)
+      const {data:anyCap} = await supabase.from("captain_lookup")
+        .select("id").eq("match_id",m.id).limit(1).maybeSingle();
+      if(anyCap){ setIsUserCaptain(false); return; }
+      const {data:firstMp} = await supabase.from("match_players")
+        .select("id,player_id").eq("match_id",m.id)
+        .order("id",{ascending:true}).limit(1).maybeSingle();
+      setIsUserCaptain(firstMp?.player_id === player.dbId);
     })();
   },[myBooking?.slot_id, player?.dbId]);
 
