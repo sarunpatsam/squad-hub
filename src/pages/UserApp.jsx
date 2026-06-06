@@ -983,6 +983,10 @@ export default function SquadHub() {
       }
       const enriched = finalPlayers.map(p=>({...p,...(nameMap[p.player_id]||{})}));
       setScorePlayers(enriched);
+      // set myTeam จาก match_players — ทำตรงนี้ด้วยเพราะ score tab เปิดผ่าน deeplink ไม่ผ่าน loadRoomData
+      const myPid = player?.dbId || parseInt(localStorage.getItem("squad_player_db_id")||"0");
+      const myMpScore = finalPlayers.find(p=>p.player_id===myPid);
+      if(myMpScore?.team) setMyTeam(myMpScore.team);
       const dbTeams = [...new Set(enriched.map(p=>p.team))].sort();
       // ดึง match_type จาก slot เพื่อรู้จำนวนทีมจริง (ไม่ขึ้นกับ match_players ที่อาจยังไม่ครบ)
       const {data:matchSlot} = await supabase.from("slots")
@@ -1140,17 +1144,8 @@ export default function SquadHub() {
   /* ── ADD ROUND ── */
   const addRound = async ()=>{
     const ta = newRound.teamA, tb = newRound.teamB;
-    // ห้าม pairing เดียวกัน
+    // ห้าม pairing เดียวกัน (เลือกทีมตัวเองกับตัวเอง)
     if(ta === tb){ alert("เลือกทีมคนละทีมนะ"); return; }
-    // ตรวจ duplicate pairing (A vs B หรือ B vs A)
-    const exists = scoreRounds.find(r=>
-      (r.team_a_name===ta&&r.team_b_name===tb)||(r.team_a_name===tb&&r.team_b_name===ta)
-    );
-    if(exists){
-      alert(`ทีม ${ta} vs ทีม ${tb} บันทึกไปแล้ว\nถ้าผิดให้กด ❌ คัดค้านในรายการด้านบน`);
-      setAddingRound(false);
-      return;
-    }
     const rn = scoreRounds.length+1;
     // organizer mode = myTeam เป็น null → confirmed อัตโนมัติ
     const isOrganizer = !myTeam;
@@ -1188,12 +1183,17 @@ export default function SquadHub() {
   };
 
   /* ── CAST MVP VOTE ── */
-  const castMvpVote = async (votedPlayerId)=>{
-    if(!player?.dbId||!myTeam||!scoreMatchId) return;
+  const castMvpVote = async (votedPlayerId, voteTeam)=>{
+    if(!scoreMatchId) return;
+    const voterId = player?.dbId || parseInt(localStorage.getItem("squad_player_db_id")||"0");
+    if(!voterId) return;
+    // team = ทีมของ player ที่โหวต (captain ใช้ myTeam, organizer ใช้ทีมของ voted player)
+    const team = voteTeam || myTeam;
+    if(!team) return;
     await supabase.from("mvp_votes").upsert({
       match_id:scoreMatchId,
-      team:myTeam,
-      voter_player_id:player.dbId,
+      team,
+      voter_player_id:voterId,
       voted_player_id:votedPlayerId,
     },{onConflict:"match_id,voter_player_id"});
     setMyVote(votedPlayerId);
@@ -3439,43 +3439,71 @@ const handlePhotoUpload = async (e) => {
         {/* ── MVP Voting — โหวต MVP ทีมตัวเอง ── */}
         <div style={{marginBottom:24}}>
           <div style={{fontSize:12,fontWeight:800,color:C.sub,letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>
-            🏅 โหวต MVP {myTeam?`ทีม ${myTeam}`:"ทีมคุณ"}
+            🏅 โหวต MVP {myTeam?`ทีม ${myTeam}`:"ทุกทีม (Organizer)"}
           </div>
           <div style={{fontSize:9,color:C.muted,marginBottom:10}}>
-            โหวตได้ 1 เสียง · เปลี่ยนใจได้ก่อน submit · เสมอ = co-MVP ได้ทั้งคู่
+            {myTeam?"โหวตได้ 1 เสียง · เปลี่ยนใจได้ก่อน submit · เสมอ = co-MVP ได้ทั้งคู่":"organizer เลือก MVP แต่ละทีมได้เลย · เสมอ = co-MVP"}
           </div>
-          {!myTeam&&(
-            <div style={{fontSize:11,color:C.muted,textAlign:"center",padding:12,background:C.surface,borderRadius:10}}>
-              ไม่ทราบทีมของคุณ — organizer กรอกผลได้เลย ไม่ต้องโหวต
-            </div>
-          )}
-          {myTeam&&scorePlayers.filter(p=>p.team===myTeam&&p.player_id!==player?.dbId).length===0&&(
-            <div style={{fontSize:11,color:C.muted,textAlign:"center",padding:12,background:C.surface,borderRadius:10}}>
-              กำลังโหลดผู้เล่น...
-            </div>
-          )}
-          {myTeam&&(
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              {scorePlayers.filter(p=>p.team===myTeam&&p.player_id!==player?.dbId).map((p,i)=>{
-                const voted = myVote===p.player_id;
-                return(
-                  <button key={i} onClick={()=>castMvpVote(p.player_id)}
-                    style={{padding:"12px 10px",borderRadius:12,border:`1.5px solid ${voted?C.amber:"rgba(255,255,255,0.08)"}`,background:voted?"rgba(251,191,36,0.1)":"rgba(255,255,255,0.02)",cursor:"pointer",textAlign:"left",transition:"all .2s"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{width:28,height:28,borderRadius:"50%",background:`${C.amber}22`,border:`1.5px solid ${C.amber}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,color:C.amber}}>
-                        {p.team}
+          {(()=>{
+            // captain → เห็นแค่ทีมตัวเอง (ยกเว้นตัวเอง)
+            // organizer → เห็นทุกทีม แยก section ต่อทีม
+            const myPid = player?.dbId || parseInt(localStorage.getItem("squad_player_db_id")||"0");
+            if(myTeam){
+              const teammates = scorePlayers.filter(p=>p.team===myTeam&&p.player_id!==myPid);
+              if(teammates.length===0) return <div style={{fontSize:11,color:C.muted,textAlign:"center",padding:12,background:C.surface,borderRadius:10}}>กำลังโหลดผู้เล่น...</div>;
+              return(
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {teammates.map((p,i)=>{
+                    const voted = myVote===p.player_id;
+                    return(
+                      <button key={i} onClick={()=>castMvpVote(p.player_id, p.team)}
+                        style={{padding:"12px 10px",borderRadius:12,border:`1.5px solid ${voted?C.amber:"rgba(255,255,255,0.08)"}`,background:voted?"rgba(251,191,36,0.1)":"rgba(255,255,255,0.02)",cursor:"pointer",textAlign:"left",transition:"all .2s"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{width:28,height:28,borderRadius:"50%",background:`${C.amber}22`,border:`1.5px solid ${C.amber}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,color:C.amber}}>{p.team}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:12,fontWeight:800,color:voted?C.amber:C.text,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name||`Player ${p.player_id}`}</div>
+                            <div style={{fontSize:9,color:C.muted}}>{p.pos||"—"}</div>
+                          </div>
+                          {voted&&<span style={{marginLeft:"auto",fontSize:14,flexShrink:0}}>⭐</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            } else {
+              // organizer — แสดงแยกทีม
+              const teamGroups = scoreTeams.map(t=>({team:t, players:scorePlayers.filter(p=>p.team===t)})).filter(g=>g.players.length>0);
+              if(teamGroups.length===0) return <div style={{fontSize:11,color:C.muted,textAlign:"center",padding:12,background:C.surface,borderRadius:10}}>กำลังโหลดผู้เล่น...</div>;
+              return(
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {teamGroups.map(g=>(
+                    <div key={g.team}>
+                      <div style={{fontSize:10,fontWeight:800,color:C.sub,letterSpacing:1,marginBottom:6}}>ทีม {g.team}</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                        {g.players.map((p,i)=>{
+                          const voted = myVote===p.player_id;
+                          return(
+                            <button key={i} onClick={()=>castMvpVote(p.player_id, p.team)}
+                              style={{padding:"10px 10px",borderRadius:12,border:`1.5px solid ${voted?C.amber:"rgba(255,255,255,0.08)"}`,background:voted?"rgba(251,191,36,0.1)":"rgba(255,255,255,0.02)",cursor:"pointer",textAlign:"left",transition:"all .2s"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                <div style={{width:26,height:26,borderRadius:"50%",background:`${C.amber}22`,border:`1.5px solid ${C.amber}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:900,color:C.amber}}>{p.team}</div>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:11,fontWeight:800,color:voted?C.amber:C.text,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name||`Player ${p.player_id}`}</div>
+                                  <div style={{fontSize:9,color:C.muted}}>{p.pos||"—"}</div>
+                                </div>
+                                {voted&&<span style={{marginLeft:"auto",fontSize:13,flexShrink:0}}>⭐</span>}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:12,fontWeight:800,color:voted?C.amber:C.text,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name||`Player ${p.player_id}`}</div>
-                        <div style={{fontSize:9,color:C.muted}}>{p.pos||"—"}</div>
-                      </div>
-                      {voted&&<span style={{marginLeft:"auto",fontSize:14,flexShrink:0}}>⭐</span>}
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                  ))}
+                </div>
+              );
+            }
+          })()}
         </div>
 
         {/* ── Submit ── */}
