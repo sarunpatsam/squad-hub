@@ -168,10 +168,11 @@ const getTier = (level) => {
 
 // Parse PartnerApp match_type format e.g. "7v7_3t" → {format:"7v7", teams:3, label:"7v7 · 3 ทีม"}
 const parseMatchType = (mt) => {
-  if(!mt) return {format:"7v7",teams:2,label:"7v7 · 2 ทีม"};
+  if(!mt) return {format:"7v7",teams:2,label:"7v7 · 2 ทีม",players:14};
   const [fmt,t] = mt.split("_");
   const teams = parseInt(t?.replace("t",""))||2;
-  return {format:fmt||"7v7", teams, label:`${fmt||"7v7"} · ${teams} ทีม`};
+  const per   = parseInt(fmt)||7; // "7v7" → 7
+  return {format:fmt||"7v7", teams, players:per*teams, label:`${fmt||"7v7"} · ${teams} ทีม`};
 };
 
 const VENUES = [
@@ -838,7 +839,7 @@ export default function SquadHub() {
   },[]);
 
   /* ── LOAD MY BOOKING (plural support) ── */
-  const loadMyBooking = useCallback(async (playerId) => {
+  const loadMyBooking = useCallback(async (playerId, preferId=null) => {
     // ดึง bookings ทั้งหมดที่ active (ไม่กรอง date ใน query — กรองใน JS แทน)
     const {data:bks, error:bksErr} = await supabase.from("bookings")
       .select("id,slot_id,venue_id,amount,status,created_at")
@@ -875,9 +876,11 @@ export default function SquadHub() {
     setAllBookings(enriched);
     if(!enriched.length) return null;
 
-    // active = nearest (first after sort)
-    const active = enriched[0];
+    // active = booking ที่ผู้ใช้โต้ตอบล่าสุด (preferId หรือ localStorage) → fallback ใกล้สุด
+    const pinId = preferId ?? (parseInt(localStorage.getItem("squad_active_booking")||"0")||null);
+    const active = (pinId && enriched.find(b=>b.id===pinId)) || enriched[0];
     setMyBooking(active);
+    if(active?.id) localStorage.setItem("squad_active_booking", String(active.id));
 
     // โหลด venue + match ของ active booking
     const [{data:vd},{data:m}] = await Promise.all([
@@ -908,17 +911,52 @@ export default function SquadHub() {
     return active;
   },[loadVenueSlots]);
 
+  /* ── RECENT FORM (per-round) ── derive ฟอร์มต่อรอบจาก match_rounds โดยตรง
+     1 จุด = 1 รอบ (mini match). หาทีมของ player ในแต่ละแมตช์ จาก match_players.team
+     แล้วเทียบสกอร์รายรอบ → win(1)/draw(0)/loss(-1) ล่าสุด 5 รอบ */
+  const loadRecentForm = useCallback(async (playerId)=>{
+    if(!playerId) return;
+    // map: match_id → team ของ player (แมตช์ล่าสุดก่อน)
+    const {data:mps} = await supabase.from("match_players")
+      .select("match_id,team").eq("player_id",playerId)
+      .order("match_id",{ascending:false}).limit(10);
+    if(!mps?.length){ setPlayer(prev=>({...prev,form:[]})); return; }
+    const teamByMatch = {};
+    mps.forEach(m=>{ if(m.team && teamByMatch[m.match_id]===undefined) teamByMatch[m.match_id]=m.team; });
+    const matchIds = mps.map(m=>m.match_id);
+    // ดึงรอบ effective (confirmed หรือ organizer) ของแมตช์เหล่านั้น
+    const {data:rounds} = await supabase.from("match_rounds")
+      .select("match_id,round_number,team_a_name,team_b_name,score_a,score_b,confirmed,submitted_by_team")
+      .in("match_id",matchIds);
+    if(!rounds?.length){ setPlayer(prev=>({...prev,form:[]})); return; }
+    // เรียงแมตช์ใหม่ก่อน (ตามลำดับ matchIds) → ภายในแมตช์เรียง round_number
+    const order = {}; matchIds.forEach((id,i)=>{ order[id]=i; });
+    const eff = rounds
+      .filter(r=>r.confirmed===true || r.submitted_by_team==null)
+      .filter(r=>{ const t=teamByMatch[r.match_id]; return t && (r.team_a_name===t||r.team_b_name===t); })
+      .sort((a,b)=> order[a.match_id]-order[b.match_id] || a.round_number-b.round_number);
+    const form = eff.slice(0,5).map(r=>{
+      const t  = teamByMatch[r.match_id];
+      const my = r.team_a_name===t?r.score_a:r.score_b;
+      const op = r.team_a_name===t?r.score_b:r.score_a;
+      return my>op?1:my<op?-1:0;
+    });
+    setPlayer(prev=>({...prev,form}));
+  },[]);
+
   /* ── CHECK IF USER IS CAPTAIN (on load / booking change) ── */
+  // reset เป็น false ก่อนทุกครั้ง แล้ว set ตาม captain_lookup ที่ scope กับ active booking
+  // (ป้องกันค้าง true ข้าม booking → ปุ่ม/แบนเนอร์กัปตันโผล่ผิด match)
   useEffect(()=>{
-    if(!myBooking?.slot_id || !player?.dbId) return;
+    if(!myBooking?.slot_id || !player?.dbId){ setIsUserCaptain(false); return; }
     (async()=>{
       const {data:m} = await supabase.from("matches")
         .select("id").eq("slot_id",myBooking.slot_id).neq("status","completed")
         .order("created_at",{ascending:false}).limit(1).maybeSingle();
-      if(!m?.id) return;
+      if(!m?.id){ setIsUserCaptain(false); return; }
       const {data:cap} = await supabase.from("captain_lookup")
         .select("id").eq("match_id",m.id).eq("player_id",player.dbId).maybeSingle();
-      if(cap) setIsUserCaptain(true);
+      setIsUserCaptain(!!cap);
     })();
   },[myBooking?.slot_id, player?.dbId]);
 
@@ -1143,6 +1181,7 @@ export default function SquadHub() {
           },
         }));
       }
+      loadRecentForm(player.dbId); // refresh ฟอร์มต่อรอบหลัง submit
     })();
   },[tab]);
 
@@ -1346,31 +1385,30 @@ export default function SquadHub() {
         });
       }
 
-      // คำนวณ wins + goals per team (จาก effectiveRounds)
-      const teamWins={}, teamGoals={};
-      scoreTeams.forEach(t=>{teamWins[t]=0;teamGoals[t]=0;});
-      effectiveRounds.forEach(r=>{
-        const a=r.team_a_name, b=r.team_b_name;
-        teamGoals[a]=(teamGoals[a]||0)+r.score_a;
-        teamGoals[b]=(teamGoals[b]||0)+r.score_b;
-        if(r.score_a>r.score_b) teamWins[a]=(teamWins[a]||0)+1;
-        else if(r.score_b>r.score_a) teamWins[b]=(teamWins[b]||0)+1;
-      });
-      const maxW = Math.max(...Object.values(teamWins));
-      const winTeams = Object.keys(teamWins).filter(t=>teamWins[t]===maxW&&maxW>0);
-      // ตรวจ draw: ทุกทีมที่เล่นได้ wins เท่ากัน (รวมถึง 0-0) → draw
-      const teamsWithRounds = Object.keys(teamWins).filter(t=>scoreRounds.some(r=>r.team_a_name===t||r.team_b_name===t));
-      const allEqual = teamsWithRounds.length>0 && teamsWithRounds.every(t=>teamWins[t]===teamWins[teamsWithRounds[0]]);
-      const isDrawMatch = allEqual && winTeams.length !== 1;
+      // ── Per-round scoring: นับผลแบบต่อรอบ (mini match) ตามที่ user ต้องการ ──
+      // ทีมที่ลงเล่นอย่างน้อย 1 รอบ (effective) เท่านั้นที่ถูกคิดผล
+      const teamsWithRounds = [...new Set(effectiveRounds.flatMap(r=>[r.team_a_name,r.team_b_name]))];
 
       for(const mp of scorePlayers){
-        // ทีมที่ไม่ได้ลงเล่นในรอบไหนเลย → ข้าม (ไม่ mark loss มั่ว, result คง null)
+        // ทีมที่ไม่ได้ลงเล่นรอบ effective ไหนเลย → ข้าม (result คง null)
         if(!teamsWithRounds.includes(mp.team)) continue;
-        const isWin   = winTeams.includes(mp.team) && !isDrawMatch;
-        const result  = isDrawMatch ? "draw" : isWin ? "win" : "loss";
-        const isMvp   = mvpByTeam[mp.team]?.has(mp.player_id)||false; // per-team vote tally
-        const goals   = teamGoals[mp.team]||0;
-        const xpEarned= (isWin?30:isDrawMatch?20:10)+(isMvp?30:0);
+        // วนทุกรอบที่ทีมเขาลง → นับ win/draw/loss + XP + goals ต่อรอบ
+        let roundsWon=0, roundsLost=0, goals=0, xpEarned=0;
+        effectiveRounds.forEach(r=>{
+          const isA = r.team_a_name===mp.team, isB = r.team_b_name===mp.team;
+          if(!isA && !isB) return;
+          const my  = isA?r.score_a:r.score_b;
+          const opp = isA?r.score_b:r.score_a;
+          goals += my;
+          if(my>opp){ roundsWon++;  xpEarned+=10; }       // ชนะรอบ = 10 XP
+          else if(my<opp){ roundsLost++; xpEarned+=4; }   // แพ้รอบ = 4 XP
+          else { xpEarned+=6; }                            // เสมอรอบ = 6 XP
+        });
+        const isMvp = mvpByTeam[mp.team]?.has(mp.player_id)||false; // per-team vote tally
+        if(isMvp) xpEarned += 30;                          // MVP +30 ต่อแมตช์
+        // summary ระดับแมตช์ (1 row/แมตช์ ตาม unique constraint) — ฟอร์มจริง derive ต่อรอบจาก match_rounds (B2)
+        const isWin  = roundsWon>roundsLost;
+        const result = roundsWon>roundsLost?"win":roundsLost>roundsWon?"loss":"draw";
         // upsert match_players (สร้าง row ถ้าไม่มี หรืออัพถ้ามีแล้ว)
         const {error:mpErr} = await supabase.from("match_players").upsert({
           match_id:scoreMatchId, player_id:mp.player_id, team:mp.team,
@@ -1387,8 +1425,8 @@ export default function SquadHub() {
           const newLevel = getLevel(newXp);
           const {error:puErr} = await supabase.from("players").update({
             matches_played:(p.matches_played||0)+1,
-            wins:   (p.wins||0)+(isWin?1:0),
-            losses: (p.losses||0)+((!isWin&&!isDrawMatch)?1:0),
+            wins:   (p.wins||0)+roundsWon,    // นับต่อรอบ
+            losses: (p.losses||0)+roundsLost, // นับต่อรอบ
             goals:  (p.goals||0)+goals,
             mvp_count:(p.mvp_count||0)+(isMvp?1:0),
             xp:    newXp,
@@ -1396,10 +1434,10 @@ export default function SquadHub() {
             tier:  getTier(newLevel),
           }).eq("id",mp.player_id);
           if(puErr) console.error("players update error:", puErr);
-          // xp_logs — บันทึกหลัง update เพื่อมี xp_before/xp_after ที่ถูกต้อง
+          // xp_logs — 1 row สรุปต่อแมตช์ (amount = XP รวมทุกรอบ + MVP)
           const {error:xlErr} = await supabase.from("xp_logs").insert({
             player_id:mp.player_id, match_id:scoreMatchId, amount:xpEarned,
-            reason: isMvp?"match_mvp":isWin?"match_win":"match_played",
+            reason: isMvp?"match_mvp":"match_played",
             xp_before:xpBefore, xp_after:newXp,
           });
           if(xlErr) console.error("xp_logs insert error:", xlErr);
@@ -1506,18 +1544,7 @@ export default function SquadHub() {
               form:[],
             });
             if(data.avatar_url) setProfilePhoto(data.avatar_url);
-            // form: fallback ไป is_win ถ้า result เป็น null (row เก่าๆ ก่อน U5 fix)
-            supabase.from("match_players").select("result,is_win,id").eq("player_id",data.id)
-              .order("id",{ascending:false}).limit(10)
-              .then(({data:mp})=>{
-                if(!mp?.length) return;
-                const form = mp
-                  .map(x=>x.result||(x.is_win===true?"win":x.is_win===false?"loss":null))
-                  .filter(r=>r!==null)
-                  .slice(0,5)
-                  .map(r=>r==="win"?1:r==="draw"?0:-1);
-                setPlayer(prev=>({...prev,form}));
-              });
+            loadRecentForm(data.id); // ฟอร์มต่อรอบ (per-round) จาก match_rounds
             const bk = await loadMyBooking(data.id);
             setAppLoading(false);
             setTab(resolveTab(bk?.status==="pending" ? "success" : "home"));
@@ -1581,18 +1608,7 @@ export default function SquadHub() {
             form: [],
           });
           if(data.avatar_url) setProfilePhoto(data.avatar_url);
-          // Fetch recent form จาก match_players — fallback ไป is_win ถ้า result null (row เก่าก่อน U5 fix)
-          supabase.from("match_players").select("result,is_win,id").eq("player_id",data.id)
-            .order("id",{ascending:false}).limit(10)
-            .then(({data:mp})=>{
-              if(!mp?.length) return;
-              const form = mp
-                .map(x=>x.result||(x.is_win===true?"win":x.is_win===false?"loss":null))
-                .filter(r=>r!==null)
-                .slice(0,5)
-                .map(r=>r==="win"?1:r==="draw"?0:-1);
-              setPlayer(prev=>({...prev,form}));
-            });
+          loadRecentForm(data.id); // ฟอร์มต่อรอบ (per-round) จาก match_rounds
           const bk2 = await loadMyBooking(data.id);
           setAppLoading(false);
           setTab(resolveTab(bk2?.status==="pending" ? "success" : "home"));
@@ -2721,7 +2737,7 @@ const handlePhotoUpload = async (e) => {
             Match Lobby · Live
           </div>
           <div style={{fontSize:20,fontWeight:900,color:C.text,letterSpacing:.5}}>{venue?.name}</div>
-          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {parseMatchType(slot?.match_type).format||"7v7"} · {teams.length||2} {T("ทีม","Teams")} · {confirmedCount||0}/{slot?.max_players||0} {T("คน","Players")}</div>
+          <div style={{fontSize:11,color:C.sub,marginTop:2,letterSpacing:.5}}>{slot?.time}–{slot?.end} · {parseMatchType(slot?.match_type).format||"7v7"} · {teams.length||2} {T("ทีม","Teams")} · {confirmedCount||0}/{slot?.max_players||parseMatchType(slot?.match_type).players} {T("คน","Players")}</div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:14}}>
           {[{id:"pitch",label:"🏟️ Stadium"},{id:"team",label:"👥 Team"},{id:"chat",label:"💬 Chat"}].map(lt=>(
@@ -3200,7 +3216,7 @@ const handlePhotoUpload = async (e) => {
             }
 
             // Always create 1 bookings row (PartnerApp reads this)
-            const {error:bkErr} = await supabase.from("bookings").insert({
+            const {data:newBk, error:bkErr} = await supabase.from("bookings").insert({
               player_id: player.dbId,
               slot_id: slot.id,
               venue_id: venue.id,
@@ -3211,11 +3227,13 @@ const handlePhotoUpload = async (e) => {
               party_id: partyId,
               booked_for_name: partySize>1 ? `+ ${partySize-1} เพื่อน (${partySize} คน)` : null,
               booked_for_line_id: partySize===1&&friendsInfo[0]?.lineId ? friendsInfo[0].lineId : null,
-            });
+            }).select("id").single();
             if(bkErr) { console.error("booking insert:",bkErr); setPayStep("qr_error"); return; }
 
-            setMyBooking({player_id:player.dbId,slot_id:slot.id,venue_id:venue.id,amount:total,status:"pending"});
-            if(player?.dbId) loadMyBooking(player.dbId);
+            // pin booking ที่เพิ่งจองเป็น active (กันเด้งไป booking วันอื่นที่ใกล้กว่า)
+            if(newBk?.id) localStorage.setItem("squad_active_booking", String(newBk.id));
+            setMyBooking({id:newBk?.id,player_id:player.dbId,slot_id:slot.id,venue_id:venue.id,amount:total,status:"pending"});
+            if(player?.dbId) loadMyBooking(player.dbId, newBk?.id);
             setPayStep("done");
             setTab("success");
           } catch(e) {
@@ -3514,7 +3532,7 @@ const handlePhotoUpload = async (e) => {
             const myPid = player?.dbId || parseInt(localStorage.getItem("squad_player_db_id")||"0");
             if(myTeam){
               const teammates = scorePlayers.filter(p=>p.team===myTeam&&p.player_id!==myPid);
-              if(teammates.length===0) return <div style={{fontSize:11,color:C.muted,textAlign:"center",padding:12,background:C.surface,borderRadius:10}}>กำลังโหลดผู้เล่น...</div>;
+              if(teammates.length===0) return <div style={{fontSize:11,color:C.muted,textAlign:"center",padding:12,background:C.surface,borderRadius:10}}>{scoreDataLoading?"กำลังโหลดผู้เล่น...":"ทีมคุณมีผู้เล่นคนเดียว — ไม่มีตัวเลือก MVP (ข้ามได้)"}</div>;
               return(
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                   {teammates.map((p,i)=>{
@@ -3746,8 +3764,9 @@ const handlePhotoUpload = async (e) => {
                 {/* Journey Steps */}
                 {(()=>{
                   const isConfirmed = myBooking.status==="confirmed";
-                  // "จบ" ผูกกับ match.status (ended/completed) ก่อน — ตัด noise จาก slot ที่ reuse
-                  const isEnded2    = activeMatchStatus==="ended" || activeMatchStatus==="completed" || slot?.status==="ended";
+                  // "จบ" ผูกกับ match.status ที่ scope กับ active booking เท่านั้น (activeMatchStatus จาก loadMyBooking)
+                  // ไม่พึ่ง slot?.status ที่อาจถูก room/score tab เขียนทับจากคนละ match → กัน stage มั่ว
+                  const isEnded2    = activeMatchStatus==="ended" || activeMatchStatus==="completed";
                   const steps=[
                     {icon:"📋",label:T("จองแล้ว","Booked"),          done:true,                       active:false},
                     {icon:"✅",label:T("ยืนยันแล้ว","Confirmed"),     done:isConfirmed,                active:!isConfirmed},
