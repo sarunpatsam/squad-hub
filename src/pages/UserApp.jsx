@@ -988,9 +988,17 @@ export default function SquadHub() {
       const myMpScore = finalPlayers.find(p=>p.player_id===myPid);
       if(myMpScore?.team) setMyTeam(myMpScore.team);
       const dbTeams = [...new Set(enriched.map(p=>p.team))].sort();
-      // ดึง match_type จาก slot เพื่อรู้จำนวนทีมจริง (ไม่ขึ้นกับ match_players ที่อาจยังไม่ครบ)
+      // Bug A fix: ดึง slot ทั้ง match_type + status → setSlot ให้ canSubmit ทำงานได้
       const {data:matchSlot} = await supabase.from("slots")
-        .select("match_type").eq("id",match?.slot_id).maybeSingle();
+        .select("id,match_type,status,date,start_time,end_time,price_per_player,venue_id")
+        .eq("id",match?.slot_id).maybeSingle();
+      if(matchSlot) setSlot(prev=>({
+        ...(prev||{}),
+        ...matchSlot,
+        time: matchSlot.start_time?.slice(0,5),
+        end:  matchSlot.end_time?.slice(0,5),
+        price: matchSlot.price_per_player||0,
+      }));
       const teamCount = parseMatchType(matchSlot?.match_type).teams;
       const allTeamIds = TEAM_IDS.slice(0, teamCount);
       const finalTeams = [...new Set([...allTeamIds,...dbTeams])].sort();
@@ -999,6 +1007,12 @@ export default function SquadHub() {
       const defA = dbTeams[0] || finalTeams[0];
       const defB = dbTeams.find(t=>t!==defA) || finalTeams.find(t=>t!==defA) || finalTeams[1];
       setNewRound(r=>({...r,teamA:defA,teamB:defB}));
+      // Bug B fix: restore myVote จาก DB (เผื่อ reload หลังโหวตไปแล้ว)
+      if(myPid && matchId){
+        const {data:existingVote} = await supabase.from("mvp_votes")
+          .select("voted_player_id").eq("match_id",matchId).eq("voter_player_id",myPid).maybeSingle();
+        if(existingVote?.voted_player_id) setMyVote(existingVote.voted_player_id);
+      }
     }catch(e){console.error("loadScoreData:",e);}
     setScoreDataLoading(false);
   },[]);
