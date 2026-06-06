@@ -3488,25 +3488,26 @@ const handlePhotoUpload = async (e) => {
             : effectiveCount===0 ? "ต้องมีรอบที่ยืนยันแล้วอย่างน้อย 1 รอบ"
             : "✅ ยืนยันผลสุดท้าย";
           return (
-            <button onClick={submitResult} disabled={!canSubmit||scoreLoading}
-              style={{width:"100%",padding:"15px",borderRadius:13,border:"none",
-                background:canSubmit?`linear-gradient(135deg,#00c96b,${C.green})`:"rgba(255,255,255,0.06)",
-                color:canSubmit?"#001a0d":"#3d6b52",
-                fontSize:15,fontWeight:900,cursor:canSubmit?"pointer":"not-allowed",
-                letterSpacing:.5,boxShadow:canSubmit?`0 0 20px rgba(0,255,135,0.3)`:"none",
-                transition:"all .3s"}}>
-              {submitLabel}
-            </button>
+            <>
+              <button onClick={submitResult} disabled={!canSubmit||scoreLoading}
+                style={{width:"100%",padding:"15px",borderRadius:13,border:"none",
+                  background:canSubmit?`linear-gradient(135deg,#00c96b,${C.green})`:"rgba(255,255,255,0.06)",
+                  color:canSubmit?"#001a0d":"#3d6b52",
+                  fontSize:15,fontWeight:900,cursor:canSubmit?"pointer":"not-allowed",
+                  letterSpacing:.5,boxShadow:canSubmit?`0 0 20px rgba(0,255,135,0.3)`:"none",
+                  transition:"all .3s"}}>
+                {submitLabel}
+              </button>
+              {!canSubmit&&!scoreLoading&&(
+                <div style={{textAlign:"center",marginTop:8,fontSize:10,color:C.muted}}>
+                  {!isCheckedIn&&"• ต้อง check-in ก่อน"}
+                  {isCheckedIn&&slot?.status!=="ended"&&"• รอ Partner กด End Match"}
+                  {isCheckedIn&&slot?.status==="ended"&&effectiveCount===0&&"• ต้องมีรอบที่ยืนยันแล้วก่อน (กด ✅ ยืนยัน)"}
+                </div>
+              )}
+            </>
           );
         })()}
-
-        {!canSubmit&&!scoreLoading&&(
-          <div style={{textAlign:"center",marginTop:8,fontSize:10,color:C.muted}}>
-            {!isCheckedIn&&"• ต้อง check-in ก่อน"}
-            {isCheckedIn&&slot?.status!=="ended"&&"• รอ Partner กด End Match"}
-            {isCheckedIn&&slot?.status==="ended"&&effectiveCount===0&&"• ต้องมีรอบที่ยืนยันแล้วก่อน (กด ✅ ยืนยัน)"}
-          </div>
-        )}
       </div>
     );
   };
