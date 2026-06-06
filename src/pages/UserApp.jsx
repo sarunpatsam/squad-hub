@@ -331,7 +331,7 @@ const SixStatPanel = ({stats,tier,ovr})=>{
       <div style={{position:"absolute",top:-30,right:-20,width:100,height:100,background:`radial-gradient(circle,${tc.glow}0a 0%,transparent 70%)`}}/>
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,position:"relative"}}>
-        <div style={{fontSize:8,fontWeight:800,color:C.sub,letterSpacing:2,textTransform:"uppercase"}}>Player Attributes</div>
+        <div style={{fontSize:8,fontWeight:800,color:C.sub,letterSpacing:2,textTransform:"uppercase"}}>Player Stats</div>
         <div style={{fontSize:9,fontWeight:900,color:tc.glow,letterSpacing:1,background:`${tc.glow}15`,padding:"2px 8px",borderRadius:99,border:`1px solid ${tc.glow}40`}}>OVR {ovr}</div>
       </div>
       {/* 6 stats grid 2-col */}
@@ -983,10 +983,11 @@ export default function SquadHub() {
       }
       const enriched = finalPlayers.map(p=>({...p,...(nameMap[p.player_id]||{})}));
       setScorePlayers(enriched);
-      // set myTeam จาก match_players — ทำตรงนี้ด้วยเพราะ score tab เปิดผ่าน deeplink ไม่ผ่าน loadRoomData
+      // set myTeam จาก RAW mps (ก่อน round-robin fallback) — ป้องกัน fallback ทับค่าจริงจาก doJoin
       const myPid = player?.dbId || parseInt(localStorage.getItem("squad_player_db_id")||"0");
-      const myMpScore = finalPlayers.find(p=>p.player_id===myPid);
-      if(myMpScore?.team) setMyTeam(myMpScore.team);
+      const myRawMp = (mps||[]).find(p=>p.player_id===myPid);
+      if(myRawMp?.team) setMyTeam(myRawMp.team);
+      // ถ้า team=null → ไม่ set → ค้างค่าเดิม (หรือ null = organizer mode)
       const dbTeams = [...new Set(enriched.map(p=>p.team))].sort();
       // Bug A fix: ดึง slot ทั้ง match_type + status → setSlot ให้ canSubmit ทำงานได้
       const {data:matchSlot} = await supabase.from("slots")
@@ -1076,13 +1077,16 @@ export default function SquadHub() {
         return;
       }
 
+      // round-robin fallback: ถ้า team=null (ensureMatch ไม่ได้ assign) → กระจาย A/B/C/D
+      const assignedMps = (mps||[]).map((m,i)=>({...m, team: m.team || ["A","B","C","D"][i%4]}));
+
       const {data:pData} = await supabase.from("players")
         .select("id,display_name,position").in("id", mps.map(m=>m.player_id).filter(Boolean));
-      const actualTeams = [...new Set(mps.map(m=>m.team).filter(Boolean))].sort();
+      const actualTeams = [...new Set(assignedMps.map(m=>m.team).filter(Boolean))].sort();
       const teamIds = [...new Set([...allTeamIds, ...actualTeams])].sort();
       setTeams(teamIds.map((id,i)=>({
         id, name:`ทีม ${id}`, color:TEAM_COLORS[i%TEAM_COLORS.length], max:maxPerTeam,
-        code:"", players: mps.filter(m=>m.team===id).map(m=>{
+        code:"", players: assignedMps.filter(m=>m.team===id).map(m=>{
           const p = pData?.find(pd=>pd.id===m.player_id);
           return {
             name: p?.display_name||"?",
@@ -2056,12 +2060,25 @@ const handlePhotoUpload = async (e) => {
               <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:10}}>
                 {player.tags?.map(t=><span key={t} style={{fontSize:9,color:C.green,fontWeight:700,opacity:.85}}>{t}</span>)}
               </div>
-              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
                 <Tag color={tc.glow} sm><Medal size={8}/>{player.tier}</Tag>
                 <Tag color={PC[player.position]||C.green} sm>{player.position}</Tag>
                 <Tag color={C.sub} sm>LV.{player.level}</Tag>
               </div>
-              {/* stats ย้ายไป SixStatPanel ด้านล่าง — ให้ hero โล่งขึ้น */}
+              {/* 3 key stats compact chips */}
+              <div style={{display:"flex",gap:5,marginBottom:4}}>
+                {(KEY_STATS[player.position]||["pace","shooting","passing"]).map(k=>{
+                  const val=player.stats?.[k]||70;
+                  const ICON={pace:"⚡",shooting:"🎯",passing:"🎼",dribbling:"🌀",defending:"🛡️",physical:"💪"};
+                  const col=val>=85?C.greenBr:val>=70?C.green:"#94a3b8";
+                  return(
+                    <div key={k} style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${col}30`,borderRadius:8,padding:"4px 7px",textAlign:"center",flex:1}}>
+                      <div style={{fontSize:13,fontWeight:900,color:col,lineHeight:1}}>{val}</div>
+                      <div style={{fontSize:7,color:C.muted,textTransform:"uppercase",marginTop:1,letterSpacing:.3}}>{ICON[k]} {k.slice(0,3)}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
           <div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
