@@ -331,7 +331,7 @@ const SixStatPanel = ({stats,tier,ovr})=>{
       <div style={{position:"absolute",top:-30,right:-20,width:100,height:100,background:`radial-gradient(circle,${tc.glow}0a 0%,transparent 70%)`}}/>
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,position:"relative"}}>
-        <div style={{fontSize:8,fontWeight:800,color:C.sub,letterSpacing:2,textTransform:"uppercase"}}>Player Attributes</div>
+        <div style={{fontSize:8,fontWeight:800,color:C.sub,letterSpacing:2,textTransform:"uppercase"}}>Player Stats</div>
         <div style={{fontSize:9,fontWeight:900,color:tc.glow,letterSpacing:1,background:`${tc.glow}15`,padding:"2px 8px",borderRadius:99,border:`1px solid ${tc.glow}40`}}>OVR {ovr}</div>
       </div>
       {/* 6 stats grid 2-col */}
@@ -983,10 +983,12 @@ export default function SquadHub() {
       }
       const enriched = finalPlayers.map(p=>({...p,...(nameMap[p.player_id]||{})}));
       setScorePlayers(enriched);
-      // set myTeam จาก match_players — ทำตรงนี้ด้วยเพราะ score tab เปิดผ่าน deeplink ไม่ผ่าน loadRoomData
+      // set myTeam จาก RAW match_players (ก่อน round-robin fallback) — ทำตรงนี้เพราะ score tab เปิดผ่าน deeplink ไม่ผ่าน loadRoomData
+      // ⚠️ ต้องอ่านจาก mps ดิบ ไม่ใช่ finalPlayers ที่ถูก fallback แล้ว — ไม่งั้นได้ "A" จาก index 0 ผิดทีม
       const myPid = player?.dbId || parseInt(localStorage.getItem("squad_player_db_id")||"0");
-      const myMpScore = finalPlayers.find(p=>p.player_id===myPid);
-      if(myMpScore?.team) setMyTeam(myMpScore.team);
+      const myRawMp = (mps||[]).find(p=>p.player_id===myPid);
+      // ทีมจริงจาก DB → set; ถ้าไม่มี (team=null) → organizer mode (null) ไม่เดาทีมจาก fallback
+      setMyTeam(myRawMp?.team || null);
       const dbTeams = [...new Set(enriched.map(p=>p.team))].sort();
       // Bug A fix: ดึง slot ทั้ง match_type + status → setSlot ให้ canSubmit ทำงานได้
       const {data:matchSlot} = await supabase.from("slots")
@@ -1856,12 +1858,16 @@ const handlePhotoUpload = async (e) => {
   // ⚠️ skip status='completed' — เพราะ slot อาจถูก reuse ทำให้ match เก่าค้าง
   const findOrCreateMatch = useCallback(async (slotId, fallbackVenueId) => {
     if(!slotId) return null;
-    let { data: matches } = await supabase.from("matches")
-      .select("id,venue_id,status").eq("slot_id", slotId)
-      .neq("status", "completed")
-      .order("created_at",{ascending:false}).limit(1);
-    const match = matches?.[0];
-    if(match?.id) return match;
+    // หา active match ของ slot (ไม่เอา completed)
+    const findActive = async () => {
+      const { data } = await supabase.from("matches")
+        .select("id,venue_id,status").eq("slot_id", slotId)
+        .neq("status", "completed")
+        .order("created_at",{ascending:false}).limit(1);
+      return data?.[0] || null;
+    };
+    const existing = await findActive();
+    if(existing?.id) return existing;
     // ไม่มี → สร้างใหม่ — ใช้ fallbackVenueId ก่อน ถ้าไม่มีค่อย query slot
     let venueId = fallbackVenueId || null;
     if(!venueId) {
@@ -1875,7 +1881,14 @@ const handlePhotoUpload = async (e) => {
       status: "confirmed",
       match_code: `M${Date.now().toString(36).toUpperCase()}`,
     }).select("id,venue_id").single();
-    if(error) { console.warn("findOrCreateMatch:", error); return null; }
+    if(error) {
+      // race condition: อีก client สร้าง active match ไปก่อนแล้ว → ชน unique index (23505)
+      // → re-select แล้วใช้ตัวเดิม แทนที่จะสร้างซ้ำ (root cause fix ของ match ซ้ำ)
+      const raced = await findActive();
+      if(raced?.id) return raced;
+      console.warn("findOrCreateMatch:", error);
+      return null;
+    }
     return newMatch;
   }, []);
 
@@ -2056,12 +2069,25 @@ const handlePhotoUpload = async (e) => {
               <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:10}}>
                 {player.tags?.map(t=><span key={t} style={{fontSize:9,color:C.green,fontWeight:700,opacity:.85}}>{t}</span>)}
               </div>
-              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
                 <Tag color={tc.glow} sm><Medal size={8}/>{player.tier}</Tag>
                 <Tag color={PC[player.position]||C.green} sm>{player.position}</Tag>
                 <Tag color={C.sub} sm>LV.{player.level}</Tag>
               </div>
-              {/* stats ย้ายไป SixStatPanel ด้านล่าง — ให้ hero โล่งขึ้น */}
+              {/* 3 key stats compact chips ข้างรูป — เติมช่องว่าง hero (full 6 stats อยู่ SixStatPanel ด้านล่าง) */}
+              <div style={{display:"flex",gap:5,marginBottom:4}}>
+                {(KEY_STATS[player.position]||["pace","shooting","passing"]).map(k=>{
+                  const val=player.stats?.[k]||70;
+                  const ICON={pace:"⚡",shooting:"🎯",passing:"🎼",dribbling:"🌀",defending:"🛡️",physical:"💪"};
+                  const col=val>=85?C.greenBr:val>=70?C.green:"#94a3b8";
+                  return(
+                    <div key={k} style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${col}30`,borderRadius:8,padding:"4px 7px",textAlign:"center",flex:1}}>
+                      <div style={{fontSize:13,fontWeight:900,color:col,lineHeight:1}}>{val}</div>
+                      <div style={{fontSize:7,color:C.muted,textTransform:"uppercase",marginTop:1,letterSpacing:.3}}>{ICON[k]} {k.slice(0,3)}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
           <div style={{padding:"8px 20px 0",position:"relative",zIndex:2}}>
