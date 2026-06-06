@@ -1245,13 +1245,37 @@ export default function SquadHub() {
     return ()=>{ supabase.removeChannel(ch); };
   },[myBooking?.id]);
 
-  /* ── MATCH ROUNDS REALTIME — sync เมื่อกัปตันคนอื่นกรอก/confirm/dispute ── */
+  /* ── MATCH ROUNDS REALTIME — sync เมื่อกัปตันคนอื่นกรอก/confirm/dispute ──
+     ใช้ payload โดยตรง → ไม่มี stale closure, ไม่ต้อง re-fetch ทั้งหมด        */
   useEffect(()=>{
     if(!scoreMatchId) return;
     const ch = supabase.channel(`match-rounds-${scoreMatchId}`)
-      .on("postgres_changes",{event:"*",schema:"public",table:"match_rounds",filter:`match_id=eq.${scoreMatchId}`},
-        ()=>{ loadScoreData(scoreMatchId); }
-      ).subscribe();
+      .on("postgres_changes",
+        {event:"INSERT", schema:"public", table:"match_rounds", filter:`match_id=eq.${scoreMatchId}`},
+        (payload)=>{
+          setScoreRounds(prev=>{
+            // ป้องกัน duplicate ถ้า insert ของตัวเองกระเด้งกลับมา
+            if(prev.find(r=>r.id===payload.new.id)) return prev;
+            return [...prev, payload.new];
+          });
+        }
+      )
+      .on("postgres_changes",
+        {event:"UPDATE", schema:"public", table:"match_rounds", filter:`match_id=eq.${scoreMatchId}`},
+        (payload)=>{
+          setScoreRounds(prev=>prev.map(r=>r.id===payload.new.id ? payload.new : r));
+        }
+      )
+      .on("postgres_changes",
+        {event:"DELETE", schema:"public", table:"match_rounds", filter:`match_id=eq.${scoreMatchId}`},
+        (payload)=>{
+          setScoreRounds(prev=>prev.filter(r=>r.id!==payload.old.id));
+        }
+      )
+      .subscribe((status)=>{
+        if(status==="SUBSCRIBED") console.log(`[RT] match-rounds-${scoreMatchId} subscribed ✅`);
+        if(status==="CHANNEL_ERROR") console.error(`[RT] match-rounds-${scoreMatchId} error ❌`);
+      });
     return ()=>{ supabase.removeChannel(ch); };
   },[scoreMatchId]);
 
